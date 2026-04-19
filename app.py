@@ -92,7 +92,7 @@ def init_db():
             except Exception: pass
 
         if c.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0:
-            for uname, pw, name in [('hudson','evolve2026','Hudson'),('diego','evolve2026','Diego'),('financeiro','evolve2026','Financeiro')]:
+            for uname, pw, name in [('hudson','evolveads2026','Hudson'),('diego','evolveads2026','Diego'),('financeiro','evolve2026','Financeiro')]:
                 h = bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
                 c.execute('INSERT INTO users (username,password_hash,name) VALUES (?,?,?)', (uname,h,name))
 
