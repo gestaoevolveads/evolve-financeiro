@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Evolve · Financeiro 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ══ THEMES ══════════════════════════════════════════════════════════════════ */
+:root,[data-theme="dark"]{
+  --bg:#0c1120;--s1:#111827;--s2:#1a2338;--s3:#1f2a40;--bdr:#1e2d45;--bdr2:#253550;
+  --g:#00e5a0;--g2:#00c987;--am:#f5a623;--rd:#ff5757;--bl:#4f9eff;--pu:#a78bfa;--te:#2dd4bf;
+  --tx:#e8edf5;--tx2:#b0bfd4;--mu:#6b7fa3;
+  --sh:0 2px 8px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.25);
+  --sh2:0 8px 24px rgba(0,0,0,.4);
+  --input-bg:#1a2338;
+}
+[data-theme="light"]{
+  --bg:#f0f4fb;--s1:#ffffff;--s2:#f5f7fc;--s3:#eef1f8;--bdr:#dde4f0;--bdr2:#c8d3e8;
+  --g:#009e6f;--g2:#007a56;--am:#d4850a;--rd:#e03e3e;--bl:#2563eb;--pu:#7c3aed;--te:#0d9488;
+  --tx:#1a2340;--tx2:#4a5568;--mu:#8494b0;
+  --sh:0 2px 8px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
+  --sh2:0 8px 24px rgba(0,0,0,.1);
+  --input-bg:#f5f7fc;
+}
+
+html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;min-height:100%;transition:background .25s,color .25s}
+
+/* ══ LOGIN ════════════════════════════════════════════════════════════════════ */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-card{background:var(--s1);border:1px solid var(--bdr);border-radius:20px;padding:36px 32px;width:360px;text-align:center;box-shadow:var(--sh2)}
+.login-logo{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+.login-logo span{color:var(--g)}
+.login-sub{font-size:11px;color:var(--mu);margin-bottom:28px;letter-spacing:.04em;text-transform:uppercase}
+.login-field{margin-bottom:14px;text-align:left}
+.login-field label{font-size:11px;color:var(--mu);display:block;margin-bottom:5px;font-weight:500;letter-spacing:.03em}
+.login-field input{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:10px;padding:11px 14px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:.2s}
+.login-field input:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,229,160,.12)}
+.login-btn{width:100%;background:var(--g);color:#0a1a14;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;padding:12px;border:none;border-radius:10px;cursor:pointer;margin-top:4px;transition:.2s}
+.login-btn:hover{background:var(--g2);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,229,160,.3)}
+.login-err{font-size:11px;color:var(--rd);margin-top:10px;min-height:16px}
+
+/* ══ TOPBAR ═══════════════════════════════════════════════════════════════════ */
+.topbar{background:var(--s1);border-bottom:1px solid var(--bdr);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:300;gap:8px;box-shadow:0 1px 0 var(--bdr)}
+.topbar-logo{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.topbar-logo .dot{width:8px;height:8px;background:var(--g);border-radius:50%;display:inline-block}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sync-badge{font-size:10px;color:var(--mu);background:var(--s2);padding:3px 8px;border-radius:20px;border:1px solid var(--bdr)}
+.sync-badge.saving{color:var(--am);border-color:rgba(245,166,35,.3)}
+.sync-badge.saved{color:var(--g);border-color:rgba(0,229,160,.3)}
+.sync-badge.error{color:var(--rd);border-color:rgba(255,87,87,.3)}
+
+/* ══ NAV ══════════════════════════════════════════════════════════════════════ */
+.nav{background:var(--s1);border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;gap:1px;overflow-x:auto;position:sticky;top:53px;z-index:299;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.mn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;padding:10px 13px;border:none;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap;text-transform:uppercase;transition:.15s;border-bottom:2px solid transparent;position:relative;top:1px}
+.mn:hover:not(.active){color:var(--tx)}
+.mn.active{color:var(--g);border-bottom-color:var(--g)}
+.mn.badge::after{content:'';position:absolute;top:8px;right:6px;width:5px;height:5px;background:var(--am);border-radius:50%}
+
+/* ══ LAYOUT ═══════════════════════════════════════════════════════════════════ */
+.body{padding:18px 20px;max-width:1440px;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.g6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+
+/* ══ CARDS ════════════════════════════════════════════════════════════════════ */
+.card{background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:var(--sh);transition:border-color .2s}
+.card:hover{border-color:var(--bdr2)}
+.ct{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--mu);margin-bottom:12px;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;justify-content:space-between}
+.ct span{color:var(--g)}
+.sh-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;letter-spacing:-.2px}
+
+/* ══ METRIC CARDS ════════════════════════════════════════════════════════════ */
+.mc{background:var(--s2);border-radius:12px;padding:14px 16px;border:1px solid var(--bdr);transition:.2s;border-left:3px solid transparent}
+.mc.green{border-left-color:var(--g)}
+.mc.red{border-left-color:var(--rd)}
+.mc.blue{border-left-color:var(--bl)}
+.mc.purple{border-left-color:var(--pu)}
+.mc.amber{border-left-color:var(--am)}
+.mc.teal{border-left-color:var(--te)}
+.ml{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;font-weight:500}
+.mv{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:-.3px}
+.mv.g{color:var(--g)}.mv.r{color:var(--rd)}.mv.b{color:var(--bl)}.mv.p{color:var(--pu)}.mv.a{color:var(--am)}.mv.te{color:var(--te)}
+.mv-sub{font-size:10px;color:var(--mu);margin-top:3px}
+
+/* ══ SUMMARY BAR ═════════════════════════════════════════════════════════════ */
+.summary-bar{background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:stretch;gap:0;flex-wrap:wrap;box-shadow:var(--sh)}
+.sum-item{display:flex;flex-direction:column;gap:3px;padding:0 18px;flex:1;min-width:100px;border-right:1px solid var(--bdr)}
+.sum-item:first-child{padding-left:0}
+.sum-item:last-child{border-right:none}
+.sum-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.sum-val{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.3px}
+.sum-sub{font-size:10px;color:var(--mu)}
+
+/* ══ BUTTONS ══════════════════════════════════════════════════════════════════ */
+.btn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:6px 12px;border-radius:8px;border:1.5px solid var(--bdr);cursor:pointer;background:transparent;color:var(--mu);transition:.15s;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{color:var(--tx);border-color:var(--mu)}
+.btn.grn{border-color:rgba(0,229,160,.4);color:var(--g)}.btn.grn:hover{background:rgba(0,229,160,.1);border-color:var(--g)}
+.btn.red{border-color:rgba(255,87,87,.4);color:var(--rd)}.btn.red:hover{background:rgba(255,87,87,.1);border-color:var(--rd)}
+.btn.blu{border-color:rgba(79,158,255,.4);color:var(--bl)}.btn.blu:hover{background:rgba(79,158,255,.1);border-color:var(--bl)}
+.btn.pur{border-color:rgba(167,139,250,.4);color:var(--pu)}.btn.pur:hover{background:rgba(167,139,250,.1);border-color:var(--pu)}
+.btn.am{border-color:rgba(245,166,35,.4);color:var(--am)}.btn.am:hover{background:rgba(245,166,35,.1);border-color:var(--am)}
+.btn.sm{font-size:9px;padding:4px 9px;border-radius:6px}
+.btn.filled-g{background:var(--g);color:#0a1a14;border-color:var(--g);font-weight:700}.btn.filled-g:hover{background:var(--g2)}
+.del-btn{background:transparent;border:none;color:var(--mu);cursor:pointer;font-size:14px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:.1s;line-height:1;flex-shrink:0}
+.del-btn:hover{color:var(--rd);background:rgba(255,87,87,.12)}
+.add-row{display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;color:var(--mu);font-size:11px;transition:.15s;border-top:1px solid var(--bdr);border-radius:0 0 10px 10px}
+.add-row:hover{color:var(--g);background:rgba(0,229,160,.05)}
+.add-row .icon{font-size:16px;font-weight:700;line-height:1}
+
+/* ══ TABLES ═══════════════════════════════════════════════════════════════════ */
+.etable-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bdr);background:var(--s1)}
+.etable{width:100%;border-collapse:collapse;font-size:12px}
+.etable th{background:var(--s2);color:var(--mu);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.etable td{padding:3px 4px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.etable tr:last-child td{border-bottom:none}
+.etable tr:hover td{background:rgba(255,255,255,.015)}
+[data-theme="light"] .etable tr:hover td{background:rgba(0,0,0,.02)}
+.etable tr.new-client td:first-child{position:relative}
+.etable tr.new-client td:first-child::before{content:'★';color:var(--am);font-size:10px;position:absolute;left:4px;top:50%;transform:translateY(-50%)}
+
+.cell-input{width:100%;background:transparent;border:1.5px solid transparent;border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;transition:.15s}
+.cell-input:focus{background:var(--input-bg);border-color:var(--g);box-shadow:0 0 0 2px rgba(0,229,160,.1)}
+.cell-input.amount{text-align:right;font-family:'Syne',sans-serif;font-weight:600}
+.cell-input.date{text-align:center}
+.cell-select{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none;cursor:pointer;transition:.15s}
+.cell-select:focus{border-color:var(--g)}
+.cell-select option{background:var(--s1)}
+
+/* category dot */
+.cat-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.new-btn{background:transparent;border:1.5px solid var(--bdr);border-radius:5px;font-size:9px;font-family:'Syne',sans-serif;font-weight:700;color:var(--mu);cursor:pointer;padding:2px 6px;transition:.15s;white-space:nowrap}
+.new-btn.active{border-color:var(--am);color:var(--am);background:rgba(245,166,35,.1)}
+.new-btn:hover:not(.active){border-color:var(--am);color:var(--am)}
+
+/* ══ CATEGORY COLORS ═════════════════════════════════════════════════════════ */
+/* Revenue */
+.c-servico{color:var(--g)}.c-consultoria{color:var(--bl)}.c-recorrente{color:var(--pu)}.c-pontual{color:var(--am)}.c-rv-outros{color:var(--mu)}
+.bg-servico{background:var(--g)}.bg-consultoria{background:var(--bl)}.bg-recorrente{background:var(--pu)}.bg-pontual{background:var(--am)}.bg-rv-outros{background:var(--mu)}
+/* Costs */
+.c-pro-labore{color:var(--pu)}.c-pessoal{color:var(--bl)}.c-imposto{color:var(--rd)}.c-ferramentas{color:var(--am)}.c-marketing{color:var(--te)}.c-operacional{color:var(--mu)}.c-outros{color:var(--mu)}
+.bg-pro-labore{background:var(--pu)}.bg-pessoal{background:var(--bl)}.bg-imposto{background:var(--rd)}.bg-ferramentas{background:var(--am)}.bg-marketing{background:var(--te)}.bg-operacional{background:var(--mu)}.bg-outros{background:var(--mu)}
+
+/* ══ SETTINGS ROW ════════════════════════════════════════════════════════════ */
+.settings-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;background:rgba(79,158,255,.05);border:1px solid rgba(79,158,255,.15);border-radius:10px;margin-bottom:14px}
+.settings-row label{font-size:11px;color:var(--mu);font-weight:500}
+.settings-row input,.settings-row select{background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:7px;padding:5px 9px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;transition:.15s}
+.settings-row input:focus,.settings-row select:focus{border-color:var(--g)}
+.settings-row select option{background:var(--s1)}
+
+/* ══ ALERTS ══════════════════════════════════════════════════════════════════ */
+.al{padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:12px;line-height:1.65;border-left:3px solid}
+.alg{background:rgba(0,229,160,.07);border-color:var(--g);color:#a7f3d0}
+.ala{background:rgba(245,166,35,.07);border-color:var(--am);color:#fde68a}
+.alr{background:rgba(255,87,87,.07);border-color:var(--rd);color:#fca5a5}
+.alb{background:rgba(79,158,255,.07);border-color:var(--bl);color:#bfdbfe}
+.alp{background:rgba(167,139,250,.07);border-color:var(--pu);color:#ddd6fe}
+
+/* ══ PROGRESS BAR ════════════════════════════════════════════════════════════ */
+.prog-track{height:6px;background:var(--s3);border-radius:3px;overflow:hidden;margin-top:6px}
+.prog-fill{height:100%;border-radius:3px;transition:width .4s ease}
+
+/* ══ DASHBOARD TABLE ══════════════════════════════════════════════════════════ */
+.dt{width:100%;border-collapse:collapse;font-size:12px}
+.dt th{background:var(--s2);color:var(--mu);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.dt td{padding:9px 10px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:var(--s2)}
+.dt td.r{text-align:right}
+.dt tr.tot td{border-top:2px solid var(--bdr);font-family:'Syne',sans-serif;font-weight:700;font-size:13px}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.pill.g{background:rgba(0,229,160,.12);color:var(--g)}
+.pill.a{background:rgba(245,166,35,.12);color:var(--am)}
+.pill.r{background:rgba(255,87,87,.12);color:var(--rd)}
+
+/* ══ DISTRIBUTION BAR ════════════════════════════════════════════════════════ */
+.dist-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:1px;margin:6px 0}
+.dist-seg{height:100%;transition:flex .3s}
+.dist-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.dist-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)}
+.dist-item .dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+
+/* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
+.chart-wrap{position:relative;height:220px}
+.chart-sm{position:relative;height:160px}
+
+/* ══ MODAL ════════════════════════════════════════════════════════════════════ */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--s1);border:1px solid var(--bdr);border-radius:16px;padding:24px;min-width:340px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--sh2)}
+.modal-lg{max-width:700px}
+.modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;letter-spacing:-.2px}
+.mrow{margin-bottom:13px}
+.mrow label{display:block;font-size:11px;color:var(--mu);margin-bottom:5px;font-weight:500}
+.mrow input,.mrow select,.mrow textarea{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:8px;padding:8px 11px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:.2s}
+.mrow input:focus,.mrow select:focus,.mrow textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,229,160,.1)}
+.mrow textarea{resize:vertical;min-height:80px}
+.mrow .hint{font-size:10px;color:var(--mu);margin-top:4px}
+.mrow select option{background:var(--s1)}
+.mfooter{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--bdr)}
+.msep{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 10px;padding-top:12px;border-top:1px solid var(--bdr)}
+
+/* ══ SEARCH ══════════════════════════════════════════════════════════════════ */
+.search-input-wrap{position:relative;margin-bottom:16px}
+.search-input{width:100%;background:var(--s1);border:2px solid var(--bdr);border-radius:12px;padding:13px 16px 13px 42px;color:var(--tx);font-family:'Inter',sans-serif;font-size:14px;outline:none;transition:.2s}
+.search-input:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,229,160,.1)}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--mu);font-size:16px}
+.search-result-group{margin-bottom:16px}
+.search-result-header{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)}
+
+/* ══ BONUS CARD ══════════════════════════════════════════════════════════════ */
+.bonus-quarter{background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:14px;margin-bottom:10px}
+.bonus-quarter-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.bonus-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bdr)}
+.bonus-row:last-child{border-bottom:none}
+.bonus-row .lbl{color:var(--tx2)}
+.bonus-row .val{font-weight:600}
+
+/* ══ THEME TOGGLE ════════════════════════════════════════════════════════════ */
+.theme-btn{width:34px;height:20px;background:var(--s3);border:1.5px solid var(--bdr);border-radius:20px;cursor:pointer;position:relative;transition:.25s;flex-shrink:0}
+.theme-btn::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;background:var(--mu);border-radius:50%;transition:.25s}
+[data-theme="light"] .theme-btn{background:var(--bl);border-color:var(--bl)}
+[data-theme="light"] .theme-btn::after{background:#fff;left:calc(100% - 15px)}
+
+/* ══ FILE UPLOAD ════════════════════════════════════════════════════════════ */
+.file-drop{border:2px dashed var(--bdr);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:.2s;color:var(--mu)}
+.file-drop:hover{border-color:var(--g);color:var(--g);background:rgba(0,229,160,.04)}
+.file-drop input{display:none}
+
+/* ══ MISC ════════════════════════════════════════════════════════════════════ */
+.sep{border-top:1px solid var(--bdr);margin:12px 0}
+
+/* ══ LIGHT MODE FIXES ════════════════════════════════════════════════════════ */
+[data-theme="light"] .alg{color:#065f46}
+[data-theme="light"] .ala{color:#78350f}
+[data-theme="light"] .alr{color:#991b1b}
+[data-theme="light"] .alb{color:#1e40af}
+[data-theme="light"] .alp{color:#5b21b6}
+[data-theme="light"] .etable tr:hover td{background:rgba(0,0,0,.025)}
+[data-theme="light"] .cell-input{color:var(--tx)}
+[data-theme="light"] .cell-select{color:var(--tx)}
+[data-theme="light"] .mc{background:#f0f4fb}
+[data-theme="light"] .topbar{box-shadow:0 1px 4px rgba(0,0,0,.08)}
+[data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04)}
+[data-theme="light"] .login-card{box-shadow:0 8px 32px rgba(0,0,0,.1)}
+[data-theme="light"] .bonus-quarter{background:#f5f7fc}
+[data-theme="light"] .dist-item{color:var(--tx2)}
+[data-theme="light"] .add-row:hover{background:rgba(0,158,111,.06)}
+
+/* ══ REPORT ══════════════════════════════════════════════════════════════════ */
+.report-section{margin-bottom:20px}
+.report-metric-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.report-metric{flex:1;min-width:120px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px}
+.report-metric .lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.report-metric .val{font-family:'Syne',sans-serif;font-size:18px;font-weight:800}
+.report-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+.report-sub{font-size:12px;color:var(--mu);margin-bottom:20px}
+#report-content table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
+#report-content th{background:var(--s2);color:var(--mu);font-size:10px;font-weight:600;text-transform:uppercase;padding:7px 10px;text-align:left;border-bottom:1px solid var(--bdr)}
+#report-content td{padding:7px 10px;border-bottom:1px solid var(--bdr)}
+#report-content tr:last-child td{border-bottom:none}
+#report-content .r{text-align:right}
+
+/* ══ IMPORT TABS ═════════════════════════════════════════════════════════════ */
+.itab-bar{display:flex;gap:4px;margin-bottom:14px;background:var(--s2);padding:4px;border-radius:10px;border:1px solid var(--bdr)}
+.itab{flex:1;padding:7px;border:none;background:transparent;color:var(--mu);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border-radius:8px;transition:.15s}
+.itab.active{background:var(--s1);color:var(--g);box-shadow:var(--sh)}
+
+@media(max-width:760px){.g2,.g3,.g4,.g5,.g6{grid-template-columns:1fr!important}.summary-bar{gap:10px}.sum-item{border-right:none;padding:6px 0;border-bottom:1px solid var(--bdr)}.sum-item:last-child{border-bottom:none}}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">EVOLVE <span>▸</span></div>
+    <div class="login-sub">Financeiro 2026 · Acesso restrito</div>
+    <div class="login-field"><label>Usuário</label><input id="login-user" type="text" autocomplete="username" placeholder="seu usuário" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-field"><label>Senha</label><input id="login-pass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ══ APP ═════════════════════════════════════════════════════════════════════ -->
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-logo"><span class="dot"></span>EVOLVE <span style="color:var(--mu);font-weight:400;font-size:12px">Financeiro 2026</span></div>
+    <div class="topbar-right">
+      <span id="sync-lbl" class="sync-badge">—</span>
+      <span id="user-name" style="font-size:11px;color:var(--mu);font-weight:500"></span>
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema"></button>
+      <button class="btn sm" onclick="openGoalsModal()">🎯 Metas</button>
+      <button class="btn sm pur" onclick="openBonusModal()">💰 Bônus</button>
+      <button class="btn sm" onclick="doBackup()" title="Baixar backup JSON">💾 Backup</button>
+      <button class="btn sm" id="restore-btn-topbar" onclick="openRestoreModal()" style="display:none" title="Restaurar backup">↩ Restaurar</button>
+      <button class="btn sm" onclick="openPwModal()">🔑</button>
+      <button class="btn sm red" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+  <div class="nav" id="main-nav"></div>
+  <div class="body">
+    <div id="tab-dashboard" class="tab active"></div>
+    <div id="tab-search" class="tab"></div>
+    <div id="tab-audit" class="tab"></div>
+  </div>
+</div>
+
+<!-- ══ MODALS ══════════════════════════════════════════════════════════════════ -->
+
+<!-- Password -->
+<div id="pw-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closePwModal()">
+  <div class="modal">
+    <div class="modal-title">Alterar senha <button class="btn sm" onclick="closePwModal()">✕</button></div>
+    <div class="mrow"><label>Senha atual</label><input id="pw-cur" type="password"></div>
+    <div class="mrow"><label>Nova senha</label><input id="pw-new" type="password"></div>
+    <div id="pw-err" style="font-size:11px;color:var(--rd);min-height:16px"></div>
+    <div class="mfooter"><button class="btn" onclick="closePwModal()">Cancelar</button><button class="btn grn" onclick="submitPw()">✓ Salvar</button></div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div id="confirm-overlay" class="overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmar</div>
+    <div id="confirm-body" style="font-size:13px;color:var(--tx2);line-height:1.65;margin-bottom:8px"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="confirmResolve(false)">Cancelar</button>
+      <button class="btn red" id="confirm-ok" onclick="confirmResolve(true)">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goals -->
+<div id="goals-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeGoalsModal()">
+  <div class="modal modal-lg">
+    <div class="modal-title">🎯 Gerenciar Metas <button class="btn sm" onclick="closeGoalsModal()">✕</button></div>
+    <div id="goals-list"></div>
+    <div class="sep"></div>
+    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Nova meta</div>
+    <div class="g2">
+      <div class="mrow"><label>Nome da meta</label><input id="goal-name" type="text" placeholder="Ex: Receita mensal R$15k"></div>
+      <div class="mrow"><label>Valor alvo (R$)</label><input id="goal-target" type="number" placeholder="15000"></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Métrica</label>
+        <select id="goal-metric">
+          <option value="receita_mensal">Receita mensal</option>
+          <option value="receita_anual">Receita anual</option>
+          <option value="margem">Margem (%)</option>
+          <option value="clientes">Nº de clientes</option>
+          <option value="saldo">Saldo mensal</option>
+        </select>
+      </div>
+      <div class="mrow"><label>Mês específico (0 = anual)</label><input id="goal-month" type="number" value="0" min="0" max="12"></div>
+    </div>
+    <div class="mfooter"><button class="btn" onclick="closeGoalsModal()">Fechar</button><button class="btn grn" onclick="addGoal()">+ Adicionar meta</button></div>
+  </div>
+</div>
+
+<!-- Bonus -->
+<div id="bonus-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeBonusModal()">
+  <div class="modal modal-lg">
+    <div class="modal-title">💰 Calculadora de Bônus <button class="btn sm" onclick="closeBonusModal()">✕</button></div>
+    <div id="bonus-body"></div>
+    <div class="mfooter"><button class="btn" onclick="closeBonusModal()">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Import -->
+<div id="import-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal modal-lg">
+    <div class="modal-title" id="import-title">Importar dados <button class="btn sm" onclick="closeImportModal()">✕</button></div>
+    <div class="itab-bar">
+      <button class="itab active" id="itab-csv" onclick="switchImportTab('csv')">📋 Colar CSV</button>
+      <button class="itab" id="itab-xlsx" onclick="switchImportTab('xlsx')">📊 Arquivo Excel / Sheets</button>
+    </div>
+    <div id="import-body"></div>
+  </div>
+</div>
+
+<!-- Restore Backup -->
+<div id="restore-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeRestoreModal()">
+  <div class="modal">
+    <div class="modal-title">Restaurar backup <button class="btn sm" onclick="closeRestoreModal()">✕</button></div>
+    <div class="al ala" style="margin-bottom:14px;font-size:11px"><strong>Atenção:</strong> Restaurar irá <strong>sobrescrever todos os dados</strong> com o conteúdo do backup. Não é possível desfazer.</div>
+    <label class="file-drop" for="restore-file-input" style="margin-bottom:14px;display:block">
+      <input type="file" id="restore-file-input" accept=".json" onchange="handleRestoreFile(this.files[0])">
+      <div style="font-size:20px;margin-bottom:6px">📂</div>
+      <div style="font-size:13px;font-weight:600">Selecione o arquivo de backup (.json)</div>
+    </label>
+    <div id="restore-info" style="font-size:12px;color:var(--mu);margin-bottom:10px"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeRestoreModal()">Cancelar</button>
+      <button class="btn red" id="restore-confirm-btn" style="display:none" onclick="confirmRestore()">⚠ Restaurar agora</button>
+    </div>
+  </div>
+</div>
+
+<!-- Report -->
+<div id="report-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeReportModal()">
+  <div class="modal modal-lg" style="max-width:800px">
+    <div class="modal-title" id="report-modal-title">Relatório <button class="btn sm" onclick="closeReportModal()">✕</button></div>
+    <div id="report-content" style="max-height:65vh;overflow-y:auto;padding-right:4px"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeReportModal()">Fechar</button>
+      <button class="btn blu" onclick="exportReportPNG()">📷 Baixar PNG</button>
+      <button class="btn grn" onclick="exportReportPDF()">📄 Imprimir / PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export Painel v4 -->
+<div id="export-overlay" class="overlay" style="display:none" onclick="if(event.target===this)e('export-overlay').style.display='none'">
+  <div class="modal">
+    <div class="modal-title">Exportar → Painel v4 <button class="btn sm" onclick="e('export-overlay').style.display='none'">✕</button></div>
+    <div class="al alb" style="margin-bottom:12px">Este arquivo JSON contém seus dados reais de 2026. Você pode usá-lo como referência ao planejar no Painel v4.</div>
+    <div id="export-preview" style="background:var(--s2);border-radius:8px;padding:12px;font-size:10px;color:var(--mu);max-height:200px;overflow:auto;font-family:monospace;white-space:pre-wrap"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="e('export-overlay').style.display='none'">Fechar</button>
+      <button class="btn grn" onclick="downloadExport()">⬇ Baixar JSON</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════════════════════════
+// CONFIG & STATE
+// ══════════════════════════════════════════════════════════════════════════════
+const MONTHS_PT   = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const REV_CATS  = ['servico','consultoria','recorrente','pontual','outros'];
+const COST_CATS = ['pro-labore','pessoal','imposto','ferramentas','marketing','operacional','outros'];
+
+const CAT_COLORS = {
+  servico:'#00e5a0', consultoria:'#4f9eff', recorrente:'#a78bfa', pontual:'#f5a623', 'rv-outros':'#6b7fa3',
+  'pro-labore':'#a78bfa', pessoal:'#4f9eff', imposto:'#ff5757', ferramentas:'#f5a623',
+  marketing:'#2dd4bf', operacional:'#6b7fa3', outros:'#6b7fa3'
+};
+const CAT_LABEL = {
+  servico:'Serviço', consultoria:'Consultoria', recorrente:'Recorrente', pontual:'Pontual', 'rv-outros':'Outros',
+  'pro-labore':'Pró-labore', pessoal:'Pessoal', imposto:'Imposto', ferramentas:'Ferramentas',
+  marketing:'Marketing', operacional:'Operacional', outros:'Outros'
+};
+
+const S = {
+  token: localStorage.getItem('ef_token'),
+  user:  null,
+  months: [],
+  map:   {},
+  goals: [],
+  tab:   'dashboard',
+  timers:{},
+  charts:{},
+  polling: null,
+  exportData: null,
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════════════════
+const e   = id => document.getElementById(id);
+const brl = v => 'R$\u00a0' + (parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct = v => (v||0).toFixed(1)+'%';
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const fmtAmt = v => { const n=parseFloat(v)||0; return n===0?'':n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+const marginClass = m => m>=45?'g':m>=25?'a':'r';
+const marginPill  = m => `<span class="pill ${marginClass(m)}">${pct(m)}</span>`;
+const catColor    = c => CAT_COLORS[c] || '#6b7fa3';
+const catDot      = c => `<span class="cat-dot" style="background:${catColor(c)}"></span>`;
+const catLabel    = c => CAT_LABEL[c] || c;
+
+function syncLabel(msg, cls='') {
+  const el=e('sync-lbl'); if(!el) return;
+  el.textContent=msg; el.className='sync-badge '+cls;
+}
+function fmtSync() {
+  const n=new Date(); return `Sync ${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════════════════════════════════════
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const next = isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('ef_theme', next);
+  // Redraw charts
+  setTimeout(()=>{ if(S.tab==='dashboard') renderDashboard(); else { const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) redrawMonthCharts(mid); } }, 100);
+}
+function applyTheme() {
+  const t = localStorage.getItem('ef_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+}
+applyTheme();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// API
+// ══════════════════════════════════════════════════════════════════════════════
+async function api(method, path, body) {
+  const res = await fetch(path,{
+    method,
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.token},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if(!res.ok){ const err=await res.json().catch(()=>({error:`HTTP ${res.status}`})); throw new Error(err.error||'Erro'); }
+  return res.json();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════════════════════════════
+async function doLogin() {
+  const btn=document.querySelector('.login-btn');
+  btn.textContent='Entrando…'; btn.disabled=true;
+  e('login-err').textContent='';
+  try {
+    const d=await api('POST','/api/auth/login',{username:e('login-user').value.trim(),password:e('login-pass').value});
+    S.token=d.token; S.user={name:d.name,username:d.username};
+    localStorage.setItem('ef_token',S.token);
+    await loadData();
+    showApp();
+  } catch(err){ e('login-err').textContent=err.message; btn.textContent='Entrar'; btn.disabled=false; }
+}
+function doLogout(){ S.token=null; localStorage.removeItem('ef_token'); clearInterval(S.polling); location.reload(); }
+function openPwModal(){ e('pw-overlay').style.display='flex'; e('pw-cur').value=''; e('pw-new').value=''; e('pw-err').textContent=''; }
+function closePwModal(){ e('pw-overlay').style.display='none'; }
+async function submitPw() {
+  e('pw-err').textContent='';
+  try{ await api('POST','/api/auth/change-password',{current:e('pw-cur').value,new:e('pw-new').value}); closePwModal(); alert('Senha alterada!'); }
+  catch(err){ e('pw-err').textContent=err.message; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONFIRM DIALOG
+// ══════════════════════════════════════════════════════════════════════════════
+let _cr=null;
+function confirm2(title,body,okLabel='Confirmar',okCls='red') {
+  e('confirm-title').textContent=title;
+  e('confirm-body').innerHTML=body;
+  e('confirm-ok').textContent=okLabel;
+  e('confirm-ok').className='btn '+okCls;
+  e('confirm-overlay').style.display='flex';
+  return new Promise(res=>{ _cr=res; });
+}
+function confirmResolve(v){ e('confirm-overlay').style.display='none'; if(_cr){_cr(v);_cr=null;} }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadData() {
+  const [months, goals] = await Promise.all([api('GET','/api/months'), api('GET','/api/goals')]);
+  S.months=months; S.map={}; months.forEach(m=>S.map[m.id]=m);
+  S.goals=goals;
+}
+async function pollSync() {
+  try {
+    const months=await api('GET','/api/months');
+    S.months=months; S.map={}; months.forEach(m=>S.map[m.id]=m);
+    if(S.tab==='dashboard') updateDashboard();
+    else if(S.tab==='search') {} // don't auto-refresh search
+    else { const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) rerenderCurrentMonth(mid); }
+    syncLabel(fmtSync(),'');
+  } catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ══════════════════════════════════════════════════════════════════════════════
+function dasEf(annual) {
+  if(annual<=0)      return 0;
+  if(annual<=180000) return 0.06;
+  if(annual<=360000) return Math.max((annual*.112-9360)/annual,.04);
+  if(annual<=720000) return Math.max((annual*.135-17640)/annual,.04);
+  if(annual<=1800000)return Math.max((annual*.16-35640)/annual,.04);
+  return Math.max((annual*.21-125640)/annual,.04);
+}
+function trailing12Rev(monthId) {
+  const m=S.map[monthId]; if(!m) return 0;
+  const sorted=[...S.months].sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+  const idx=sorted.findIndex(x=>x.id===monthId);
+  const slice=sorted.slice(Math.max(0,idx-11),idx+1);
+  return slice.reduce((s,mo)=>s+mo.revenues.reduce((r,x)=>r+(parseFloat(x.amount)||0),0),0);
+}
+function calcMonth(m) {
+  const rev=m.revenues.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const cos=m.costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const bal=rev-cos;
+  const margin=rev>0?(bal/rev*100):0;
+  const clients=m.revenues.filter(r=>(parseFloat(r.amount)||0)>0).length;
+  const newClients=m.revenues.filter(r=>r.is_new_client&&(parseFloat(r.amount)||0)>0).length;
+  const avgTicket=clients>0?rev/clients:0;
+  let dasEst=0;
+  if(m.regime==='MEI') dasEst=(parseFloat(m.mei_das)||86.90)*2;
+  else dasEst=rev*dasEf(trailing12Rev(m.id));
+  return{rev,cos,bal,margin,clients,newClients,avgTicket,dasEst};
+}
+function annualMetrics() {
+  let totalRev=0,totalCos=0,ms=[];
+  S.months.filter(m=>m.year===2026).forEach(m=>{
+    const c=calcMonth(m); totalRev+=c.rev; totalCos+=c.cos;
+    ms.push({...m,...c});
+  });
+  const totalBal=totalRev-totalCos;
+  const avgMargin=totalRev>0?(totalBal/totalRev*100):0;
+  return{totalRev,totalCos,totalBal,avgMargin,months:ms};
+}
+function catDistribution(items, amtField='amount') {
+  const totals={};
+  items.forEach(i=>{ const c=i.category||'outros'; totals[c]=(totals[c]||0)+(parseFloat(i[amtField])||0); });
+  const total=Object.values(totals).reduce((s,v)=>s+v,0);
+  return Object.entries(totals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>({cat,val,pct:total>0?val/total*100:0}));
+}
+function getGoalCurrent(goal) {
+  const a=annualMetrics();
+  if(goal.metric==='receita_anual') return a.totalRev;
+  if(goal.metric==='saldo_anual') return a.totalBal;
+  if(goal.month>0) {
+    const m=S.months.find(x=>x.year===goal.year&&x.month===goal.month);
+    if(!m) return 0;
+    const c=calcMonth(m);
+    if(goal.metric==='receita_mensal') return c.rev;
+    if(goal.metric==='margem') return c.margin;
+    if(goal.metric==='clientes') return c.clients;
+    if(goal.metric==='saldo') return c.bal;
+    return c.rev;
+  }
+  // Use best month or average
+  const withData=a.months.filter(x=>x.rev>0);
+  if(!withData.length) return 0;
+  if(goal.metric==='receita_mensal') return Math.max(...withData.map(m=>m.rev));
+  if(goal.metric==='margem') return withData.reduce((s,m)=>s+m.margin,0)/withData.length;
+  if(goal.metric==='clientes') return Math.max(...withData.map(m=>m.clients));
+  if(goal.metric==='saldo') return Math.max(...withData.map(m=>m.bal));
+  return 0;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SAVE (debounced)
+// ══════════════════════════════════════════════════════════════════════════════
+function scheduleSave(type, id, data) {
+  const key=`${type}-${id}`; clearTimeout(S.timers[key]);
+  syncLabel('Salvando…','saving');
+  S.timers[key]=setTimeout(async()=>{
+    try{ await api('PUT',`/api/${type}s/${id}`,data); syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000); }
+    catch(err){ syncLabel('Erro','error'); }
+    delete S.timers[key];
+  },700);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// REVENUE CRUD
+// ══════════════════════════════════════════════════════════════════════════════
+async function addRevenue(mid) {
+  syncLabel('Salvando…','saving');
+  try {
+    const row=await api('POST',`/api/months/${mid}/revenues`,{client_name:'',amount:0,received_date:'',category:'servico',is_new_client:0,sort_order:S.map[mid].revenues.length});
+    S.map[mid].revenues.push(row); rerenderCurrentMonth(mid);
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    setTimeout(()=>{ const inp=document.querySelectorAll(`#tab-m${mid} .rev-name`); if(inp.length) inp[inp.length-1].focus(); },80);
+  } catch(ex){ syncLabel('Erro','error'); }
+}
+function onRevChange(mid,rid,field,value) {
+  const m=S.map[mid]; if(!m) return;
+  const rev=m.revenues.find(r=>r.id===rid); if(!rev) return;
+  rev[field]=field==='amount'?(parseFloat(value)||0):(field==='is_new_client'?(value?1:0):value);
+  updateSummary(mid); updateDashboard();
+  scheduleSave('revenue',rid,{client_name:rev.client_name,amount:rev.amount,received_date:rev.received_date,category:rev.category,is_new_client:rev.is_new_client});
+}
+function toggleNewClient(mid,rid,btn) {
+  const rev=S.map[mid]?.revenues.find(r=>r.id===rid); if(!rev) return;
+  rev.is_new_client=rev.is_new_client?0:1;
+  btn.classList.toggle('active',!!rev.is_new_client);
+  btn.textContent=rev.is_new_client?'★ Novo':'☆ Novo';
+  const row=btn.closest('tr'); if(row) row.classList.toggle('new-client',!!rev.is_new_client);
+  updateSummary(mid); updateDashboard();
+  scheduleSave('revenue',rid,{client_name:rev.client_name,amount:rev.amount,received_date:rev.received_date,category:rev.category,is_new_client:rev.is_new_client});
+}
+async function deleteRevenue(mid,rid) {
+  const ok=await confirm2('Excluir receita','Deseja excluir esta linha de receita?','Excluir','red');
+  if(!ok) return;
+  syncLabel('Salvando…','saving');
+  try{ await api('DELETE',`/api/revenues/${rid}`); S.map[mid].revenues=S.map[mid].revenues.filter(r=>r.id!==rid); rerenderCurrentMonth(mid); updateDashboard(); syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000); }
+  catch(ex){ syncLabel('Erro','error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COST CRUD
+// ══════════════════════════════════════════════════════════════════════════════
+async function addCost(mid) {
+  syncLabel('Salvando…','saving');
+  try{
+    const row=await api('POST',`/api/months/${mid}/costs`,{name:'',amount:0,payment_date:'',category:'operacional',sort_order:S.map[mid].costs.length});
+    S.map[mid].costs.push(row); rerenderCurrentMonth(mid);
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    setTimeout(()=>{ const inp=document.querySelectorAll(`#tab-m${mid} .cost-name`); if(inp.length) inp[inp.length-1].focus(); },80);
+  } catch(ex){ syncLabel('Erro','error'); }
+}
+function onCostChange(mid,cid,field,value) {
+  const m=S.map[mid]; if(!m) return;
+  const cost=m.costs.find(c=>c.id===cid); if(!cost) return;
+  cost[field]=field==='amount'?(parseFloat(value)||0):value;
+  updateSummary(mid); updateDashboard();
+  scheduleSave('cost',cid,{name:cost.name,amount:cost.amount,payment_date:cost.payment_date,category:cost.category});
+}
+async function deleteCost(mid,cid) {
+  const ok=await confirm2('Excluir despesa','Deseja excluir esta linha de despesa?','Excluir','red');
+  if(!ok) return;
+  syncLabel('Salvando…','saving');
+  try{ await api('DELETE',`/api/costs/${cid}`); S.map[mid].costs=S.map[mid].costs.filter(c=>c.id!==cid); rerenderCurrentMonth(mid); updateDashboard(); syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000); }
+  catch(ex){ syncLabel('Erro','error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COPY PREVIOUS
+// ══════════════════════════════════════════════════════════════════════════════
+async function copyPrevious(mid, kind) {
+  const m=S.map[mid];
+  const existing=kind==='revenues'?m.revenues.length:m.costs.length;
+  const kindLabel=kind==='revenues'?'receitas':'despesas';
+  let mode='replace';
+  if(existing>0) {
+    const ok=await confirm2(`Copiar ${kindLabel} do mês anterior`,`Este mês já tem <strong>${existing} ${kindLabel}</strong>. Deseja <strong>substituir</strong> todas por uma cópia do mês anterior (datas em branco)?`,'Substituir','red');
+    if(!ok) return;
+  }
+  syncLabel('Copiando…','saving');
+  try{
+    const rows=await api('POST',`/api/months/${mid}/copy-previous`,{mode,kind});
+    if(kind==='revenues') S.map[mid].revenues=rows;
+    else S.map[mid].costs=rows;
+    rerenderCurrentMonth(mid); updateDashboard();
+    syncLabel('Copiado ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MONTH SETTINGS
+// ══════════════════════════════════════════════════════════════════════════════
+function onSettingChange(mid) {
+  const m=S.map[mid]; if(!m) return;
+  const regime=e(`set-regime-${mid}`)?.value||m.regime;
+  const mei_das=parseFloat(e(`set-mei-${mid}`)?.value)||m.mei_das;
+  const pl=parseFloat(e(`set-pl-${mid}`)?.value)||m.prolabore_socio;
+  const notes=e(`set-notes-${mid}`)?.value||'';
+  m.regime=regime; m.mei_das=mei_das; m.prolabore_socio=pl; m.notes=notes;
+  updateSummary(mid);
+  scheduleSave('month',mid,{regime,mei_das,prolabore_socio:pl,notes});
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GOALS
+// ══════════════════════════════════════════════════════════════════════════════
+function openGoalsModal() {
+  renderGoalsList();
+  e('goals-overlay').style.display='flex';
+}
+function closeGoalsModal(){ e('goals-overlay').style.display='none'; }
+function renderGoalsList() {
+  const el=e('goals-list'); if(!el) return;
+  if(!S.goals.length){ el.innerHTML='<div style="color:var(--mu);font-size:12px;margin-bottom:10px">Nenhuma meta cadastrada.</div>'; return; }
+  el.innerHTML=S.goals.map(g=>{
+    const cur=getGoalCurrent(g);
+    const progPct=Math.min(cur/g.target_value*100,100);
+    const color=progPct>=100?'var(--g)':progPct>=70?'var(--am)':'var(--rd)';
+    return `<div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px">${esc(g.name)}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--mu)">${brl(cur)} / ${g.metric==='margem'||g.metric==='clientes'?g.target_value:brl(g.target_value)}</span>
+          <button class="del-btn" onclick="deleteGoal(${g.id})">✕</button>
+        </div>
+      </div>
+      <div class="prog-track"><div class="prog-fill" style="width:${progPct}%;background:${color}"></div></div>
+      <div style="font-size:10px;color:var(--mu);margin-top:4px">${progPct.toFixed(0)}% concluído</div>
+    </div>`;
+  }).join('');
+}
+async function addGoal() {
+  const name=e('goal-name').value.trim();
+  const target=parseFloat(e('goal-target').value);
+  if(!name||!target){ alert('Preencha nome e valor alvo.'); return; }
+  const g=await api('POST','/api/goals',{name,target_value:target,metric:e('goal-metric').value,year:2026,month:parseInt(e('goal-month').value)||0});
+  S.goals.push(g); renderGoalsList();
+  e('goal-name').value=''; e('goal-target').value='';
+}
+async function deleteGoal(gid) {
+  await api('DELETE',`/api/goals/${gid}`);
+  S.goals=S.goals.filter(g=>g.id!==gid); renderGoalsList();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BONUS CALCULATOR
+// ══════════════════════════════════════════════════════════════════════════════
+function openBonusModal() {
+  const body=e('bonus-body'); if(!body) return;
+  e('bonus-overlay').style.display='flex';
+  const a=annualMetrics();
+  const quarters=[
+    {label:'Q1 — Jan·Fev·Mar', months:[0,1,2], after:'Abril'},
+    {label:'Q2 — Abr·Mai·Jun', months:[3,4,5], after:'Julho'},
+    {label:'Q3 — Jul·Ago·Set', months:[6,7,8], after:'Outubro'},
+    {label:'Q4 — Out·Nov·Dez', months:[9,10,11], after:'Janeiro/27'},
+  ];
+  let html=`<div class="al alb" style="margin-bottom:14px;font-size:11px"><strong>Regra de ouro:</strong> Trimestre lucrativo + caixa > 3 meses de reserva → distribuir até <strong>50% do resultado ÷ 2 sócios</strong>.</div>`;
+  quarters.forEach(q=>{
+    const qMonths=q.months.map(i=>a.months[i]).filter(Boolean);
+    if(!qMonths.length){ html+=`<div class="bonus-quarter"><div class="bonus-quarter-title">${q.label} <span style="color:var(--mu);font-weight:400;font-size:11px">— sem dados</span></div></div>`; return; }
+    const qRev=qMonths.reduce((s,m)=>s+m.rev,0);
+    const qCos=qMonths.reduce((s,m)=>s+m.cos,0);
+    const qRes=qRev-qCos;
+    const profitable=qRes>0;
+    const avgMonthlyCos=qCos/qMonths.length;
+    const reserveNeeded=avgMonthlyCos*3;
+    // Estimated accumulated cash (sum of all results up to end of quarter)
+    const endMonthIdx=q.months[2];
+    const accCash=a.months.slice(0,endMonthIdx+1).reduce((s,m)=>s+m.bal,0);
+    const cashOk=accCash>reserveNeeded;
+    const canDistribute=profitable&&cashOk;
+    const perSocio=canDistribute?qRes*0.5/2:0;
+    const statusColor=canDistribute?'var(--g)':profitable?'var(--am)':'var(--rd)';
+    const statusIcon=canDistribute?'✅':profitable?'⚠️':'❌';
+    const hasData=qMonths.some(m=>m.rev>0||m.cos>0);
+    html+=`<div class="bonus-quarter">
+      <div class="bonus-quarter-title" style="color:${statusColor}">${statusIcon} ${q.label}</div>
+      ${!hasData?'<div style="font-size:11px;color:var(--mu)">Mês(es) sem dados lançados.</div>':
+      `<div class="bonus-row"><span class="lbl">Receita do trimestre</span><span class="val" style="color:var(--g)">${brl(qRev)}</span></div>
+      <div class="bonus-row"><span class="lbl">Custos do trimestre</span><span class="val" style="color:var(--rd)">${brl(qCos)}</span></div>
+      <div class="bonus-row"><span class="lbl">Resultado</span><span class="val" style="color:${qRes>=0?'var(--g)':'var(--rd)'}">${brl(qRes)}</span></div>
+      <div class="bonus-row"><span class="lbl">Reserva mínima necessária (3 meses)</span><span class="val">${brl(reserveNeeded)}</span></div>
+      <div class="bonus-row"><span class="lbl">Caixa estimado acumulado</span><span class="val" style="color:${cashOk?'var(--g)':'var(--rd)'}">${brl(accCash)} ${cashOk?'✓':'⚠ abaixo do ideal'}</span></div>
+      <div class="bonus-row" style="border-top:1px solid var(--bdr);margin-top:4px;padding-top:8px">
+        <span class="lbl" style="font-weight:700;color:var(--tx)">💰 Disponível por sócio (50%÷2)</span>
+        <span class="val" style="font-family:'Syne',sans-serif;font-size:15px;color:${canDistribute?'var(--g)':'var(--mu)'}">${canDistribute?brl(perSocio):'—'}</span>
+      </div>
+      ${canDistribute?`<div style="font-size:11px;color:var(--mu);margin-top:6px">📅 Data sugerida: <strong>1–15 de ${q.after}</strong></div>`:''}
+      ${!profitable?'<div style="font-size:11px;color:var(--rd);margin-top:6px">❌ Trimestre não foi lucrativo.</div>':''}
+      ${profitable&&!cashOk?`<div style="font-size:11px;color:var(--am);margin-top:6px">⚠️ Caixa abaixo da reserva mínima recomendada (${brl(reserveNeeded)}).</div>`:''}
+      `}
+    </div>`;
+  });
+  // Annual totals
+  const annualDist=a.months.reduce((s,m)=>s+Math.max(m.bal,0),0)*0.5/2;
+  html+=`<div style="background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.2);border-radius:10px;padding:13px;margin-top:6px">
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:var(--g);margin-bottom:6px">📊 Potencial anual total</div>
+    <div style="font-size:12px;color:var(--tx2)">Se todos os critérios forem atendidos:</div>
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--g);margin-top:4px">${brl(annualDist)} <span style="font-size:11px;color:var(--mu);font-weight:400">por sócio / ano</span></div>
+  </div>`;
+  body.innerHTML=html;
+}
+function closeBonusModal(){ e('bonus-overlay').style.display='none'; }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// IMPORT
+// ══════════════════════════════════════════════════════════════════════════════
+let _importMid=null, _importKind=null, _importRows=[], _importTab='csv';
+
+function openImportModal(mid, kind) {
+  _importMid=mid; _importKind=kind; _importRows=[]; _importTab='csv';
+  const kindLabel=kind==='revenues'?'Receitas':'Despesas';
+  e('import-title').innerHTML=`Importar ${kindLabel} — ${MONTHS_FULL[S.map[mid].month-1]}/${S.map[mid].year} <button class="btn sm" onclick="closeImportModal()">✕</button>`;
+  e('itab-csv').classList.add('active'); e('itab-xlsx').classList.remove('active');
+  renderImportCSVBody(kindLabel);
+  e('import-overlay').style.display='flex';
+}
+function closeImportModal(){ e('import-overlay').style.display='none'; }
+
+function switchImportTab(tab) {
+  _importTab=tab; _importRows=[];
+  e('itab-csv').classList.toggle('active', tab==='csv');
+  e('itab-xlsx').classList.toggle('active', tab==='xlsx');
+  const kindLabel=_importKind==='revenues'?'Receitas':'Despesas';
+  if(tab==='csv') renderImportCSVBody(kindLabel);
+  else renderImportXlsxBody(kindLabel);
+}
+
+function renderImportCSVBody(kindLabel) {
+  const fieldDesc=_importKind==='revenues'
+    ? '<code>cliente;valor;data;categoria</code> (ex: <code>Ghost Pesca;1590;15/03;servico</code>)'
+    : '<code>descricao;valor;data;categoria</code> (ex: <code>Adriano;500;26/03;pro-labore</code>)';
+  const catList=_importKind==='revenues' ? REV_CATS.join(', ') : COST_CATS.join(', ');
+  e('import-body').innerHTML=`
+    <div class="al alb" style="font-size:11px;margin-bottom:12px">
+      <strong>Formato:</strong> ${fieldDesc}<br>
+      <strong>Categorias válidas:</strong> ${catList}<br>
+      Cole os dados abaixo, um por linha. Separador: <code>;</code> ou <code>,</code>
+    </div>
+    <div class="mrow"><label>Cole os dados aqui (CSV)</label>
+      <textarea id="import-csv" rows="8" placeholder="Ghost Pesca;1590;15/03;servico\nImpacto Auto;1597;20/03;servico"></textarea>
+    </div>
+    <div id="import-preview" style="margin-bottom:12px"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeImportModal()">Cancelar</button>
+      <button class="btn blu" onclick="previewImport()">👁 Pré-visualizar</button>
+      <button class="btn grn" id="import-confirm-btn" style="display:none" onclick="confirmImport()">✓ Importar ${kindLabel}</button>
+    </div>`;
+}
+
+function renderImportXlsxBody(kindLabel) {
+  const isRev=_importKind==='revenues';
+  e('import-body').innerHTML=`
+    <div class="al alb" style="font-size:11px;margin-bottom:12px">
+      <strong>Google Sheets / Excel:</strong> Exporte a aba do mês como <code>.xlsx</code> ou <code>.csv</code> e faça upload.<br>
+      A planilha deve ter colunas: <strong>${isRev?'Cliente, Valor, Data, Categoria':'Descrição, Valor, Data, Categoria'}</strong> (na ordem, linha 1 = cabeçalho).<br>
+      Se sua planilha tiver colunas em ordem diferente, selecione abaixo.
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="mrow" style="flex:1;min-width:120px;margin-bottom:0">
+        <label>Coluna ${isRev?'Cliente':'Descrição'} (nº)</label>
+        <input id="col-name" type="number" value="1" min="1" style="width:70px">
+      </div>
+      <div class="mrow" style="flex:1;min-width:120px;margin-bottom:0">
+        <label>Coluna Valor (nº)</label>
+        <input id="col-amt" type="number" value="2" min="1" style="width:70px">
+      </div>
+      <div class="mrow" style="flex:1;min-width:120px;margin-bottom:0">
+        <label>Coluna Data (nº)</label>
+        <input id="col-date" type="number" value="3" min="1" style="width:70px">
+      </div>
+      <div class="mrow" style="flex:1;min-width:120px;margin-bottom:0">
+        <label>Coluna Categoria (nº)</label>
+        <input id="col-cat" type="number" value="4" min="1" style="width:70px">
+      </div>
+      <div class="mrow" style="flex:1;min-width:120px;margin-bottom:0">
+        <label>Linha inicial (após cabeçalho)</label>
+        <input id="col-start" type="number" value="2" min="1" style="width:70px">
+      </div>
+    </div>
+    <label class="file-drop" for="xlsx-file-input">
+      <input type="file" id="xlsx-file-input" accept=".xlsx,.xls,.csv,.ods" onchange="handleXlsxFile(this.files[0])">
+      <div style="font-size:24px;margin-bottom:8px">📊</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Clique ou arraste o arquivo aqui</div>
+      <div style="font-size:11px">.xlsx · .xls · .csv · .ods (exportado do Google Sheets)</div>
+    </label>
+    <div id="import-preview" style="margin-top:12px;margin-bottom:12px"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeImportModal()">Cancelar</button>
+      <button class="btn grn" id="import-confirm-btn" style="display:none" onclick="confirmImport()">✓ Importar ${kindLabel}</button>
+    </div>`;
+}
+
+function handleXlsxFile(file) {
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(evt){
+    try {
+      const data=new Uint8Array(evt.target.result);
+      const wb=XLSX.read(data,{type:'uint8array'});
+      // Use first sheet
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const colName=(parseInt(e('col-name')?.value)||1)-1;
+      const colAmt=(parseInt(e('col-amt')?.value)||2)-1;
+      const colDate=(parseInt(e('col-date')?.value)||3)-1;
+      const colCat=(parseInt(e('col-cat')?.value)||4)-1;
+      const startRow=(parseInt(e('col-start')?.value)||2)-1;
+      const defaultCat=_importKind==='revenues'?'servico':'operacional';
+      _importRows=raw.slice(startRow).filter(r=>r[colName]||r[colAmt]).map(r=>{
+        const rawAmt=r[colAmt];
+        const amt=typeof rawAmt==='number'?rawAmt:parseFloat(String(rawAmt).replace(/[^0-9,.-]/g,'').replace(',','.'))||0;
+        const rawDate=r[colDate];
+        let dateStr='';
+        if(rawDate instanceof Date) dateStr=`${String(rawDate.getDate()).padStart(2,'0')}/${String(rawDate.getMonth()+1).padStart(2,'0')}`;
+        else if(typeof rawDate==='number'){ const d=XLSX.SSF.parse_date_code(rawDate); if(d) dateStr=`${String(d.d).padStart(2,'0')}/${String(d.m).padStart(2,'0')}`; }
+        else dateStr=String(rawDate||'').trim().slice(0,5);
+        const rawCat=String(r[colCat]||'').toLowerCase().trim().replace(/\s+/g,'-');
+        const cat=(_importKind==='revenues'?REV_CATS:COST_CATS).includes(rawCat)?rawCat:defaultCat;
+        if(_importKind==='revenues') return {client_name:String(r[colName]||'').trim(), amount:amt, received_date:dateStr, category:cat};
+        return {name:String(r[colName]||'').trim(), amount:amt, payment_date:dateStr, category:cat};
+      }).filter(r=>r.client_name||r.name);
+      showImportPreview();
+    } catch(err){ e('import-preview').innerHTML=`<div class="al alr">Erro ao ler arquivo: ${esc(err.message)}</div>`; }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showImportPreview() {
+  const kindLabel=_importKind==='revenues'?'Receitas':'Despesas';
+  const previewRows=_importRows.slice(0,20).map(r=>_importKind==='revenues'
+    ? `<tr><td>${esc(r.client_name)}</td><td class="r">${brl(r.amount)}</td><td>${esc(r.received_date)}</td><td>${catDot(r.category)} ${catLabel(r.category)}</td></tr>`
+    : `<tr><td>${esc(r.name)}</td><td class="r">${brl(r.amount)}</td><td>${esc(r.payment_date)}</td><td>${catDot(r.category)} ${catLabel(r.category)}</td></tr>`
+  ).join('');
+  const extra=_importRows.length>20?`<div style="font-size:11px;color:var(--mu);padding:6px 0">… e mais ${_importRows.length-20} linhas</div>`:'';
+  e('import-preview').innerHTML=`
+    <div style="font-size:11px;color:var(--g);font-weight:600;margin-bottom:8px">${_importRows.length} linha(s) detectadas:</div>
+    <div style="overflow-x:auto"><table class="dt" style="font-size:11px">
+      <thead><tr><th>${_importKind==='revenues'?'Cliente':'Item'}</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead>
+      <tbody>${previewRows}</tbody></table></div>${extra}`;
+  const btn=e('import-confirm-btn'); if(btn){ btn.style.display='inline-flex'; btn.textContent=`✓ Importar ${kindLabel} (${_importRows.length})`; }
+}
+
+function previewImport() {
+  const csv=e('import-csv')?.value.trim();
+  if(!csv){ e('import-preview').innerHTML='<div style="color:var(--rd);font-size:11px">Cole os dados acima primeiro.</div>'; return; }
+  const lines=csv.split('\n').filter(l=>l.trim());
+  const defaultCat=_importKind==='revenues'?'servico':'operacional';
+  _importRows=lines.map(line=>{
+    const parts=line.split(/[;,]/).map(p=>p.trim());
+    if(_importKind==='revenues') return {client_name:parts[0]||'', amount:parseFloat(parts[1])||0, received_date:parts[2]||'', category:parts[3]||defaultCat};
+    return {name:parts[0]||'', amount:parseFloat(parts[1])||0, payment_date:parts[2]||'', category:parts[3]||defaultCat};
+  }).filter(r=>r.client_name||r.name);
+  showImportPreview();
+}
+
+async function confirmImport() {
+  if(!_importRows.length) return;
+  syncLabel('Importando…','saving');
+  try{
+    const res=await api('POST',`/api/months/${_importMid}/import`,{kind:_importKind,rows:_importRows});
+    const updated=await api('GET',`/api/months/${_importMid}`);
+    S.map[_importMid]=updated;
+    const idx=S.months.findIndex(x=>x.id===_importMid);
+    if(idx>=0) S.months[idx]=updated;
+    closeImportModal(); rerenderCurrentMonth(_importMid); updateDashboard();
+    syncLabel(`${res.imported} importados ✓`,'saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// REPORT
+// ══════════════════════════════════════════════════════════════════════════════
+function openReportModal(mid) {
+  const isAnnual=mid===null;
+  e('report-modal-title').innerHTML=`${isAnnual?'Relatório Anual 2026':'Relatório — '+MONTHS_FULL[(S.map[mid]?.month||1)-1]+'/'+String(S.map[mid]?.year||2026).slice(2)} <button class="btn sm" onclick="closeReportModal()">✕</button>`;
+  const html=isAnnual?buildAnnualReport():buildMonthReport(mid);
+  e('report-content').innerHTML=html;
+  e('report-overlay').style.display='flex';
+}
+function closeReportModal(){ e('report-overlay').style.display='none'; }
+
+function buildMonthReport(mid) {
+  const m=S.map[mid]; if(!m) return '';
+  const sc=calcMonth(m);
+  const mName=MONTHS_FULL[m.month-1]+'/'+m.year;
+  const dasInfo=m.regime==='MEI'?`MEI · DAS ${brl((parseFloat(m.mei_das)||86.90)*2)}`:`Simples Nacional · DAS estimado ${brl(sc.dasEst)}`;
+  const revDist=catDistribution(m.revenues);
+  const cosDist=catDistribution(m.costs);
+
+  const revRows=m.revenues.map(r=>`<tr>
+    <td>${esc(r.client_name)}${r.is_new_client?' <span style="color:#f5a623;font-size:10px">★ novo</span>':''}</td>
+    <td class="r" style="color:${getComputedStyle(document.documentElement).getPropertyValue('--g').trim()||'#00e5a0'}">${brl(r.amount)}</td>
+    <td>${esc(r.received_date)||'—'}</td>
+    <td>${catLabel(r.category)}</td>
+  </tr>`).join('');
+
+  const costRows=m.costs.map(c=>`<tr>
+    <td>${esc(c.name)}</td>
+    <td class="r" style="color:#ff5757">${brl(c.amount)}</td>
+    <td>${esc(c.payment_date)||'—'}</td>
+    <td>${catLabel(c.category)}</td>
+  </tr>`).join('');
+
+  return `
+  <div class="report-title">Relatório — ${mName}</div>
+  <div class="report-sub">Gerado em ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})} · Evolve Financeiro 2026</div>
+
+  <div class="report-metric-row">
+    <div class="report-metric"><div class="lbl">Receita bruta</div><div class="val" style="color:var(--g)">${brl(sc.rev)}</div></div>
+    <div class="report-metric"><div class="lbl">Despesas</div><div class="val" style="color:var(--rd)">${brl(sc.cos)}</div></div>
+    <div class="report-metric"><div class="lbl">Saldo</div><div class="val" style="color:${sc.bal>=0?'var(--g)':'var(--rd)'}">${brl(sc.bal)}</div></div>
+    <div class="report-metric"><div class="lbl">Margem</div><div class="val">${pct(sc.margin)}</div></div>
+    <div class="report-metric"><div class="lbl">Clientes</div><div class="val" style="color:var(--bl)">${sc.clients}</div></div>
+    <div class="report-metric"><div class="lbl">Ticket médio</div><div class="val" style="color:var(--bl)">${brl(sc.avgTicket)}</div></div>
+    ${sc.newClients?`<div class="report-metric"><div class="lbl">Novos clientes</div><div class="val" style="color:var(--am)">★ ${sc.newClients}</div></div>`:''}
+  </div>
+
+  <div style="font-size:11px;color:var(--mu);margin-bottom:14px;padding:8px 12px;background:var(--s2);border-radius:8px">${dasInfo} · Pró-labore/sócio: ${brl(m.prolabore_socio||1400)}</div>
+
+  ${m.notes?`<div class="al alb" style="font-size:11px;margin-bottom:14px"><strong>Observações:</strong> ${esc(m.notes)}</div>`:''}
+
+  <div class="report-section">
+    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Receitas</div>
+    <table>
+      <thead><tr><th>Cliente</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead>
+      <tbody>${revRows}</tbody>
+      <tfoot><tr style="font-weight:700"><td colspan="1"><strong>Total</strong></td><td class="r" style="color:var(--g)"><strong>${brl(sc.rev)}</strong></td><td colspan="2"></td></tr></tfoot>
+    </table>
+  </div>
+
+  <div class="report-section">
+    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Despesas</div>
+    <table>
+      <thead><tr><th>Item</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead>
+      <tbody>${costRows}</tbody>
+      <tfoot><tr style="font-weight:700"><td colspan="1"><strong>Total</strong></td><td class="r" style="color:#ff5757"><strong>${brl(sc.cos)}</strong></td><td colspan="2"></td></tr></tfoot>
+    </table>
+  </div>
+
+  ${revDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição de receitas</div>${renderDistBar(revDist)}</div>`:''}
+  ${cosDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição de despesas</div>${renderDistBar(cosDist,true)}</div>`:''}
+  `;
+}
+
+function buildAnnualReport() {
+  const a=annualMetrics();
+  const withData=a.months.filter(m=>m.rev>0||m.cos>0);
+  const annAvgTicket=withData.length?withData.reduce((s,m)=>s+m.avgTicket,0)/withData.length:0;
+  const totalNew=a.months.reduce((s,m)=>s+m.newClients,0);
+  const allRevs=a.months.flatMap(m=>m.revenues);
+  const allCosts=a.months.flatMap(m=>m.costs);
+  const annRevDist=catDistribution(allRevs);
+  const annCosDist=catDistribution(allCosts);
+
+  const monthRows=a.months.map(m=>{
+    const hasData=m.rev>0||m.cos>0;
+    return `<tr style="${!hasData?'opacity:.4':''}">
+      <td style="font-weight:600">${MONTHS_FULL[m.month-1]}</td>
+      <td class="r" style="color:var(--g)">${m.rev>0?brl(m.rev):'—'}</td>
+      <td class="r" style="color:var(--bl)">${m.avgTicket>0?brl(m.avgTicket):'—'}</td>
+      <td class="r" style="color:#ff5757">${m.cos>0?brl(m.cos):'—'}</td>
+      <td class="r" style="color:${m.bal>=0?'var(--g)':'#ff5757'}">${hasData?brl(m.bal):'—'}</td>
+      <td class="r">${hasData?pct(m.margin):'—'}</td>
+      <td class="r" style="color:var(--bl)">${m.clients||'—'}</td>
+      <td class="r" style="color:var(--am)">${m.newClients||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="report-title">Relatório Anual 2026</div>
+  <div class="report-sub">Gerado em ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})} · Evolve Financeiro 2026</div>
+
+  <div class="report-metric-row">
+    <div class="report-metric"><div class="lbl">Receita total</div><div class="val" style="color:var(--g)">${brl(a.totalRev)}</div></div>
+    <div class="report-metric"><div class="lbl">Despesas totais</div><div class="val" style="color:#ff5757">${brl(a.totalCos)}</div></div>
+    <div class="report-metric"><div class="lbl">Saldo acumulado</div><div class="val" style="color:${a.totalBal>=0?'var(--g)':'#ff5757'}">${brl(a.totalBal)}</div></div>
+    <div class="report-metric"><div class="lbl">Margem média</div><div class="val">${pct(a.avgMargin)}</div></div>
+    <div class="report-metric"><div class="lbl">Ticket médio</div><div class="val" style="color:var(--bl)">${brl(annAvgTicket)}</div></div>
+    ${totalNew?`<div class="report-metric"><div class="lbl">Novos clientes</div><div class="val" style="color:var(--am)">★ ${totalNew}</div></div>`:''}
+  </div>
+
+  <div class="report-section">
+    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Resumo mensal</div>
+    <table>
+      <thead><tr><th>Mês</th><th class="r">Receita</th><th class="r">Ticket médio</th><th class="r">Despesas</th><th class="r">Saldo</th><th class="r">Margem</th><th class="r">Clientes</th><th class="r">Novos</th></tr></thead>
+      <tbody>${monthRows}</tbody>
+      <tfoot><tr style="font-weight:700;border-top:2px solid var(--bdr)">
+        <td>TOTAL / MÉDIA</td>
+        <td class="r" style="color:var(--g)"><strong>${brl(a.totalRev)}</strong></td>
+        <td class="r" style="color:var(--bl)"><strong>${brl(annAvgTicket)}</strong></td>
+        <td class="r" style="color:#ff5757"><strong>${brl(a.totalCos)}</strong></td>
+        <td class="r" style="color:${a.totalBal>=0?'var(--g)':'#ff5757'}"><strong>${brl(a.totalBal)}</strong></td>
+        <td class="r"><strong>${pct(a.avgMargin)}</strong></td>
+        <td class="r" style="color:var(--bl)"><strong>${a.months.reduce((s,m)=>Math.max(s,m.clients),0)}</strong></td>
+        <td class="r" style="color:var(--am)"><strong>${totalNew||'—'}</strong></td>
+      </tr></tfoot>
+    </table>
+  </div>
+
+  ${annRevDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição anual de receitas</div>${renderDistBar(annRevDist)}</div>`:''}
+  ${annCosDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição anual de despesas</div>${renderDistBar(annCosDist,true)}</div>`:''}
+  `;
+}
+
+function exportReportPDF() {
+  const title=e('report-modal-title').textContent.replace('✕','').trim();
+  const content=e('report-content').innerHTML;
+  const theme=document.documentElement.getAttribute('data-theme')||'dark';
+  const isDark=theme==='dark';
+  const bg=isDark?'#0c1120':'#ffffff';
+  const tx=isDark?'#e8edf5':'#1a2340';
+  const mu=isDark?'#6b7fa3':'#8494b0';
+  const s1=isDark?'#111827':'#ffffff';
+  const s2=isDark?'#1a2338':'#f5f7fc';
+  const bdr=isDark?'#1e2d45':'#dde4f0';
+  const gn=isDark?'#00e5a0':'#009e6f';
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:${bg};color:${tx};font-family:'Inter',sans-serif;font-size:13px;line-height:1.6;padding:32px 40px;max-width:900px;margin:0 auto}
+    :root{--g:${gn};--rd:#ff5757;--bl:#4f9eff;--am:#f5a623;--pu:#a78bfa;--mu:${mu};--tx:${tx};--s2:${s2};--bdr:${bdr}}
+    .report-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+    .report-sub{font-size:11px;color:${mu};margin-bottom:20px}
+    .report-metric-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+    .report-metric{flex:1;min-width:110px;background:${s2};border:1px solid ${bdr};border-radius:8px;padding:10px 13px}
+    .report-metric .lbl{font-size:9px;color:${mu};text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+    .report-metric .val{font-family:'Syne',sans-serif;font-size:17px;font-weight:800}
+    .report-section{margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px}
+    th{background:${s2};color:${mu};font-size:10px;font-weight:600;text-transform:uppercase;padding:7px 10px;text-align:left;border-bottom:1px solid ${bdr}}
+    td{padding:7px 10px;border-bottom:1px solid ${bdr};vertical-align:middle}
+    .r{text-align:right}
+    tfoot tr{font-weight:700}
+    .al{padding:8px 12px;border-radius:8px;font-size:11px;margin-bottom:12px;border-left:3px solid}
+    .alb{background:rgba(79,158,255,.08);border-color:#4f9eff}
+    .dist-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:1px;margin:6px 0}
+    .dist-seg{height:100%}
+    .dist-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .dist-item{display:flex;align-items:center;gap:5px;font-size:11px}
+    .dist-item .dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+    @media print{body{padding:16px 20px}@page{margin:12mm}}
+  </style></head><body>
+  ${content}
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+async function exportReportPNG() {
+  const title=e('report-modal-title').textContent.replace('✕','').trim();
+  const content=e('report-content');
+  // Try html2canvas if available, otherwise fallback to PDF
+  if(typeof html2canvas==='undefined') {
+    alert('Para salvar como PNG, instale a extensão ou use "Imprimir > Salvar como PDF" e depois converta. Alternativamente clique em "Imprimir / PDF".');
+    return;
+  }
+  try {
+    const canvas=await html2canvas(content,{backgroundColor:getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#0c1120',scale:2,useCORS:true,logging:false});
+    const url=canvas.toDataURL('image/png');
+    const a=document.createElement('a'); a.href=url; a.download=`evolve_relatorio_${Date.now()}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } catch(err){ alert('Erro ao gerar PNG: '+err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BACKUP / RESTORE
+// ══════════════════════════════════════════════════════════════════════════════
+async function doBackup() {
+  try {
+    syncLabel('Gerando backup…','saving');
+    const res=await fetch('/api/backup',{headers:{'Authorization':'Bearer '+S.token}});
+    if(!res.ok) throw new Error('Erro ao gerar backup');
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url;
+    a.download=`evolve_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    syncLabel('Backup baixado ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+let _restorePayload=null;
+function openRestoreModal(){ e('restore-overlay').style.display='flex'; e('restore-info').textContent=''; e('restore-confirm-btn').style.display='none'; _restorePayload=null; }
+function closeRestoreModal(){ e('restore-overlay').style.display='none'; }
+function handleRestoreFile(file) {
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(evt){
+    try{
+      _restorePayload=JSON.parse(evt.target.result);
+      if(_restorePayload.version!==1) throw new Error('Arquivo de backup inválido');
+      const months=_restorePayload.months?.length||0;
+      const created=_restorePayload.created_at?.slice(0,16).replace('T',' ')||'?';
+      e('restore-info').innerHTML=`<div class="al alg" style="font-size:11px">Backup válido — <strong>${months} meses</strong>, gerado em <strong>${created}</strong>. Confirme para restaurar.</div>`;
+      e('restore-confirm-btn').style.display='inline-flex';
+    } catch(err){ e('restore-info').innerHTML=`<div class="al alr" style="font-size:11px">Erro: ${esc(err.message)}</div>`; }
+  };
+  reader.readAsText(file);
+}
+async function confirmRestore() {
+  if(!_restorePayload) return;
+  const ok=await confirm2('Restaurar backup','Isso irá <strong>sobrescrever todos os dados atuais</strong>. Tem certeza?','Restaurar','red');
+  if(!ok) return;
+  syncLabel('Restaurando…','saving');
+  try{
+    await api('POST','/api/restore',_restorePayload);
+    closeRestoreModal();
+    await loadData();
+    if(S.tab==='dashboard') renderDashboard();
+    syncLabel('Restaurado ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    alert('Backup restaurado com sucesso!');
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXPORT → Painel v4
+// ══════════════════════════════════════════════════════════════════════════════
+async function openExportModal() {
+  const data=await api('GET','/api/export');
+  S.exportData=data;
+  // Summarize for preview
+  const summary=data.filter(m=>m.year===2026).map(m=>{
+    const rev=m.revenues.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+    const cos=m.costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+    return `${MONTHS_PT[m.month-1]}/26: Rec ${brl(rev)} | Custo ${brl(cos)} | Saldo ${brl(rev-cos)}`;
+  });
+  e('export-preview').textContent=summary.join('\n');
+  e('export-overlay').style.display='flex';
+}
+function downloadExport() {
+  if(!S.exportData) return;
+  const blob=new Blob([JSON.stringify(S.exportData,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='evolve_financeiro_2026.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SEARCH
+// ══════════════════════════════════════════════════════════════════════════════
+let _searchTimer=null;
+function renderSearchTab() {
+  const el=e('tab-search'); if(!el) return;
+  el.innerHTML=`
+    <div class="sh-title">Pesquisar</div>
+    <div class="search-input-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="search-q" type="text" placeholder="Buscar cliente, receita ou despesa…" oninput="triggerSearch()" autocomplete="off">
+    </div>
+    <div id="search-results"><div style="text-align:center;color:var(--mu);padding:32px;font-size:13px">Digite para buscar em todos os meses de 2026.</div></div>`;
+}
+function triggerSearch() {
+  clearTimeout(_searchTimer);
+  _searchTimer=setTimeout(doSearch,350);
+}
+async function doSearch() {
+  const q=e('search-q')?.value?.trim();
+  const el=e('search-results'); if(!el) return;
+  if(!q||q.length<2){ el.innerHTML='<div style="text-align:center;color:var(--mu);padding:32px;font-size:13px">Digite ao menos 2 caracteres.</div>'; return; }
+  el.innerHTML='<div style="color:var(--mu);font-size:12px;padding:12px">Buscando…</div>';
+  try{
+    const res=await api('GET',`/api/search?q=${encodeURIComponent(q)}`);
+    let html='';
+    if(res.revenues.length){
+      html+=`<div class="search-result-group"><div class="search-result-header">Receitas (${res.revenues.length})</div>`;
+      let totalRev=0;
+      res.revenues.forEach(r=>{ totalRev+=(parseFloat(r.amount)||0); });
+      html+=`<div style="overflow-x:auto"><table class="dt"><thead><tr><th>Mês</th><th>Cliente</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead><tbody>`;
+      res.revenues.forEach(r=>{ html+=`<tr><td style="color:var(--mu)">${MONTHS_PT[r.month-1]}/${r.year}</td><td style="font-weight:600">${esc(r.client_name)}${r.is_new_client?` <span style="color:var(--am);font-size:10px">★ novo</span>`:''}</td><td class="r" style="color:var(--g)">${brl(r.amount)}</td><td>${esc(r.received_date)||'—'}</td><td>${catDot(r.category)} ${catLabel(r.category)}</td></tr>`; });
+      html+=`<tr class="tot"><td colspan="2">Total</td><td class="r" style="color:var(--g)">${brl(totalRev)}</td><td colspan="2"></td></tr></tbody></table></div></div>`;
+    }
+    if(res.costs.length){
+      html+=`<div class="search-result-group"><div class="search-result-header">Despesas (${res.costs.length})</div>`;
+      let totalCos=0;
+      res.costs.forEach(c=>{ totalCos+=(parseFloat(c.amount)||0); });
+      html+=`<div style="overflow-x:auto"><table class="dt"><thead><tr><th>Mês</th><th>Item</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead><tbody>`;
+      res.costs.forEach(c=>{ html+=`<tr><td style="color:var(--mu)">${MONTHS_PT[c.month-1]}/${c.year}</td><td style="font-weight:600">${esc(c.name)}</td><td class="r" style="color:var(--rd)">${brl(c.amount)}</td><td>${esc(c.payment_date)||'—'}</td><td>${catDot(c.category)} ${catLabel(c.category)}</td></tr>`; });
+      html+=`<tr class="tot"><td colspan="2">Total</td><td class="r" style="color:var(--rd)">${brl(totalCos)}</td><td colspan="2"></td></tr></tbody></table></div></div>`;
+    }
+    if(!res.revenues.length&&!res.costs.length) html=`<div style="text-align:center;color:var(--mu);padding:32px;font-size:13px">Nenhum resultado para "<strong>${esc(q)}</strong>".</div>`;
+    el.innerHTML=html;
+  } catch(err){ el.innerHTML=`<div style="color:var(--rd);font-size:12px;padding:12px">Erro: ${err.message}</div>`; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DISTRIBUTION BAR
+// ══════════════════════════════════════════════════════════════════════════════
+function renderDistBar(dist, isCost=false) {
+  if(!dist.length) return '<div style="color:var(--mu);font-size:11px">Sem dados</div>';
+  const segs=dist.map(d=>`<div class="dist-seg" style="flex:${d.pct};background:${catColor(d.cat)}" title="${catLabel(d.cat)}: ${brl(d.val)} (${pct(d.pct)})"></div>`).join('');
+  const legend=dist.map(d=>`<div class="dist-item"><div class="dot" style="background:${catColor(d.cat)}"></div><span>${catLabel(d.cat)}</span><span style="color:var(--tx);font-weight:600">${pct(d.pct)}</span></div>`).join('');
+  return `<div class="dist-bar">${segs}</div><div class="dist-legend">${legend}</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER MONTH TAB
+// ══════════════════════════════════════════════════════════════════════════════
+function renderMonthTab(mid) {
+  const container=e(`tab-m${mid}`); if(!container) return;
+  const m=S.map[mid]; if(!m) return;
+  const sc=calcMonth(m);
+  const mName=MONTHS_FULL[m.month-1]+'/'+String(m.year).slice(2);
+
+  const revCatSel=`<select class="cell-select" style="width:110px" onchange="onRevChange(${mid},ROWID,'category',this.value)">
+    ${REV_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
+  const costCatSel=`<select class="cell-select" style="width:110px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
+    ${COST_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
+
+  const revRows=m.revenues.map(r=>`
+    <tr class="${r.is_new_client?'new-client':''}">
+      <td style="padding-left:${r.is_new_client?'20px':'8px'}">
+        <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)">
+      </td>
+      <td><input class="cell-input amount" type="text" value="${fmtAmt(r.amount)}" placeholder="0,00"
+        onfocus="this.value=this.value.replace(/\\./g,'').replace(',','.')"
+        onblur="this.value=fmtAmt(this.value.replace(/\\./g,'').replace(',','.'));onRevChange(${mid},${r.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"
+        oninput="onRevChange(${mid},${r.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"></td>
+      <td><input class="cell-input date" value="${esc(r.received_date)}" placeholder="DD/MM" oninput="onRevChange(${mid},${r.id},'received_date',this.value)"></td>
+      <td>
+        <select class="cell-select" onchange="onRevChange(${mid},${r.id},'category',this.value)">
+          ${REV_CATS.map(c=>`<option value="${c}" ${c===r.category?'selected':''}>${catLabel(c)}</option>`).join('')}
+        </select>
+      </td>
+      <td><button class="new-btn ${r.is_new_client?'active':''}" onclick="toggleNewClient(${mid},${r.id},this)">${r.is_new_client?'★ Novo':'☆ Novo'}</button></td>
+      <td><button class="del-btn" onclick="deleteRevenue(${mid},${r.id})">✕</button></td>
+    </tr>`).join('');
+
+  const costRows=m.costs.map(c=>`
+    <tr>
+      <td><input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)"></td>
+      <td><input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
+        onfocus="this.value=this.value.replace(/\\./g,'').replace(',','.')"
+        onblur="this.value=fmtAmt(this.value.replace(/\\./g,'').replace(',','.'));onCostChange(${mid},${c.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"
+        oninput="onCostChange(${mid},${c.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"></td>
+      <td><input class="cell-input date" value="${esc(c.payment_date)}" placeholder="DD/MM" oninput="onCostChange(${mid},${c.id},'payment_date',this.value)"></td>
+      <td>
+        <select class="cell-select" onchange="onCostChange(${mid},${c.id},'category',this.value)">
+          ${COST_CATS.map(cat=>`<option value="${cat}" ${cat===c.category?'selected':''}>${catLabel(cat)}</option>`).join('')}
+        </select>
+      </td>
+      <td><button class="del-btn" onclick="deleteCost(${mid},${c.id})">✕</button></td>
+    </tr>`).join('');
+
+  const dasInfo=m.regime==='MEI'
+    ? `MEI · DAS <strong>${brl(parseFloat(m.mei_das)||86.90)}</strong> × 2 sócios = <strong>${brl((parseFloat(m.mei_das)||86.90)*2)}</strong>`
+    : `Simples Nacional · DAS estimado: <strong>${brl(sc.dasEst)}</strong>`;
+
+  const revDist=catDistribution(m.revenues);
+  const cosDist=catDistribution(m.costs);
+
+  container.innerHTML=`
+  <div class="sh-title">
+    <span>${mName}</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sm blu" onclick="copyPrevious(${mid},'revenues')">↩ Copiar receitas</button>
+      <button class="btn sm" onclick="copyPrevious(${mid},'costs')">↩ Copiar despesas</button>
+      <button class="btn sm am" onclick="openImportModal(${mid},'revenues')">⬆ Import Rec.</button>
+      <button class="btn sm" onclick="openImportModal(${mid},'costs')">⬆ Import Desp.</button>
+      <button class="btn sm" onclick="openReportModal(${mid})">📄 Relatório</button>
+    </div>
+  </div>
+
+  <div class="settings-row">
+    <label>Regime:</label>
+    <select id="set-regime-${mid}" onchange="onSettingChange(${mid})">
+      <option value="MEI" ${m.regime==='MEI'?'selected':''}>MEI</option>
+      <option value="Simples" ${m.regime==='Simples'?'selected':''}>Simples Nacional</option>
+    </select>
+    <label>DAS MEI/sócio:</label>
+    <input id="set-mei-${mid}" type="number" value="${m.mei_das||86.90}" style="width:80px" step="0.01" oninput="onSettingChange(${mid})">
+    <label>Pró-labore/sócio:</label>
+    <input id="set-pl-${mid}" type="number" value="${m.prolabore_socio||1400}" style="width:90px" step="50" oninput="onSettingChange(${mid})">
+    <label>Obs:</label>
+    <input id="set-notes-${mid}" type="text" value="${esc(m.notes)}" style="min-width:160px" placeholder="Notas…" oninput="onSettingChange(${mid})">
+  </div>
+
+  <div class="al alb" style="font-size:11px;margin-bottom:14px">${dasInfo} (referência — adicione às despesas quando pagar)</div>
+
+  <div id="summary-${mid}" class="summary-bar"></div>
+
+  <div class="g2">
+    <!-- RECEITAS -->
+    <div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between">
+          <div class="ct" style="margin-bottom:0;color:var(--g)">Receitas</div>
+        </div>
+        <div class="etable-wrap" style="border:none;border-radius:0">
+          <table class="etable">
+            <thead><tr>
+              <th style="min-width:130px">Cliente</th>
+              <th style="min-width:95px;text-align:right">R$</th>
+              <th style="min-width:70px">Data</th>
+              <th style="min-width:105px">Categoria</th>
+              <th style="min-width:65px"></th>
+              <th style="width:28px"></th>
+            </tr></thead>
+            <tbody>${revRows}</tbody>
+          </table>
+        </div>
+        <div class="add-row" onclick="addRevenue(${mid})"><span class="icon" style="color:var(--g)">+</span>Adicionar receita</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--bdr);background:var(--s2)">
+          <span style="font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Total receitas</span>
+          <span id="rev-total-${mid}" style="font-family:'Syne',sans-serif;font-weight:800;font-size:14px;color:var(--g)">${brl(sc.rev)}</span>
+        </div>
+      </div>
+      ${revDist.length?`<div class="card"><div class="ct">Receitas por categoria</div>${renderDistBar(revDist)}</div>`:''}
+    </div>
+
+    <!-- DESPESAS -->
+    <div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between">
+          <div class="ct" style="margin-bottom:0;color:var(--rd)">Despesas</div>
+        </div>
+        <div class="etable-wrap" style="border:none;border-radius:0">
+          <table class="etable">
+            <thead><tr>
+              <th style="min-width:130px">Item</th>
+              <th style="min-width:90px;text-align:right">R$</th>
+              <th style="min-width:70px">Data</th>
+              <th style="min-width:105px">Categoria</th>
+              <th style="width:28px"></th>
+            </tr></thead>
+            <tbody>${costRows}</tbody>
+          </table>
+        </div>
+        <div class="add-row" onclick="addCost(${mid})"><span class="icon" style="color:var(--rd)">+</span>Adicionar despesa</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--bdr);background:var(--s2)">
+          <span style="font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Total despesas</span>
+          <span id="cost-total-${mid}" style="font-family:'Syne',sans-serif;font-weight:800;font-size:14px;color:var(--rd)">${brl(sc.cos)}</span>
+        </div>
+      </div>
+      ${cosDist.length?`<div class="card"><div class="ct">Despesas por categoria</div>${renderDistBar(cosDist,true)}</div>`:''}
+    </div>
+  </div>`;
+  updateSummary(mid);
+}
+
+function rerenderCurrentMonth(mid) {
+  // Only rerender if this tab is active (avoid overwriting focused inputs)
+  if(S.tab===`m${mid}`) renderMonthTab(mid);
+  else {
+    // Just update summary data in map, rerender when tab activated
+  }
+}
+
+function redrawMonthCharts(mid) { /* charts in month tab are dist bars, no Chart.js needed */ }
+
+function updateSummary(mid) {
+  const el=e(`summary-${mid}`); if(!el) return;
+  const m=S.map[mid]; if(!m) return;
+  const sc=calcMonth(m);
+  const mc=marginClass(sc.margin);
+  const balCol=sc.bal>=0?'var(--g)':'var(--rd)';
+  const colors={g:'var(--g)',a:'var(--am)',r:'var(--rd)'};
+  el.innerHTML=`
+    <div class="sum-item"><div class="sum-lbl">Receita bruta</div><div class="sum-val" style="color:var(--g)">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes</div></div>
+    <div class="sum-item"><div class="sum-lbl">Ticket médio</div><div class="sum-val" style="color:var(--bl)">${brl(sc.avgTicket)}</div><div class="sum-sub">por cliente</div></div>
+    <div class="sum-item"><div class="sum-lbl">Despesas</div><div class="sum-val" style="color:var(--rd)">${brl(sc.cos)}</div></div>
+    <div class="sum-item"><div class="sum-lbl">Saldo</div><div class="sum-val" style="color:${balCol}">${brl(sc.bal)}</div></div>
+    <div class="sum-item"><div class="sum-lbl">Margem</div><div class="sum-val" style="color:${colors[mc]}">${pct(sc.margin)}</div></div>
+    ${sc.newClients>0?`<div class="sum-item"><div class="sum-lbl">Entrada clientes</div><div class="sum-val" style="color:var(--am)">★ ${sc.newClients} novo${sc.newClients>1?'s':''}</div></div>`:''}
+  `;
+  const rt=e(`rev-total-${mid}`);  if(rt) rt.textContent=brl(sc.rev);
+  const ct=e(`cost-total-${mid}`); if(ct) ct.textContent=brl(sc.cos);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER DASHBOARD
+// ══════════════════════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const el=e('tab-dashboard'); if(!el) return;
+  const a=annualMetrics();
+  const withData=a.months.filter(m=>m.rev>0);
+  const bestRev=withData.length?withData.reduce((b,m)=>m.rev>b.rev?m:b):null;
+  const bestMarg=withData.length?withData.reduce((b,m)=>m.margin>b.margin?m:b):null;
+  const totalNew=a.months.reduce((s,m)=>s+m.newClients,0);
+  const annAvgTicket=withData.length?withData.reduce((s,m)=>s+m.avgTicket,0)/withData.length:0;
+
+  // Annual category distribution
+  const allRevs=a.months.flatMap(m=>m.revenues);
+  const allCosts=a.months.flatMap(m=>m.costs);
+  const annRevDist=catDistribution(allRevs);
+  const annCosDist=catDistribution(allCosts);
+
+  // Chart data
+  const labels=a.months.map(m=>MONTHS_PT[m.month-1]);
+  const revData=a.months.map(m=>+m.rev.toFixed(2));
+  const cosData=a.months.map(m=>+m.cos.toFixed(2));
+  const balData=a.months.map(m=>+m.bal.toFixed(2));
+
+  // Monthly summary rows
+  const rows=a.months.map(m=>{
+    const mc=marginClass(m.margin);
+    const hasData=m.rev>0||m.cos>0;
+    return `<tr ${!hasData?'style="opacity:.35"':''}>
+      <td style="font-family:'Syne',sans-serif;font-weight:700">${MONTHS_FULL[m.month-1]}</td>
+      <td class="r" style="color:var(--g)">${m.rev>0?brl(m.rev):'—'}</td>
+      <td class="r" style="color:var(--bl)">${m.avgTicket>0?brl(m.avgTicket):'—'}</td>
+      <td class="r" style="color:var(--rd)">${m.cos>0?brl(m.cos):'—'}</td>
+      <td class="r" style="color:${m.bal>=0?'var(--g)':'var(--rd)'}">${hasData?brl(m.bal):'—'}</td>
+      <td class="r">${hasData?marginPill(m.margin):'—'}</td>
+      <td class="r" style="color:var(--bl)">${m.clients||'—'}</td>
+      <td class="r" style="color:var(--am)">${m.newClients||'—'}</td>
+      <td><button class="btn sm" onclick="goTab('m${m.id}')">→</button></td>
+    </tr>`;
+  }).join('');
+
+  // Goals section
+  const goalsHtml=S.goals.length?S.goals.map(g=>{
+    const cur=getGoalCurrent(g);
+    const prog=Math.min(cur/g.target_value*100,100);
+    const color=prog>=100?'var(--g)':prog>=70?'var(--am)':'var(--rd)';
+    const mLabel=g.month>0?` · ${MONTHS_PT[g.month-1]}`:'';
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:600">${esc(g.name)}<span style="color:var(--mu);font-weight:400;font-size:10px">${mLabel}</span></span>
+        <span style="font-size:11px;color:var(--mu)">${g.metric==='margem'?pct(cur):brl(cur)} / ${g.metric==='margem'?pct(g.target_value):brl(g.target_value)} <span style="font-family:'Syne',sans-serif;font-weight:700;color:${color}">${prog.toFixed(0)}%</span></span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" style="width:${prog}%;background:${color}"></div></div>
+    </div>`;
+  }).join(''):'<div style="font-size:12px;color:var(--mu)">Nenhuma meta cadastrada. Clique em 🎯 Metas no topo.</div>';
+
+  el.innerHTML=`
+  <div class="sh-title">
+    <span>Dashboard — 2026</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sm" onclick="openReportModal(null)">📄 Relatório anual</button>
+      <button class="btn sm" onclick="openExportModal()">📤 Exportar → v4</button>
+      <button class="btn sm pur" onclick="openBonusModal()">💰 Calcular bônus</button>
+    </div>
+  </div>
+
+  <!-- METRICS GRID -->
+  <div class="g5" style="margin-bottom:16px">
+    <div class="mc green"><div class="ml">Receita total 2026</div><div class="mv g">${brl(a.totalRev)}</div><div class="mv-sub">${withData.length} meses</div></div>
+    <div class="mc red"><div class="ml">Despesas totais</div><div class="mv r">${brl(a.totalCos)}</div></div>
+    <div class="mc ${a.totalBal>=0?'green':'red'}"><div class="ml">Saldo acumulado</div><div class="mv ${a.totalBal>=0?'g':'r'}">${brl(a.totalBal)}</div></div>
+    <div class="mc ${marginClass(a.avgMargin)==='g'?'green':marginClass(a.avgMargin)==='a'?'amber':'red'}"><div class="ml">Margem média</div><div class="mv ${marginClass(a.avgMargin)}">${pct(a.avgMargin)}</div></div>
+    <div class="mc blue"><div class="ml">Ticket médio</div><div class="mv b">${brl(annAvgTicket)}</div><div class="mv-sub">média dos meses</div></div>
+  </div>
+
+  ${bestRev||totalNew?`<div class="g${totalNew?'3':'2'}" style="margin-bottom:16px">
+    ${bestRev?`<div class="al alg" style="margin-bottom:0">🏆 <strong>Melhor receita:</strong> ${MONTHS_FULL[bestRev.month-1]} — ${brl(bestRev.rev)}</div>`:''}
+    ${bestMarg?`<div class="al alg" style="margin-bottom:0">📈 <strong>Melhor margem:</strong> ${MONTHS_FULL[bestMarg.month-1]} — ${pct(bestMarg.margin)}</div>`:''}
+    ${totalNew?`<div class="al ala" style="margin-bottom:0">★ <strong>${totalNew} cliente${totalNew>1?'s':''} novo${totalNew>1?'s':''}</strong> no ano</div>`:''}
+  </div>`:''}
+
+  <!-- METAS -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">Metas 2026</div>
+    ${goalsHtml}
+  </div>
+
+  <!-- CHART -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">Receita × Despesas × Saldo</div>
+    <div class="chart-wrap"><canvas id="dash-chart"></canvas></div>
+  </div>
+
+  <!-- CATEGORY DISTRIBUTIONS -->
+  <div class="g2" style="margin-bottom:14px">
+    <div class="card"><div class="ct">Receitas por categoria — anual</div>${renderDistBar(annRevDist)}</div>
+    <div class="card"><div class="ct">Despesas por categoria — anual</div>${renderDistBar(annCosDist,true)}</div>
+  </div>
+
+  <!-- MONTHLY TABLE -->
+  <div class="card">
+    <div class="ct">Resumo mensal</div>
+    <div style="overflow-x:auto">
+      <table class="dt">
+        <thead><tr>
+          <th>Mês</th><th class="r">Receita</th><th class="r">Ticket médio</th><th class="r">Despesas</th>
+          <th class="r">Saldo</th><th class="r">Margem</th><th class="r">Clientes</th><th class="r">Novos</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tr class="tot">
+          <td>TOTAL</td>
+          <td class="r" style="color:var(--g)">${brl(a.totalRev)}</td>
+          <td class="r" style="color:var(--bl)">${brl(annAvgTicket)}</td>
+          <td class="r" style="color:var(--rd)">${brl(a.totalCos)}</td>
+          <td class="r" style="color:${a.totalBal>=0?'var(--g)':'var(--rd)'}">${brl(a.totalBal)}</td>
+          <td class="r">${marginPill(a.avgMargin)}</td>
+          <td class="r" style="color:var(--bl)">${a.months.reduce((s,m)=>Math.max(s,m.clients),0)}</td>
+          <td class="r" style="color:var(--am)">${totalNew||'—'}</td>
+          <td></td>
+        </tr>
+      </table>
+    </div>
+  </div>`;
+
+  // Draw chart
+  const ctx=e('dash-chart'); if(!ctx) return;
+  if(S.charts.dash){ S.charts.dash.destroy(); S.charts.dash=null; }
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gridColor=isDark?'rgba(30,45,69,.6)':'rgba(200,211,232,.5)';
+  const tickColor=isDark?'#6b7fa3':'#8494b0';
+  S.charts.dash=new Chart(ctx.getContext('2d'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Receita',data:revData,backgroundColor:'rgba(0,229,160,.5)',borderColor:'rgba(0,229,160,.85)',borderWidth:1,borderRadius:4},
+        {label:'Despesas',data:cosData,backgroundColor:'rgba(255,87,87,.45)',borderColor:'rgba(255,87,87,.8)',borderWidth:1,borderRadius:4},
+        {label:'Saldo',data:balData,type:'line',borderColor:'rgba(167,139,250,.9)',backgroundColor:'transparent',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'rgba(167,139,250,.9)',tension:.3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:tickColor,font:{size:11,family:'Inter'},boxWidth:12}}},
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:11}}},
+        y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:11},callback:v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}},
+      }
+    }
+  });
+}
+
+function updateDashboard() { if(S.tab==='dashboard') renderDashboard(); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AUDIT LOG TAB
+// ══════════════════════════════════════════════════════════════════════════════
+const ACTION_LABELS = {
+  'login':'Acesso',
+  'receita_adicionada':'+ Receita adicionada',
+  'receita_editada':'✏ Receita editada',
+  'receita_excluída':'✕ Receita excluída',
+  'despesa_adicionada':'+ Despesa adicionada',
+  'despesa_editada':'✏ Despesa editada',
+  'despesa_excluída':'✕ Despesa excluída',
+  'cópia_de_revenues':'↩ Receitas copiadas',
+  'cópia_de_costs':'↩ Despesas copiadas',
+  'import_revenues':'⬆ Import receitas',
+  'import_costs':'⬆ Import despesas',
+};
+const ACTION_COLOR = {
+  'login':'var(--mu)',
+  'receita_adicionada':'var(--g)','receita_editada':'var(--bl)','receita_excluída':'var(--rd)',
+  'despesa_adicionada':'var(--am)','despesa_editada':'var(--bl)','despesa_excluída':'var(--rd)',
+  'cópia_de_revenues':'var(--te)','cópia_de_costs':'var(--te)',
+  'import_revenues':'var(--pu)','import_costs':'var(--pu)',
+};
+
+async function renderAuditTab() {
+  const el=e('tab-audit'); if(!el) return;
+  el.innerHTML=`<div class="sh-title">Histórico de alterações</div><div style="color:var(--mu);font-size:12px;padding:20px;text-align:center">Carregando…</div>`;
+  try {
+    const rows=await api('GET','/api/audit?limit=200');
+    if(!rows.length){ el.innerHTML=`<div class="sh-title">Histórico de alterações</div><div style="color:var(--mu);font-size:13px;padding:32px;text-align:center">Nenhuma ação registrada ainda.</div>`; return; }
+
+    // Group by date
+    const byDate={};
+    rows.forEach(r=>{
+      const date=r.ts.slice(0,10);
+      if(!byDate[date]) byDate[date]=[];
+      byDate[date].push(r);
+    });
+
+    let html=`<div class="sh-title">Histórico de alterações <span style="font-size:11px;color:var(--mu);font-weight:400">(últimas 200 ações)</span></div>`;
+    Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
+      const [y,mo,d]=date.split('-');
+      const dateLabel=`${d}/${mo}/${y}`;
+      html+=`<div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)">${dateLabel}</div>`;
+      byDate[date].forEach(r=>{
+        const color=ACTION_COLOR[r.action]||'var(--mu)';
+        const label=ACTION_LABELS[r.action]||r.action;
+        const time=r.ts.slice(11,16);
+        html+=`<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:8px;margin-bottom:3px;background:var(--s2);border:1px solid var(--bdr)">
+          <span style="font-size:10px;color:var(--mu);font-family:'Syne',sans-serif;flex-shrink:0;padding-top:1px">${time}</span>
+          <span style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.04em;flex-shrink:0;padding-top:1px;min-width:130px">${esc(label)}</span>
+          <span style="font-size:12px;color:var(--tx2);flex:1">${esc(r.detail)}</span>
+          <span style="font-size:11px;color:var(--mu);font-weight:500;flex-shrink:0">${esc(r.username)}</span>
+        </div>`;
+      });
+    });
+    el.innerHTML=html;
+  } catch(err){ el.innerHTML=`<div style="color:var(--rd);font-size:12px;padding:16px">Erro: ${err.message}</div>`; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════════════════
+function buildNav() {
+  const nav=e('main-nav'); if(!nav) return;
+  let html=`<button class="mn active" id="nav-dashboard" onclick="goTab('dashboard')">Dashboard</button>`;
+  S.months.forEach(m=>{
+    const label=MONTHS_PT[m.month-1]+(m.year===2027?`'27`:`'26`);
+    html+=`<button class="mn" id="nav-m${m.id}" onclick="goTab('m${m.id}')">${label}</button>`;
+  });
+  html+=`<button class="mn" id="nav-search" onclick="goTab('search')">🔍 Busca</button>`;
+  html+=`<button class="mn" id="nav-audit" onclick="goTab('audit')">📋 Histórico</button>`;
+  nav.innerHTML=html;
+}
+function buildTabs() {
+  const body=document.querySelector('.body'); if(!body) return;
+  S.months.forEach(m=>{
+    if(!e(`tab-m${m.id}`)){ const d=document.createElement('div'); d.id=`tab-m${m.id}`; d.className='tab'; body.appendChild(d); }
+  });
+}
+function goTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.mn').forEach(b=>b.classList.remove('active'));
+  const tabEl=e('tab-'+id); if(tabEl) tabEl.classList.add('active');
+  const navEl=e('nav-'+id); if(navEl) navEl.classList.add('active');
+  S.tab=id;
+  if(id==='dashboard') renderDashboard();
+  else if(id==='search') renderSearchTab();
+  else if(id==='audit') renderAuditTab();
+  else { const mid=parseInt(id.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════════════════════════
+function showApp() {
+  e('login-screen').style.display='none';
+  e('app').style.display='block';
+  if(S.user) e('user-name').textContent=S.user.name;
+  // Restore button só para sócios
+  const isSocio=S.user&&(S.user.username==='hudson'||S.user.username==='diego');
+  const restoreBtn=document.getElementById('restore-btn-topbar');
+  if(restoreBtn) restoreBtn.style.display=isSocio?'inline-flex':'none';
+  buildNav(); buildTabs(); renderDashboard();
+  syncLabel(fmtSync(),'');
+  S.polling=setInterval(pollSync,30000);
+}
+async function boot() {
+  if(!S.token) return;
+  try{
+    const me=await api('GET','/api/auth/me');
+    S.user=me;
+    await loadData();
+    showApp();
+  } catch(err){ localStorage.removeItem('ef_token'); S.token=null; }
+}
+boot();
+</script>
+</body>
+</html>
