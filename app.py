@@ -100,6 +100,8 @@ def init_db():
             c.execute('INSERT OR IGNORE INTO months (year,month) VALUES (?,?)', (year,month))
         c.commit()
 
+init_db()
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 def auth(f):
