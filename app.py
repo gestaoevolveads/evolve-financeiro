@@ -92,9 +92,17 @@ def init_db():
             except Exception: pass
 
         if c.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0:
-            for uname, pw, name in [('hudson','evolveads2026','Hudson'),('diego','evolveads2026','Diego'),('financeiro','evolve2026','Financeiro')]:
+            for uname, pw, name in [('hudson','evolve2026','Hudson'),('diego','evolve2026','Diego'),('financeiro','evolve2026','Financeiro')]:
                 h = bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
                 c.execute('INSERT INTO users (username,password_hash,name) VALUES (?,?,?)', (uname,h,name))
+        else:
+            # Reset passwords to default (one-time migration)
+            marker = c.execute("SELECT detail FROM audit_log WHERE action='pw_migration_v1' LIMIT 1").fetchone()
+            if not marker:
+                for uname, pw in [('hudson','evolve2026'),('diego','evolve2026'),('financeiro','evolve2026')]:
+                    h = bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+                    c.execute('UPDATE users SET password_hash=? WHERE username=?', (h, uname))
+                c.execute("INSERT INTO audit_log (ts,username,action,detail) VALUES (datetime('now'),'system','pw_migration_v1','senhas resetadas para evolve2026')")
 
         for year, month in [(2026,m) for m in range(1,13)] + [(2027,1)]:
             c.execute('INSERT OR IGNORE INTO months (year,month) VALUES (?,?)', (year,month))
