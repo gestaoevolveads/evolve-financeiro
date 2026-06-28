@@ -2186,45 +2186,102 @@ function drawContasTab() {
 
   const fmtDate=d=>d?d.split('-').reverse().join('/'):'—';
 
-  const pendRows=pending.map(item=>{
-    const ovd=item.due_date&&item.due_date<today;
-    const dueFmt=fmtDate(item.due_date);
-    return `<tr>
-      <td style="padding:9px 8px;color:${ovd?'var(--rd)':'var(--tx2)'};font-weight:${ovd?'600':'400'}">${dueFmt}${ovd?' ⚠':''}</td>
-      <td style="padding:9px 8px;font-weight:600">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu);font-weight:400">${esc(item.client_name)}</span>`:''}</td>
-      <td class="r" style="padding:9px 8px;color:${isRecv?'var(--g)':'var(--rd)'};font-family:'Syne',sans-serif;font-weight:700">${brl(item.amount)}</td>
-      <td style="padding:9px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
-      <td style="padding:9px 8px"><span class="status-badge ${ovd?'s-vencido':'s-pendente'}">${ovd?'Vencida':'Pendente'}</span></td>
-      <td style="padding:9px 8px">
-        <div style="display:flex;gap:4px">
-          <button class="btn sm grn" onclick="markConta('${sub}',${item.id})" title="Marcar como ${isRecv?'recebido':'pago'}">✓ ${isRecv?'Recebido':'Pago'}</button>
-          <button class="btn sm blu" onclick="openContaModal('${sub}',${item.id})" title="Editar">✎</button>
-          <button class="del-btn" onclick="deleteConta('${sub}',${item.id})" title="Excluir">✕</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-
-  const doneRows=done.map(item=>{
-    const dateFmt=fmtDate(item.received_date||item.paid_date||'');
-    return `<tr style="opacity:.65">
-      <td style="padding:7px 8px;color:var(--mu)">${dateFmt}</td>
-      <td style="padding:7px 8px">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu)">${esc(item.client_name)}</span>`:''}</td>
-      <td class="r" style="padding:7px 8px;color:var(--mu);font-weight:600">${brl(item.amount)}</td>
-      <td style="padding:7px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
-      <td style="padding:7px 8px"><span class="status-badge ${isRecv?'s-recebido':'s-pago'}">${isRecv?'Recebido':'Pago'}</span></td>
-      <td style="padding:7px 8px">
-        <button class="del-btn" onclick="deleteConta('${sub}',${item.id})" title="Excluir">✕</button>
-      </td>
-    </tr>`;
-  }).join('');
+  // Group pending items by year-month of due_date
+  const grouped={};
+  const noDate=[];
+  pending.forEach(item=>{
+    if(!item.due_date){ noDate.push(item); return; }
+    const ym=item.due_date.slice(0,7); // "2026-07"
+    if(!grouped[ym]) grouped[ym]=[];
+    grouped[ym].push(item);
+  });
+  const sortedMonths=Object.keys(grouped).sort();
 
   const thCols=`<th style="min-width:90px">Vencimento</th>
     <th style="min-width:180px">${isRecv?'Descrição / Cliente':'Descrição'}</th>
     <th class="r" style="min-width:100px">Valor</th>
     <th style="min-width:100px">Categoria</th>
     <th style="min-width:80px">Status</th>
-    <th style="min-width:160px"></th>`;
+    <th style="min-width:170px"></th>`;
+
+  const mkRow=(item,isOverdue)=>{
+    const ovd=isOverdue||(item.due_date&&item.due_date<today);
+    return `<tr>
+      <td style="padding:9px 8px;color:${ovd?'var(--rd)':'var(--tx2)'};font-weight:${ovd?'600':'400'}">${fmtDate(item.due_date)}${ovd?' ⚠':''}</td>
+      <td style="padding:9px 8px;font-weight:600">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu);font-weight:400">${esc(item.client_name)}</span>`:''}</td>
+      <td class="r" style="padding:9px 8px;color:${isRecv?'var(--g)':'var(--rd)'};font-family:'Syne',sans-serif;font-weight:700">${brl(item.amount)}</td>
+      <td style="padding:9px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
+      <td style="padding:9px 8px"><span class="status-badge ${ovd?'s-vencido':'s-pendente'}">${ovd?'Vencida':'Pendente'}</span></td>
+      <td style="padding:9px 8px">
+        <div style="display:flex;gap:4px">
+          <button class="btn sm grn" onclick="markConta('${sub}',${item.id})">✓ ${isRecv?'Recebido':'Pago'}</button>
+          <button class="btn sm blu" onclick="openContaModal('${sub}',${item.id})">✎</button>
+          <button class="del-btn" onclick="deleteConta('${sub}',${item.id})">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  };
+
+  // Build grouped sections
+  let pendingHtml='';
+  if(!pending.length){
+    pendingHtml=`<div class="al alg" style="margin-bottom:14px">Nenhuma conta ${isRecv?'a receber':'a pagar'} pendente. 🎉</div>`;
+  } else {
+    // Vencidas primeiro (sem agrupamento de mês, em destaque)
+    if(overdue.length){
+      const rows=overdue.map(i=>mkRow(i,true)).join('');
+      pendingHtml+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;border-color:rgba(255,87,87,.35)">
+        <div style="padding:10px 14px;border-bottom:1px solid rgba(255,87,87,.25);display:flex;align-items:center;justify-content:space-between;background:rgba(255,87,87,.05)">
+          <div class="ct" style="margin-bottom:0;color:var(--rd)">⚠ Vencidas / Atrasadas</div>
+          <span style="font-size:11px;font-family:'Syne',sans-serif;font-weight:700;color:var(--rd)">${brl(overdue.reduce((s,i)=>s+(parseFloat(i.amount)||0),0))}</span>
+        </div>
+        <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${rows}</tbody></table></div>
+      </div>`;
+    }
+
+    // Por mês
+    sortedMonths.forEach(ym=>{
+      const monthItems=grouped[ym];
+      // Skip if all are overdue (already shown above)
+      const nonOverdue=monthItems.filter(i=>!i.due_date||i.due_date>=today);
+      if(!nonOverdue.length) return;
+      const [y,m]=ym.split('-');
+      const mLabel=`${MONTHS_FULL[parseInt(m)-1]} ${y}`;
+      const mTotal=nonOverdue.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      const rows=nonOverdue.map(i=>mkRow(i,false)).join('');
+      pendingHtml+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+          <div class="ct" style="margin-bottom:0;color:${isRecv?'var(--g)':'var(--rd)'}">${mLabel}</div>
+          <span style="font-size:12px;font-family:'Syne',sans-serif;font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(mTotal)}</span>
+        </div>
+        <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${rows}</tbody></table></div>
+      </div>`;
+    });
+
+    // Sem data
+    if(noDate.length){
+      const rows=noDate.map(i=>mkRow(i,false)).join('');
+      pendingHtml+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--bdr)">
+          <div class="ct" style="margin-bottom:0;color:var(--mu)">Sem data de vencimento</div>
+        </div>
+        <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${rows}</tbody></table></div>
+      </div>`;
+    }
+  }
+
+  // Done / histórico
+  const doneRows=done.map(item=>{
+    const dateFmt=fmtDate(item.received_date||item.paid_date||'');
+    return `<tr style="opacity:.65">
+      <td style="padding:7px 8px;color:var(--mu)">${dateFmt}</td>
+      <td style="padding:7px 8px">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu)">${esc(item.client_name)}</span>`:''}</td>
+      <td class="r" style="padding:7px 8px;font-weight:600">${brl(item.amount)}</td>
+      <td style="padding:7px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
+      <td style="padding:7px 8px"><span class="status-badge ${isRecv?'s-recebido':'s-pago'}">${isRecv?'Recebido':'Pago'}</span></td>
+      <td style="padding:7px 8px"><button class="del-btn" onclick="deleteConta('${sub}',${item.id})">✕</button></td>
+    </tr>`;
+  }).join('');
 
   el.innerHTML=`
   <div class="sh-title">
@@ -2237,7 +2294,7 @@ function drawContasTab() {
     <button class="ctab ${sub==='pagar'?'active':''}" onclick="S.contasSubTab='pagar';drawContasTab()">📤 A Pagar</button>
   </div>
 
-  <div class="g3" style="margin-bottom:14px">
+  <div class="g3" style="margin-bottom:16px">
     <div class="mc ${isRecv?'green':'red'}">
       <div class="ml">${isRecv?'A receber':'A pagar'} (pendente)</div>
       <div class="mv ${isRecv?'g':'r'}">${brl(totalPend)}</div>
@@ -2249,31 +2306,20 @@ function drawContasTab() {
       <div class="mv-sub">${overdue.length?'Atenção necessária':'Em dia ✓'}</div>
     </div>
     <div class="mc purple">
-      <div class="ml">${isRecv?'Total recebido':'Total pago'} (histórico)</div>
+      <div class="ml">${isRecv?'Total recebido':'Total pago'}</div>
       <div class="mv p">${brl(totalDone)}</div>
       <div class="mv-sub">${done.length} conta${done.length!==1?'s':''}</div>
     </div>
   </div>
 
-  ${pending.length?`
-  <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
-    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
-      <div class="ct" style="margin-bottom:0;color:${isRecv?'var(--g)':'var(--rd)'}">${isRecv?'A Receber — Pendentes':'A Pagar — Pendentes'}</div>
-      <span style="font-size:11px;color:var(--mu)">${brl(totalPend)}</span>
-    </div>
-    <div style="overflow-x:auto">
-      <table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${pendRows}</tbody></table>
-    </div>
-  </div>`:`<div class="al alg" style="margin-bottom:14px">Nenhuma conta ${isRecv?'a receber':'a pagar'} pendente. 🎉</div>`}
+  ${pendingHtml}
 
   ${done.length?`
-  <div class="card" style="padding:0;overflow:hidden">
+  <div class="card" style="padding:0;overflow:hidden;margin-top:4px">
     <div style="padding:10px 14px;border-bottom:1px solid var(--bdr)">
-      <div class="ct" style="margin-bottom:0;color:var(--mu)">${isRecv?'Recebidas':'Pagas'} — histórico (${done.length})</div>
+      <div class="ct" style="margin-bottom:0;color:var(--mu)">${isRecv?'✓ Recebidas':'✓ Pagas'} — histórico (${done.length})</div>
     </div>
-    <div style="overflow-x:auto">
-      <table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${doneRows}</tbody></table>
-    </div>
+    <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${doneRows}</tbody></table></div>
   </div>`:''}`;
 }
 
