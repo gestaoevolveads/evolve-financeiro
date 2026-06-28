@@ -2722,12 +2722,96 @@ function renderRecurringList() {
       </div>
     </div>`;
   };
+  const now=new Date();
+  const curY=now.getFullYear(), curM=now.getMonth()+1;
+  const nextM=curM===12?1:curM+1, nextY=curM===12?curY+1:curY;
+
+  const mkCatOpts=(cats,sel='')=>cats.map(c=>`<option value="${c.slug}" ${c.slug===sel?'selected':''}>${c.label}</option>`).join('');
+
+  const addForm=(type,colorVar)=>{
+    const cats=type==='revenue'?S.revCats:S.costCats;
+    const defCat=type==='revenue'?'servico':'operacional';
+    return `<div id="rec-add-form-${type}" style="display:none;background:var(--s2);border:1.5px solid var(--bdr);border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:${colorVar};margin-bottom:10px">${type==='revenue'?'Nova Receita Recorrente':'Nova Despesa Recorrente'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="grid-column:1/-1"><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">${type==='revenue'?'Cliente / Descrição':'Descrição'}</label>
+          <input id="rec-new-desc-${type}" type="text" placeholder="${type==='revenue'?'Ex: Cliente Fulano':'Ex: Assinatura Ferramenta'}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
+        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
+          <input id="rec-new-amt-${type}" type="number" step="0.01" min="0" placeholder="0,00" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
+        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Categoria</label>
+          <select id="rec-new-cat-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+            ${mkCatOpts(cats,defCat)}
+          </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Início mês</label>
+          <select id="rec-new-sm-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+            ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}" ${i+1===nextM?'selected':''}>${mn}</option>`).join('')}
+          </select></div>
+        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Início ano</label>
+          <select id="rec-new-sy-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+            <option value="2026" ${nextY===2026?'selected':''}>2026</option><option value="2027" ${nextY===2027?'selected':''}>2027</option>
+          </select></div>
+        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês <span style="color:var(--mu);font-weight:400">(opcional)</span></label>
+          <select id="rec-new-em-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+            <option value="">—</option>
+            ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}">${mn}</option>`).join('')}
+          </select></div>
+        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra ano</label>
+          <select id="rec-new-ey-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+            <option value="">—</option>
+            <option value="2026">2026</option><option value="2027">2027</option>
+          </select></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm grn" onclick="submitNewRecurring('${type}')">+ Adicionar</button>
+        <button class="btn sm" onclick="e('rec-add-form-${type}').style.display='none'">Cancelar</button>
+      </div>
+    </div>`;
+  };
+
   el.innerHTML=`
-    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Receitas Recorrentes (${revItems.length})</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.05em">Receitas Recorrentes (${revItems.length})</div>
+      <button class="btn sm grn" onclick="const f=e('rec-add-form-revenue');f.style.display=f.style.display==='none'?'block':'none'">+ Nova</button>
+    </div>
+    ${addForm('revenue','var(--g)')}
     ${revItems.length?revItems.map(mkItem).join(''):'<div style="color:var(--mu);font-size:12px;margin-bottom:14px">Nenhuma receita recorrente cadastrada.</div>'}
-    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.05em;margin-top:14px;margin-bottom:8px">Despesas Recorrentes (${cosItems.length})</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:8px">
+      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.05em">Despesas Recorrentes (${cosItems.length})</div>
+      <button class="btn sm red" onclick="const f=e('rec-add-form-cost');f.style.display=f.style.display==='none'?'block':'none'">+ Nova</button>
+    </div>
+    ${addForm('cost','var(--rd)')}
     ${cosItems.length?cosItems.map(mkItem).join(''):'<div style="color:var(--mu);font-size:12px">Nenhuma despesa recorrente cadastrada.</div>'}
   `;
+}
+
+async function submitNewRecurring(type) {
+  const desc=(e(`rec-new-desc-${type}`)?.value||'').trim();
+  const amt=parseFloat(e(`rec-new-amt-${type}`)?.value||0);
+  if(!desc){ alert('Informe a descrição/cliente.'); return; }
+  if(!amt){ alert('Informe o valor.'); return; }
+  const cat=e(`rec-new-cat-${type}`)?.value||( type==='revenue'?'servico':'operacional');
+  const sm=parseInt(e(`rec-new-sm-${type}`)?.value)||1;
+  const sy=parseInt(e(`rec-new-sy-${type}`)?.value)||2026;
+  const em=parseInt(e(`rec-new-em-${type}`)?.value)||null;
+  const ey=parseInt(e(`rec-new-ey-${type}`)?.value)||null;
+  syncLabel('Salvando…','saving');
+  try {
+    const item=await api('POST','/api/recurring',{
+      type, description:desc, client_name:type==='revenue'?desc:'',
+      amount:amt, category:cat, start_year:sy, start_month:sm,
+      end_year:ey||null, end_month:em||null
+    });
+    S.recurring.push(item);
+    const allMonths=await api('GET','/api/months');
+    S.months=allMonths; S.map={}; allMonths.forEach(m=>S.map[m.id]=m);
+    renderRecurringList();
+    if(S.tab!=='dashboard'){ const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
+    updateDashboard();
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    showToast(`${type==='revenue'?'Receita':'Despesa'} recorrente adicionada ✓`);
+  } catch(err){ syncLabel('Erro','error'); alert(err.message||'Erro ao salvar'); }
 }
 
 function openEditRecurring(id) {
