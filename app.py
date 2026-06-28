@@ -80,6 +80,43 @@ def init_db():
                 action     TEXT NOT NULL,
                 detail     TEXT DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS categories (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                type       TEXT    NOT NULL,
+                slug       TEXT    NOT NULL,
+                label      TEXT    NOT NULL,
+                color      TEXT    DEFAULT '#6b7fa3',
+                sort_order INTEGER DEFAULT 0,
+                active     INTEGER DEFAULT 1,
+                UNIQUE(type, slug)
+            );
+            CREATE TABLE IF NOT EXISTS settings (
+                key        TEXT PRIMARY KEY,
+                value      TEXT DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS receivables (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                description   TEXT    DEFAULT '',
+                client_name   TEXT    DEFAULT '',
+                amount        REAL    DEFAULT 0,
+                due_date      TEXT    DEFAULT '',
+                received_date TEXT    DEFAULT '',
+                status        TEXT    DEFAULT 'pendente',
+                category      TEXT    DEFAULT 'servico',
+                notes         TEXT    DEFAULT '',
+                created_at    TEXT    DEFAULT (datetime('now'))
+            );
+            CREATE TABLE IF NOT EXISTS payables (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                description TEXT    DEFAULT '',
+                amount      REAL    DEFAULT 0,
+                due_date    TEXT    DEFAULT '',
+                paid_date   TEXT    DEFAULT '',
+                status      TEXT    DEFAULT 'pendente',
+                category    TEXT    DEFAULT 'operacional',
+                notes       TEXT    DEFAULT '',
+                created_at  TEXT    DEFAULT (datetime('now'))
+            );
         ''')
 
         # Migrations for existing DBs
@@ -90,6 +127,26 @@ def init_db():
         ]:
             try: c.execute(sql)
             except Exception: pass
+
+        # Seed categories on first run
+        if c.execute('SELECT COUNT(*) FROM categories').fetchone()[0] == 0:
+            for tp, slug, label, color, order in [
+                ('revenue','servico','Serviço','#00e5a0',1),
+                ('revenue','consultoria','Consultoria','#4f9eff',2),
+                ('revenue','recorrente','Recorrente','#a78bfa',3),
+                ('revenue','pontual','Pontual','#f5a623',4),
+                ('revenue','outros','Outros','#6b7fa3',5),
+                ('cost','pro-labore','Pró-labore','#a78bfa',1),
+                ('cost','pessoal','Pessoal','#4f9eff',2),
+                ('cost','imposto','Imposto','#ff5757',3),
+                ('cost','ferramentas','Ferramentas','#f5a623',4),
+                ('cost','marketing','Marketing','#2dd4bf',5),
+                ('cost','operacional','Operacional','#6b7fa3',6),
+                ('cost','outros','Outros','#6b7fa3',7),
+            ]:
+                c.execute('INSERT OR IGNORE INTO categories (type,slug,label,color,sort_order) VALUES (?,?,?,?,?)',
+                    (tp, slug, label, color, order))
+        c.execute("INSERT OR IGNORE INTO settings (key,value) VALUES ('saldo_inicial','0')")
 
         if c.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0:
             for uname, pw, name in [('hudson','evolve2026','Hudson'),('diego','evolve2026','Diego'),('financeiro','evolve2026','Financeiro')]:
@@ -399,6 +456,175 @@ def get_audit():
         rows = c.execute('SELECT * FROM audit_log ORDER BY id DESC LIMIT ?',(limit,)).fetchall()
     return jsonify([dict(r) for r in rows])
 
+# ── Categories ────────────────────────────────────────────────────────────────
+
+@app.get('/api/categories')
+@auth
+def get_categories():
+    with db() as c:
+        rows = c.execute('SELECT * FROM categories WHERE active=1 ORDER BY type,sort_order,id').fetchall()
+    return jsonify({
+        'revenue': [dict(r) for r in rows if r['type']=='revenue'],
+        'cost':    [dict(r) for r in rows if r['type']=='cost'],
+    })
+
+@app.post('/api/categories')
+@auth
+def create_category():
+    d     = request.get_json() or {}
+    tp    = d.get('type','revenue')
+    slug  = d.get('slug','').strip().lower().replace(' ','-')
+    label = d.get('label','').strip()
+    color = d.get('color','#6b7fa3')
+    if not slug or not label:
+        return jsonify({'error':'Slug e label são obrigatórios'}), 400
+    with db() as c:
+        try:
+            cur = c.execute('INSERT INTO categories (type,slug,label,color,sort_order) VALUES (?,?,?,?,?)',
+                (tp, slug, label, color, 99))
+            c.commit()
+            row = c.execute('SELECT * FROM categories WHERE id=?', (cur.lastrowid,)).fetchone()
+        except Exception:
+            return jsonify({'error': f'Categoria com slug "{slug}" já existe'}), 400
+    return jsonify(dict(row))
+
+@app.put('/api/categories/<int:cid>')
+@auth
+def update_category(cid):
+    d = request.get_json() or {}
+    with db() as c:
+        c.execute('UPDATE categories SET label=?,color=? WHERE id=?',
+            (d.get('label',''), d.get('color','#6b7fa3'), cid))
+        c.commit()
+    return jsonify({'success': True})
+
+@app.delete('/api/categories/<int:cid>')
+@auth
+def delete_category(cid):
+    with db() as c:
+        c.execute('UPDATE categories SET active=0 WHERE id=?', (cid,))
+        c.commit()
+    return jsonify({'success': True})
+
+# ── Settings ───────────────────────────────────────────────────────────────────
+
+@app.get('/api/settings')
+@auth
+def get_settings():
+    with db() as c:
+        rows = c.execute('SELECT * FROM settings').fetchall()
+    return jsonify({r['key']: r['value'] for r in rows})
+
+@app.put('/api/settings')
+@auth
+def update_settings():
+    d = request.get_json() or {}
+    with db() as c:
+        for key, value in d.items():
+            c.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', (key, str(value)))
+        c.commit()
+    return jsonify({'success': True})
+
+# ── Receivables (Contas a Receber) ─────────────────────────────────────────────
+
+@app.get('/api/receivables')
+@auth
+def get_receivables():
+    status = request.args.get('status', '')
+    with db() as c:
+        if status:
+            rows = c.execute('SELECT * FROM receivables WHERE status=? ORDER BY due_date,id', (status,)).fetchall()
+        else:
+            rows = c.execute('SELECT * FROM receivables ORDER BY due_date,id').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.post('/api/receivables')
+@auth
+def create_receivable():
+    d = request.get_json() or {}
+    with db() as c:
+        cur = c.execute(
+            'INSERT INTO receivables (description,client_name,amount,due_date,category,notes) VALUES (?,?,?,?,?,?)',
+            (d.get('description',''), d.get('client_name',''), float(d.get('amount',0)),
+             d.get('due_date',''), d.get('category','servico'), d.get('notes','')))
+        c.commit()
+        row = c.execute('SELECT * FROM receivables WHERE id=?', (cur.lastrowid,)).fetchone()
+    audit(request.user['username'], 'conta_receber_adicionada', d.get('description',''))
+    return jsonify(dict(row))
+
+@app.put('/api/receivables/<int:rid>')
+@auth
+def update_receivable(rid):
+    d = request.get_json() or {}
+    with db() as c:
+        c.execute(
+            'UPDATE receivables SET description=?,client_name=?,amount=?,due_date=?,received_date=?,status=?,category=?,notes=? WHERE id=?',
+            (d.get('description',''), d.get('client_name',''), float(d.get('amount',0)),
+             d.get('due_date',''), d.get('received_date',''), d.get('status','pendente'),
+             d.get('category','servico'), d.get('notes',''), rid))
+        c.commit()
+    audit(request.user['username'], 'conta_receber_editada', f"ID {rid} — {d.get('description','')}")
+    return jsonify({'success': True})
+
+@app.delete('/api/receivables/<int:rid>')
+@auth
+def delete_receivable(rid):
+    with db() as c:
+        c.execute('DELETE FROM receivables WHERE id=?', (rid,))
+        c.commit()
+    audit(request.user['username'], 'conta_receber_excluída', f"ID {rid}")
+    return jsonify({'success': True})
+
+# ── Payables (Contas a Pagar) ──────────────────────────────────────────────────
+
+@app.get('/api/payables')
+@auth
+def get_payables():
+    status = request.args.get('status', '')
+    with db() as c:
+        if status:
+            rows = c.execute('SELECT * FROM payables WHERE status=? ORDER BY due_date,id', (status,)).fetchall()
+        else:
+            rows = c.execute('SELECT * FROM payables ORDER BY due_date,id').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.post('/api/payables')
+@auth
+def create_payable():
+    d = request.get_json() or {}
+    with db() as c:
+        cur = c.execute(
+            'INSERT INTO payables (description,amount,due_date,category,notes) VALUES (?,?,?,?,?)',
+            (d.get('description',''), float(d.get('amount',0)), d.get('due_date',''),
+             d.get('category','operacional'), d.get('notes','')))
+        c.commit()
+        row = c.execute('SELECT * FROM payables WHERE id=?', (cur.lastrowid,)).fetchone()
+    audit(request.user['username'], 'conta_pagar_adicionada', d.get('description',''))
+    return jsonify(dict(row))
+
+@app.put('/api/payables/<int:pid>')
+@auth
+def update_payable(pid):
+    d = request.get_json() or {}
+    with db() as c:
+        c.execute(
+            'UPDATE payables SET description=?,amount=?,due_date=?,paid_date=?,status=?,category=?,notes=? WHERE id=?',
+            (d.get('description',''), float(d.get('amount',0)), d.get('due_date',''),
+             d.get('paid_date',''), d.get('status','pendente'),
+             d.get('category','operacional'), d.get('notes',''), pid))
+        c.commit()
+    audit(request.user['username'], 'conta_pagar_editada', f"ID {pid} — {d.get('description','')}")
+    return jsonify({'success': True})
+
+@app.delete('/api/payables/<int:pid>')
+@auth
+def delete_payable(pid):
+    with db() as c:
+        c.execute('DELETE FROM payables WHERE id=?', (pid,))
+        c.commit()
+    audit(request.user['username'], 'conta_pagar_excluída', f"ID {pid}")
+    return jsonify({'success': True})
+
 # ── Export (para Painel v4) ────────────────────────────────────────────────────
 
 @app.get('/api/export')
@@ -420,12 +646,21 @@ def backup():
         data    = [month_full(c, m['id']) for m in months]
         goals   = [dict(g) for g in c.execute('SELECT * FROM goals WHERE active=1').fetchall()]
         audit   = [dict(r) for r in c.execute('SELECT * FROM audit_log ORDER BY id').fetchall()]
+    with db() as c2:
+        cats  = [dict(r) for r in c2.execute('SELECT * FROM categories WHERE active=1').fetchall()]
+        recvs = [dict(r) for r in c2.execute('SELECT * FROM receivables').fetchall()]
+        pays  = [dict(r) for r in c2.execute('SELECT * FROM payables').fetchall()]
+        setts = {r['key']: r['value'] for r in c2.execute('SELECT * FROM settings').fetchall()}
     payload = {
         'version': 1,
         'created_at': datetime.datetime.now().isoformat(),
         'months': data,
         'goals':  goals,
         'audit':  audit,
+        'categories':  cats,
+        'receivables': recvs,
+        'payables':    pays,
+        'settings':    setts,
     }
     from flask import Response
     ts = datetime.datetime.now().strftime('%Y%m%d_%H%M')
@@ -466,6 +701,26 @@ def restore():
         for g in payload.get('goals', []):
             c.execute('INSERT OR IGNORE INTO goals (name,target_value,metric,year,month) VALUES (?,?,?,?,?)',
                 (g['name'],g['target_value'],g.get('metric','receita_mensal'),g.get('year',2026),g.get('month',0)))
+        # Categories (optional — skip if not in backup)
+        for cat in payload.get('categories', []):
+            c.execute('INSERT OR IGNORE INTO categories (type,slug,label,color,sort_order) VALUES (?,?,?,?,?)',
+                (cat['type'],cat['slug'],cat['label'],cat.get('color','#6b7fa3'),cat.get('sort_order',99)))
+        # Receivables
+        c.execute('DELETE FROM receivables')
+        for r in payload.get('receivables', []):
+            c.execute('INSERT INTO receivables (description,client_name,amount,due_date,received_date,status,category,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)',
+                (r.get('description',''),r.get('client_name',''),r.get('amount',0),r.get('due_date',''),
+                 r.get('received_date',''),r.get('status','pendente'),r.get('category','servico'),
+                 r.get('notes',''),r.get('created_at','')))
+        # Payables
+        c.execute('DELETE FROM payables')
+        for p in payload.get('payables', []):
+            c.execute('INSERT INTO payables (description,amount,due_date,paid_date,status,category,notes,created_at) VALUES (?,?,?,?,?,?,?,?)',
+                (p.get('description',''),p.get('amount',0),p.get('due_date',''),p.get('paid_date',''),
+                 p.get('status','pendente'),p.get('category','operacional'),p.get('notes',''),p.get('created_at','')))
+        # Settings
+        for key, value in payload.get('settings', {}).items():
+            c.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', (key, str(value)))
         c.commit()
     audit(request.user['username'], 'restore', 'Backup restaurado')
     return jsonify({'success': True})

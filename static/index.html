@@ -274,6 +274,29 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .itab.active{background:var(--s1);color:var(--g);box-shadow:var(--sh)}
 
 @media(max-width:760px){.g2,.g3,.g4,.g5,.g6{grid-template-columns:1fr!important}.summary-bar{gap:10px}.sum-item{border-right:none;padding:6px 0;border-bottom:1px solid var(--bdr)}.sum-item:last-child{border-bottom:none}}
+
+/* ══ STATUS BADGES ═══════════════════════════════════════════════════════════ */
+.status-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:.04em;white-space:nowrap}
+.s-pendente{background:rgba(245,166,35,.12);color:var(--am)}
+.s-pago{background:rgba(0,229,160,.12);color:var(--g)}
+.s-recebido{background:rgba(0,229,160,.12);color:var(--g)}
+.s-vencido{background:rgba(255,87,87,.12);color:var(--rd)}
+
+/* ══ CONTAS SUB-TABS ════════════════════════════════════════════════════════ */
+.ctab-bar{display:flex;gap:6px;margin-bottom:16px}
+.ctab{padding:8px 18px;border:1.5px solid var(--bdr);background:transparent;color:var(--mu);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border-radius:8px;transition:.15s}
+.ctab:hover{color:var(--tx);border-color:var(--mu)}
+.ctab.active{background:var(--s1);color:var(--g);border-color:var(--g);box-shadow:var(--sh)}
+
+/* ══ CATEGORY ADMIN ════════════════════════════════════════════════════════ */
+.cat-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--bdr);margin-bottom:6px}
+.cat-row-color{width:14px;height:14px;border-radius:4px;flex-shrink:0}
+.cat-row-label{flex:1;font-size:12px;font-weight:500}
+.cat-row-slug{font-size:10px;color:var(--mu);font-family:monospace;background:var(--s3);padding:2px 6px;border-radius:4px}
+
+/* ══ CONTA FORM ════════════════════════════════════════════════════════════ */
+.conta-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.conta-form-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -298,6 +321,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
       <span id="sync-lbl" class="sync-badge">—</span>
       <span id="user-name" style="font-size:11px;color:var(--mu);font-weight:500"></span>
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema"></button>
+      <button class="btn sm" onclick="openCatsModal()">⚙ Categorias</button>
       <button class="btn sm" onclick="openGoalsModal()">🎯 Metas</button>
       <button class="btn sm pur" onclick="openBonusModal()">💰 Bônus</button>
       <button class="btn sm" onclick="doBackup()" title="Baixar backup JSON">💾 Backup</button>
@@ -309,6 +333,8 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
   <div class="nav" id="main-nav"></div>
   <div class="body">
     <div id="tab-dashboard" class="tab active"></div>
+    <div id="tab-cashflow" class="tab"></div>
+    <div id="tab-contas" class="tab"></div>
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
   </div>
@@ -431,6 +457,78 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
   </div>
 </div>
 
+<!-- Categories Modal -->
+<div id="cats-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeCatsModal()">
+  <div class="modal modal-lg">
+    <div class="modal-title">⚙ Gerenciar Categorias <button class="btn sm" onclick="closeCatsModal()">✕</button></div>
+    <div class="g2">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Categorias de Receita</div>
+        <div id="cats-rev-list"></div>
+        <div class="sep"></div>
+        <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--g);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Nova categoria de receita</div>
+        <div style="display:flex;gap:7px;align-items:flex-end;flex-wrap:wrap">
+          <div class="mrow" style="flex:1;margin-bottom:0"><label>Nome</label><input id="newcat-rev-label" type="text" placeholder="Ex: E-commerce"></div>
+          <div class="mrow" style="margin-bottom:0"><label>Cor</label><input id="newcat-rev-color" type="color" value="#4f9eff" style="height:36px;width:50px;padding:2px;border-radius:6px;border:1.5px solid var(--bdr);background:var(--input-bg);cursor:pointer"></div>
+          <button class="btn grn" style="margin-bottom:0" onclick="addCategory('revenue')">+ Adicionar</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Categorias de Despesa</div>
+        <div id="cats-cost-list"></div>
+        <div class="sep"></div>
+        <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--rd);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Nova categoria de despesa</div>
+        <div style="display:flex;gap:7px;align-items:flex-end;flex-wrap:wrap">
+          <div class="mrow" style="flex:1;margin-bottom:0"><label>Nome</label><input id="newcat-cost-label" type="text" placeholder="Ex: Comissão"></div>
+          <div class="mrow" style="margin-bottom:0"><label>Cor</label><input id="newcat-cost-color" type="color" value="#f5a623" style="height:36px;width:50px;padding:2px;border-radius:6px;border:1.5px solid var(--bdr);background:var(--input-bg);cursor:pointer"></div>
+          <button class="btn red" style="margin-bottom:0" onclick="addCategory('cost')">+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+    <div class="al alb" style="margin-top:14px;font-size:11px">💡 <strong>Dica:</strong> Ao excluir uma categoria, os lançamentos existentes com ela não são apagados — apenas deixa de aparecer nas opções de novas entradas.</div>
+    <div class="mfooter"><button class="btn" onclick="closeCatsModal()">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Conta a Receber Modal -->
+<div id="recv-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeRecvModal()">
+  <div class="modal">
+    <div class="modal-title" id="recv-modal-title">Conta a Receber <button class="btn sm" onclick="closeRecvModal()">✕</button></div>
+    <div class="conta-form-grid">
+      <div class="mrow"><label>Descrição / Serviço</label><input id="recv-desc" type="text" placeholder="Ex: Mensalidade Casa das Rodas"></div>
+      <div class="mrow"><label>Cliente</label><input id="recv-client" type="text" placeholder="Nome do cliente"></div>
+      <div class="mrow"><label>Valor (R$)</label><input id="recv-amount" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="mrow"><label>Vencimento</label><input id="recv-due" type="date"></div>
+      <div class="mrow"><label>Categoria</label><select id="recv-cat"></select></div>
+      <div class="mrow"><label>Observação</label><input id="recv-notes" type="text" placeholder="Opcional"></div>
+    </div>
+    <div id="recv-err" style="font-size:11px;color:var(--rd);min-height:16px"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeRecvModal()">Cancelar</button>
+      <button class="btn grn" onclick="submitRecv()">✓ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conta a Pagar Modal -->
+<div id="pay-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closePayModal()">
+  <div class="modal">
+    <div class="modal-title" id="pay-modal-title">Conta a Pagar <button class="btn sm" onclick="closePayModal()">✕</button></div>
+    <div class="conta-form-grid">
+      <div class="mrow" style="grid-column:1/-1"><label>Descrição</label><input id="pay-desc" type="text" placeholder="Ex: Aluguel de sala, DAS MEI…"></div>
+      <div class="mrow"><label>Valor (R$)</label><input id="pay-amount" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="mrow"><label>Vencimento</label><input id="pay-due" type="date"></div>
+      <div class="mrow"><label>Categoria</label><select id="pay-cat"></select></div>
+      <div class="mrow"><label>Observação</label><input id="pay-notes" type="text" placeholder="Opcional"></div>
+    </div>
+    <div id="pay-err" style="font-size:11px;color:var(--rd);min-height:16px"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="closePayModal()">Cancelar</button>
+      <button class="btn grn" onclick="submitPay()">✓ Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════════════════════
@@ -439,15 +537,15 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 const MONTHS_PT   = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-const REV_CATS  = ['servico','consultoria','recorrente','pontual','outros'];
-const COST_CATS = ['pro-labore','pessoal','imposto','ferramentas','marketing','operacional','outros'];
+let REV_CATS  = ['servico','consultoria','recorrente','pontual','outros'];
+let COST_CATS = ['pro-labore','pessoal','imposto','ferramentas','marketing','operacional','outros'];
 
-const CAT_COLORS = {
+let CAT_COLORS = {
   servico:'#00e5a0', consultoria:'#4f9eff', recorrente:'#a78bfa', pontual:'#f5a623', 'rv-outros':'#6b7fa3',
   'pro-labore':'#a78bfa', pessoal:'#4f9eff', imposto:'#ff5757', ferramentas:'#f5a623',
   marketing:'#2dd4bf', operacional:'#6b7fa3', outros:'#6b7fa3'
 };
-const CAT_LABEL = {
+let CAT_LABEL = {
   servico:'Serviço', consultoria:'Consultoria', recorrente:'Recorrente', pontual:'Pontual', 'rv-outros':'Outros',
   'pro-labore':'Pró-labore', pessoal:'Pessoal', imposto:'Imposto', ferramentas:'Ferramentas',
   marketing:'Marketing', operacional:'Operacional', outros:'Outros'
@@ -459,6 +557,14 @@ const S = {
   months: [],
   map:   {},
   goals: [],
+  revCats: [],
+  costCats: [],
+  settings: {},
+  receivables: [],
+  payables: [],
+  contasSubTab: 'receber',
+  _editRecvId: null,
+  _editPayId: null,
   tab:   'dashboard',
   timers:{},
   charts:{},
@@ -560,9 +666,25 @@ function confirmResolve(v){ e('confirm-overlay').style.display='none'; if(_cr){_
 // DATA
 // ══════════════════════════════════════════════════════════════════════════════
 async function loadData() {
-  const [months, goals] = await Promise.all([api('GET','/api/months'), api('GET','/api/goals')]);
+  const [months, goals, cats, settings] = await Promise.all([
+    api('GET','/api/months'),
+    api('GET','/api/goals'),
+    api('GET','/api/categories'),
+    api('GET','/api/settings'),
+  ]);
   S.months=months; S.map={}; months.forEach(m=>S.map[m.id]=m);
   S.goals=goals;
+  S.revCats  = cats.revenue || [];
+  S.costCats = cats.cost    || [];
+  S.settings = settings;
+  applyCatData();
+}
+
+function applyCatData() {
+  REV_CATS  = S.revCats.map(c=>c.slug);
+  COST_CATS = S.costCats.map(c=>c.slug);
+  S.revCats.forEach(c=>{ CAT_COLORS[c.slug]=c.color; CAT_LABEL[c.slug]=c.label; });
+  S.costCats.forEach(c=>{ CAT_COLORS[c.slug]=c.color; CAT_LABEL[c.slug]=c.label; });
 }
 async function pollSync() {
   try {
@@ -1750,6 +1872,8 @@ function buildNav() {
     const label=MONTHS_PT[m.month-1]+(m.year===2027?`'27`:`'26`);
     html+=`<button class="mn" id="nav-m${m.id}" onclick="goTab('m${m.id}')">${label}</button>`;
   });
+  html+=`<button class="mn" id="nav-cashflow" onclick="goTab('cashflow')">📊 Fluxo</button>`;
+  html+=`<button class="mn" id="nav-contas" onclick="goTab('contas')">💳 Contas</button>`;
   html+=`<button class="mn" id="nav-search" onclick="goTab('search')">🔍 Busca</button>`;
   html+=`<button class="mn" id="nav-audit" onclick="goTab('audit')">📋 Histórico</button>`;
   nav.innerHTML=html;
@@ -1767,10 +1891,508 @@ function goTab(id) {
   const navEl=e('nav-'+id); if(navEl) navEl.classList.add('active');
   S.tab=id;
   if(id==='dashboard') renderDashboard();
+  else if(id==='cashflow') renderCashflowTab();
+  else if(id==='contas') renderContasTab();
   else if(id==='search') renderSearchTab();
   else if(id==='audit') renderAuditTab();
   else { const mid=parseInt(id.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CATEGORIES MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+function openCatsModal() {
+  renderCatsList();
+  e('cats-overlay').style.display='flex';
+}
+function closeCatsModal(){ e('cats-overlay').style.display='none'; }
+
+function renderCatsList() {
+  const revEl=e('cats-rev-list'); const cosEl=e('cats-cost-list');
+  if(!revEl||!cosEl) return;
+  const mkRow = (cat,type) => `
+    <div class="cat-row" id="catrow-${cat.id}">
+      <input type="color" value="${cat.color}" style="height:28px;width:28px;padding:1px;border-radius:5px;border:1.5px solid var(--bdr);background:var(--input-bg);cursor:pointer;flex-shrink:0"
+        onchange="updateCatColor(${cat.id},this.value,'${type}')">
+      <span class="cat-row-slug">${esc(cat.slug)}</span>
+      <input type="text" value="${esc(cat.label)}" style="flex:1;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:4px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none"
+        onchange="updateCatLabel(${cat.id},this.value,'${type}')"
+        onfocus="this.style.borderColor='var(--g)'" onblur="this.style.borderColor='var(--bdr)'">
+      <button class="del-btn" onclick="deleteCategory(${cat.id},'${type}')" title="Excluir categoria">✕</button>
+    </div>`;
+  revEl.innerHTML = S.revCats.length ? S.revCats.map(c=>mkRow(c,'revenue')).join('') : '<div style="color:var(--mu);font-size:12px;margin-bottom:8px">Nenhuma categoria.</div>';
+  cosEl.innerHTML = S.costCats.length ? S.costCats.map(c=>mkRow(c,'cost')).join('') : '<div style="color:var(--mu);font-size:12px;margin-bottom:8px">Nenhuma categoria.</div>';
+}
+
+function slugify(str) {
+  return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+async function addCategory(type) {
+  const labelEl=e(`newcat-${type==='revenue'?'rev':'cost'}-label`);
+  const colorEl=e(`newcat-${type==='revenue'?'rev':'cost'}-color`);
+  const label=labelEl.value.trim();
+  if(!label){ labelEl.focus(); return; }
+  const slug=slugify(label);
+  try {
+    const cat=await api('POST','/api/categories',{type,slug,label,color:colorEl.value});
+    if(type==='revenue') S.revCats.push(cat);
+    else S.costCats.push(cat);
+    applyCatData();
+    labelEl.value='';
+    renderCatsList();
+    if(S.tab===`m${S.tab.replace('m','')}`) renderMonthTab(parseInt(S.tab.replace('m','')));
+  } catch(err){ alert(err.message); }
+}
+
+async function updateCatLabel(cid, label, type) {
+  const cats = type==='revenue'?S.revCats:S.costCats;
+  const cat = cats.find(c=>c.id===cid); if(!cat) return;
+  const color = cat.color;
+  try {
+    await api('PUT',`/api/categories/${cid}`,{label,color});
+    cat.label=label; applyCatData();
+  } catch(err){ alert(err.message); }
+}
+
+async function updateCatColor(cid, color, type) {
+  const cats = type==='revenue'?S.revCats:S.costCats;
+  const cat = cats.find(c=>c.id===cid); if(!cat) return;
+  try {
+    await api('PUT',`/api/categories/${cid}`,{label:cat.label,color});
+    cat.color=color; applyCatData();
+  } catch(err){ alert(err.message); }
+}
+
+async function deleteCategory(cid, type) {
+  const cats = type==='revenue'?S.revCats:S.costCats;
+  const cat = cats.find(c=>c.id===cid); if(!cat) return;
+  const ok=await confirm2('Excluir categoria',`Excluir "<strong>${esc(cat.label)}</strong>"? Lançamentos existentes não serão afetados.`,'Excluir','red');
+  if(!ok) return;
+  try {
+    await api('DELETE',`/api/categories/${cid}`);
+    if(type==='revenue') S.revCats=S.revCats.filter(c=>c.id!==cid);
+    else S.costCats=S.costCats.filter(c=>c.id!==cid);
+    applyCatData(); renderCatsList();
+  } catch(err){ alert(err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FLUXO DE CAIXA
+// ══════════════════════════════════════════════════════════════════════════════
+function renderCashflowTab() {
+  const el=e('tab-cashflow'); if(!el) return;
+  const saldoInicial=parseFloat(S.settings.saldo_inicial||0);
+  const today=new Date();
+  const curYear=today.getFullYear(), curMonth=today.getMonth()+1;
+
+  // Build rows for all 2026 months
+  let runSaldo=saldoInicial;
+  const rows=[];
+  S.months.filter(m=>m.year===2026).forEach(m=>{
+    const mc=calcMonth(m);
+    const hasData=mc.rev>0||mc.cos>0;
+    const prevSaldo=runSaldo;
+    if(hasData) runSaldo+=mc.bal;
+    rows.push({m, mc, hasData, saldo:hasData?runSaldo:null, prevSaldo});
+  });
+
+  // Projection: avg of last 3 months with data
+  const withData=rows.filter(r=>r.hasData);
+  let avgEntradas=0, avgSaidas=0;
+  if(withData.length>0){
+    const last3=withData.slice(-Math.min(3,withData.length));
+    avgEntradas=last3.reduce((s,r)=>s+r.mc.rev,0)/last3.length;
+    avgSaidas=last3.reduce((s,r)=>s+r.mc.cos,0)/last3.length;
+  }
+
+  // Fill saldo for months without data (projection)
+  let projSaldo=withData.length>0?withData[withData.length-1].saldo:saldoInicial;
+  rows.forEach(r=>{
+    if(!r.hasData&&avgEntradas>0){
+      r.mc={...r.mc, rev:avgEntradas, cos:avgSaidas, bal:avgEntradas-avgSaidas};
+      projSaldo+=r.mc.bal;
+      r.saldo=projSaldo;
+      r.isProj=true;
+    }
+  });
+
+  // Summaries
+  const totalEntradas=withData.reduce((s,r)=>s+r.mc.rev,0);
+  const totalSaidas=withData.reduce((s,r)=>s+r.mc.cos,0);
+  const totalRes=totalEntradas-totalSaidas;
+  const saldoAtual=saldoInicial+totalRes;
+  const avgMensal=withData.length?totalSaidas/withData.length:0;
+  const reserva=avgMensal*3;
+
+  // Chart data
+  const labels=rows.map(r=>MONTHS_PT[r.m.month-1]);
+  const histLine=rows.map(r=>r.hasData?+r.saldo.toFixed(2):null);
+  const lastHistIdx=rows.reduce((idx,r,i)=>r.hasData?i:idx,-1);
+  const projLine=rows.map((r,i)=>{
+    if(i===lastHistIdx) return +(r.saldo||0).toFixed(2);
+    if(r.isProj) return +(r.saldo||0).toFixed(2);
+    return null;
+  });
+  const entData=rows.map(r=>r.hasData?+r.mc.rev.toFixed(2):null);
+  const saiData=rows.map(r=>r.hasData?+r.mc.cos.toFixed(2):null);
+
+  // Table HTML
+  let tBody=`<tr style="background:var(--s2)">
+    <td style="font-weight:600;color:var(--mu);padding:9px 10px" colspan="4">Saldo anterior (abertura)</td>
+    <td class="r" style="padding:9px 10px;font-family:'Syne',sans-serif;font-weight:700;color:${saldoInicial>=0?'var(--g)':'var(--rd)'}">${brl(saldoInicial)}</td>
+  </tr>`;
+
+  rows.forEach(r=>{
+    const isProj=!!r.isProj;
+    const op=isProj?'style="opacity:.6"':'';
+    const saldoColor=r.saldo!=null?(r.saldo>=0?'var(--g)':'var(--rd)'):'var(--mu)';
+    const resColor=r.mc.bal>=0?'var(--g)':'var(--rd)';
+    tBody+=`<tr ${op}>
+      <td style="padding:9px 10px;font-weight:${isProj?400:600};color:${isProj?'var(--mu)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]}${isProj?' <span style="font-size:9px;color:var(--mu);font-style:italic">(proj.)</span>':''}</td>
+      <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':'var(--g)'}">${r.hasData||r.isProj?brl(r.mc.rev):'—'}</td>
+      <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':'var(--rd)'}">${r.hasData||r.isProj?brl(r.mc.cos):'—'}</td>
+      <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':resColor}">${r.hasData||r.isProj?brl(r.mc.bal):'—'}</td>
+      <td class="r" style="padding:9px 10px;font-family:'Syne',sans-serif;font-weight:700;color:${r.saldo!=null?saldoColor:'var(--mu)'}">${r.saldo!=null?brl(r.saldo):'—'}</td>
+    </tr>`;
+  });
+
+  tBody+=`<tr class="tot">
+    <td style="padding:9px 10px">Total histórico (${withData.length} meses)</td>
+    <td class="r" style="padding:9px 10px;color:var(--g)">${brl(totalEntradas)}</td>
+    <td class="r" style="padding:9px 10px;color:var(--rd)">${brl(totalSaidas)}</td>
+    <td class="r" style="padding:9px 10px;color:${totalRes>=0?'var(--g)':'var(--rd)'}">${brl(totalRes)}</td>
+    <td></td>
+  </tr>`;
+
+  const lastProjRow=rows.filter(r=>r.isProj).pop();
+  if(lastProjRow){
+    tBody+=`<tr style="background:rgba(167,139,250,.05)">
+      <td style="padding:9px 10px;font-style:italic;color:var(--mu)">Saldo projetado Dez/26</td>
+      <td colspan="3"></td>
+      <td class="r" style="padding:9px 10px;font-family:'Syne',sans-serif;font-weight:700;color:${lastProjRow.saldo>=0?'var(--pu)':'var(--rd)'}">≈ ${brl(lastProjRow.saldo)}</td>
+    </tr>`;
+  }
+
+  el.innerHTML=`
+  <div class="sh-title"><span>📊 Fluxo de Caixa 2026</span></div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">Saldo de abertura do período</div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="color:var(--tx2);font-size:12px;flex:1;min-width:220px">Informe o saldo real em caixa no início do período. Isso calibra toda a projeção acumulada.</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:13px;font-weight:600;color:var(--mu)">R$</span>
+        <input id="cf-saldo-ini" type="number" step="0.01" value="${saldoInicial}"
+          style="background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:8px;padding:7px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;width:140px;transition:.2s"
+          onfocus="this.style.borderColor='var(--g)'" onblur="this.style.borderColor='var(--bdr)'">
+        <button class="btn grn" onclick="saveSaldoInicial()">✓ Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="g4" style="margin-bottom:14px">
+    <div class="mc green"><div class="ml">Saldo de abertura</div><div class="mv g">${brl(saldoInicial)}</div></div>
+    <div class="mc ${totalRes>=0?'green':'red'}"><div class="ml">Resultado histórico</div><div class="mv ${totalRes>=0?'g':'r'}">${brl(totalRes)}</div><div class="mv-sub">${withData.length} meses lançados</div></div>
+    <div class="mc ${saldoAtual>=0?'green':'red'}"><div class="ml">Saldo atual estimado</div><div class="mv ${saldoAtual>=0?'g':'r'}">${brl(saldoAtual)}</div></div>
+    <div class="mc ${reserva>0&&saldoAtual>=reserva?'green':'amber'}"><div class="ml">Reserva ideal (3 meses)</div><div class="mv ${reserva>0&&saldoAtual>=reserva?'g':'a'}">${brl(reserva)}</div><div class="mv-sub">média de custos × 3</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">Saldo acumulado — histórico (verde) e projeção (roxo tracejado)</div>
+    <div style="height:240px"><canvas id="cf-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Entradas × Saídas × Resultado × Saldo por mês</div>
+    <div style="overflow-x:auto">
+      <table class="dt">
+        <thead><tr>
+          <th>Mês</th>
+          <th class="r">Entradas (R$)</th>
+          <th class="r">Saídas (R$)</th>
+          <th class="r">Resultado (R$)</th>
+          <th class="r">Saldo (R$)</th>
+        </tr></thead>
+        <tbody>${tBody}</tbody>
+      </table>
+    </div>
+  </div>`;
+
+  // Draw chart
+  const ctx=e('cf-chart'); if(!ctx) return;
+  if(S.charts.cf){S.charts.cf.destroy();S.charts.cf=null;}
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gridC=isDark?'rgba(30,45,69,.6)':'rgba(200,211,232,.5)';
+  const tickC=isDark?'#6b7fa3':'#8494b0';
+  S.charts.cf=new Chart(ctx.getContext('2d'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Entradas',data:entData,backgroundColor:'rgba(0,229,160,.4)',borderColor:'rgba(0,229,160,.8)',borderWidth:1,borderRadius:4,order:2},
+        {label:'Saídas',data:saiData,backgroundColor:'rgba(255,87,87,.4)',borderColor:'rgba(255,87,87,.8)',borderWidth:1,borderRadius:4,order:3},
+        {label:'Saldo histórico',data:histLine,type:'line',borderColor:'rgba(0,229,160,.9)',backgroundColor:'rgba(0,229,160,.07)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'rgba(0,229,160,.9)',tension:.3,fill:true,spanGaps:false,order:1},
+        {label:'Projeção de saldo',data:projLine,type:'line',borderColor:'rgba(167,139,250,.8)',backgroundColor:'transparent',borderWidth:2,borderDash:[6,4],pointRadius:4,pointBackgroundColor:'rgba(167,139,250,.8)',tension:.3,fill:false,spanGaps:false,order:0},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:tickC,font:{size:11,family:'Inter'},boxWidth:12}}},
+      scales:{
+        x:{grid:{color:gridC},ticks:{color:tickC,font:{size:11}}},
+        y:{grid:{color:gridC},ticks:{color:tickC,font:{size:11},callback:v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}},
+      }
+    }
+  });
+}
+
+async function saveSaldoInicial() {
+  const val=parseFloat(e('cf-saldo-ini')?.value||0);
+  try{
+    await api('PUT','/api/settings',{saldo_inicial:val.toFixed(2)});
+    S.settings.saldo_inicial=String(val.toFixed(2));
+    renderCashflowTab();
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+  } catch(err){ syncLabel('Erro','error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONTAS A PAGAR / RECEBER
+// ══════════════════════════════════════════════════════════════════════════════
+async function renderContasTab() {
+  const el=e('tab-contas'); if(!el) return;
+  el.innerHTML='<div class="sh-title">💳 Contas</div><div style="color:var(--mu);font-size:12px;padding:20px;text-align:center">Carregando…</div>';
+  try{
+    const [recv,pay]=await Promise.all([api('GET','/api/receivables'),api('GET','/api/payables')]);
+    S.receivables=recv; S.payables=pay;
+    drawContasTab();
+  } catch(err){ el.innerHTML=`<div style="color:var(--rd);padding:20px">${err.message}</div>`; }
+}
+
+function drawContasTab() {
+  const el=e('tab-contas'); if(!el) return;
+  const sub=S.contasSubTab||'receber';
+  const isRecv=sub==='receber';
+  const items=isRecv?S.receivables:S.payables;
+  const today=new Date().toISOString().slice(0,10);
+
+  const pending=items.filter(i=>i.status==='pendente');
+  const done=items.filter(i=>i.status!=='pendente');
+  const totalPend=pending.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const totalDone=done.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const overdue=pending.filter(i=>i.due_date&&i.due_date<today);
+
+  const fmtDate=d=>d?d.split('-').reverse().join('/'):'—';
+
+  const pendRows=pending.map(item=>{
+    const ovd=item.due_date&&item.due_date<today;
+    const dueFmt=fmtDate(item.due_date);
+    return `<tr>
+      <td style="padding:9px 8px;color:${ovd?'var(--rd)':'var(--tx2)'};font-weight:${ovd?'600':'400'}">${dueFmt}${ovd?' ⚠':''}</td>
+      <td style="padding:9px 8px;font-weight:600">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu);font-weight:400">${esc(item.client_name)}</span>`:''}</td>
+      <td class="r" style="padding:9px 8px;color:${isRecv?'var(--g)':'var(--rd)'};font-family:'Syne',sans-serif;font-weight:700">${brl(item.amount)}</td>
+      <td style="padding:9px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
+      <td style="padding:9px 8px"><span class="status-badge ${ovd?'s-vencido':'s-pendente'}">${ovd?'Vencida':'Pendente'}</span></td>
+      <td style="padding:9px 8px">
+        <div style="display:flex;gap:4px">
+          <button class="btn sm grn" onclick="markConta('${sub}',${item.id})" title="Marcar como ${isRecv?'recebido':'pago'}">✓ ${isRecv?'Recebido':'Pago'}</button>
+          <button class="btn sm blu" onclick="openContaModal('${sub}',${item.id})" title="Editar">✎</button>
+          <button class="del-btn" onclick="deleteConta('${sub}',${item.id})" title="Excluir">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const doneRows=done.map(item=>{
+    const dateFmt=fmtDate(item.received_date||item.paid_date||'');
+    return `<tr style="opacity:.65">
+      <td style="padding:7px 8px;color:var(--mu)">${dateFmt}</td>
+      <td style="padding:7px 8px">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu)">${esc(item.client_name)}</span>`:''}</td>
+      <td class="r" style="padding:7px 8px;color:var(--mu);font-weight:600">${brl(item.amount)}</td>
+      <td style="padding:7px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
+      <td style="padding:7px 8px"><span class="status-badge ${isRecv?'s-recebido':'s-pago'}">${isRecv?'Recebido':'Pago'}</span></td>
+      <td style="padding:7px 8px">
+        <button class="del-btn" onclick="deleteConta('${sub}',${item.id})" title="Excluir">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const thCols=`<th style="min-width:90px">Vencimento</th>
+    <th style="min-width:180px">${isRecv?'Descrição / Cliente':'Descrição'}</th>
+    <th class="r" style="min-width:100px">Valor</th>
+    <th style="min-width:100px">Categoria</th>
+    <th style="min-width:80px">Status</th>
+    <th style="min-width:160px"></th>`;
+
+  el.innerHTML=`
+  <div class="sh-title">
+    <span>💳 Contas</span>
+    <button class="btn sm grn" onclick="openContaModal('${sub}')">+ Nova conta a ${isRecv?'receber':'pagar'}</button>
+  </div>
+
+  <div class="ctab-bar">
+    <button class="ctab ${sub==='receber'?'active':''}" onclick="S.contasSubTab='receber';drawContasTab()">📥 A Receber</button>
+    <button class="ctab ${sub==='pagar'?'active':''}" onclick="S.contasSubTab='pagar';drawContasTab()">📤 A Pagar</button>
+  </div>
+
+  <div class="g3" style="margin-bottom:14px">
+    <div class="mc ${isRecv?'green':'red'}">
+      <div class="ml">${isRecv?'A receber':'A pagar'} (pendente)</div>
+      <div class="mv ${isRecv?'g':'r'}">${brl(totalPend)}</div>
+      <div class="mv-sub">${pending.length} conta${pending.length!==1?'s':''}</div>
+    </div>
+    <div class="mc ${overdue.length?'red':'green'}">
+      <div class="ml">Vencidas / atrasadas</div>
+      <div class="mv ${overdue.length?'r':'g'}">${overdue.length}</div>
+      <div class="mv-sub">${overdue.length?'Atenção necessária':'Em dia ✓'}</div>
+    </div>
+    <div class="mc purple">
+      <div class="ml">${isRecv?'Total recebido':'Total pago'} (histórico)</div>
+      <div class="mv p">${brl(totalDone)}</div>
+      <div class="mv-sub">${done.length} conta${done.length!==1?'s':''}</div>
+    </div>
+  </div>
+
+  ${pending.length?`
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+      <div class="ct" style="margin-bottom:0;color:${isRecv?'var(--g)':'var(--rd)'}">${isRecv?'A Receber — Pendentes':'A Pagar — Pendentes'}</div>
+      <span style="font-size:11px;color:var(--mu)">${brl(totalPend)}</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${pendRows}</tbody></table>
+    </div>
+  </div>`:`<div class="al alg" style="margin-bottom:14px">Nenhuma conta ${isRecv?'a receber':'a pagar'} pendente. 🎉</div>`}
+
+  ${done.length?`
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr)">
+      <div class="ct" style="margin-bottom:0;color:var(--mu)">${isRecv?'Recebidas':'Pagas'} — histórico (${done.length})</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${doneRows}</tbody></table>
+    </div>
+  </div>`:''}`;
+}
+
+function openContaModal(type, id=null) {
+  const isRecv=type==='receber';
+  if(isRecv){
+    S._editRecvId=id;
+    e('recv-modal-title').innerHTML=`${id?'Editar':'Nova'} Conta a Receber <button class="btn sm" onclick="closeRecvModal()">✕</button>`;
+    // Populate category select
+    const sel=e('recv-cat');
+    sel.innerHTML=S.revCats.map(c=>`<option value="${c.slug}">${c.label}</option>`).join('');
+    // Fill if editing
+    if(id){
+      const item=S.receivables.find(r=>r.id===id);
+      if(item){
+        e('recv-desc').value=item.description||'';
+        e('recv-client').value=item.client_name||'';
+        e('recv-amount').value=item.amount||'';
+        e('recv-due').value=item.due_date||'';
+        sel.value=item.category||'servico';
+        e('recv-notes').value=item.notes||'';
+      }
+    } else {
+      e('recv-desc').value=''; e('recv-client').value=''; e('recv-amount').value=''; e('recv-due').value=''; e('recv-notes').value='';
+    }
+    e('recv-err').textContent='';
+    e('recv-overlay').style.display='flex';
+  } else {
+    S._editPayId=id;
+    e('pay-modal-title').innerHTML=`${id?'Editar':'Nova'} Conta a Pagar <button class="btn sm" onclick="closePayModal()">✕</button>`;
+    const sel=e('pay-cat');
+    sel.innerHTML=S.costCats.map(c=>`<option value="${c.slug}">${c.label}</option>`).join('');
+    if(id){
+      const item=S.payables.find(p=>p.id===id);
+      if(item){
+        e('pay-desc').value=item.description||'';
+        e('pay-amount').value=item.amount||'';
+        e('pay-due').value=item.due_date||'';
+        sel.value=item.category||'operacional';
+        e('pay-notes').value=item.notes||'';
+      }
+    } else {
+      e('pay-desc').value=''; e('pay-amount').value=''; e('pay-due').value=''; e('pay-notes').value='';
+    }
+    e('pay-err').textContent='';
+    e('pay-overlay').style.display='flex';
+  }
+}
+function closeRecvModal(){ e('recv-overlay').style.display='none'; }
+function closePayModal(){ e('pay-overlay').style.display='none'; }
+
+async function submitRecv() {
+  const desc=e('recv-desc').value.trim();
+  const amount=parseFloat(e('recv-amount').value||0);
+  if(!desc||!amount){ e('recv-err').textContent='Preencha descrição e valor.'; return; }
+  const data={description:desc,client_name:e('recv-client').value.trim(),amount,due_date:e('recv-due').value,category:e('recv-cat').value,notes:e('recv-notes').value.trim()};
+  try{
+    if(S._editRecvId){
+      await api('PUT',`/api/receivables/${S._editRecvId}`,data);
+      const idx=S.receivables.findIndex(r=>r.id===S._editRecvId);
+      if(idx>=0) S.receivables[idx]={...S.receivables[idx],...data};
+    } else {
+      const row=await api('POST','/api/receivables',data);
+      S.receivables.push(row);
+    }
+    closeRecvModal(); drawContasTab();
+  } catch(err){ e('recv-err').textContent=err.message; }
+}
+
+async function submitPay() {
+  const desc=e('pay-desc').value.trim();
+  const amount=parseFloat(e('pay-amount').value||0);
+  if(!desc||!amount){ e('pay-err').textContent='Preencha descrição e valor.'; return; }
+  const data={description:desc,amount,due_date:e('pay-due').value,category:e('pay-cat').value,notes:e('pay-notes').value.trim()};
+  try{
+    if(S._editPayId){
+      await api('PUT',`/api/payables/${S._editPayId}`,data);
+      const idx=S.payables.findIndex(p=>p.id===S._editPayId);
+      if(idx>=0) S.payables[idx]={...S.payables[idx],...data};
+    } else {
+      const row=await api('POST','/api/payables',data);
+      S.payables.push(row);
+    }
+    closePayModal(); drawContasTab();
+  } catch(err){ e('pay-err').textContent=err.message; }
+}
+
+async function markConta(type, id) {
+  const isRecv=type==='receber';
+  const today=new Date().toISOString().slice(0,10);
+  const items=isRecv?S.receivables:S.payables;
+  const item=items.find(i=>i.id===id); if(!item) return;
+  const ok=await confirm2(
+    `Marcar como ${isRecv?'recebido':'pago'}`,
+    `Confirmar recebimento de <strong>${brl(item.amount)}</strong> — <strong>${esc(item.description)}</strong>?`,
+    isRecv?'✓ Recebido':'✓ Pago','grn'
+  );
+  if(!ok) return;
+  const newStatus=isRecv?'recebido':'pago';
+  const dateField=isRecv?'received_date':'paid_date';
+  const updated={...item,status:newStatus,[dateField]:today};
+  try{
+    if(isRecv) await api('PUT',`/api/receivables/${id}`,updated);
+    else       await api('PUT',`/api/payables/${id}`,updated);
+    const idx=items.findIndex(i=>i.id===id);
+    if(idx>=0) items[idx]=updated;
+    drawContasTab();
+  } catch(err){ alert(err.message); }
+}
+
+async function deleteConta(type, id) {
+  const isRecv=type==='receber';
+  const ok=await confirm2('Excluir conta','Deseja excluir esta conta?','Excluir','red');
+  if(!ok) return;
+  try{
+    if(isRecv){ await api('DELETE',`/api/receivables/${id}`); S.receivables=S.receivables.filter(r=>r.id!==id); }
+    else       { await api('DELETE',`/api/payables/${id}`);   S.payables=S.payables.filter(p=>p.id!==id); }
+    drawContasTab();
+  } catch(err){ alert(err.message); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

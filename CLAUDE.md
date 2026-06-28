@@ -139,6 +139,31 @@ newClients = qtd com is_new_client=1
 5. Variables: `DATA_DIR=/data` e `SECRET_KEY=valor-secreto`
 6. URL gerada é a URL definitiva (passar para Diego e Carla)
 
+## Banco de dados — tabelas adicionadas (v2)
+
+```sql
+categories   -- id, type(revenue/cost), slug, label, color, sort_order, active
+settings     -- key, value  (ex: saldo_inicial)
+receivables  -- id, description, client_name, amount, due_date, received_date, status, category, notes
+payables     -- id, description, amount, due_date, paid_date, status, category, notes
+```
+
+## Novos endpoints (v2)
+
+- `GET/POST /api/categories` — listar / criar categoria
+- `PUT/DELETE /api/categories/<id>` — editar label+cor / desativar
+- `GET/PUT /api/settings` — configurações (saldo_inicial)
+- `GET/POST /api/receivables` — contas a receber
+- `PUT/DELETE /api/receivables/<id>`
+- `GET/POST /api/payables` — contas a pagar
+- `PUT/DELETE /api/payables/<id>`
+
+## Novas funcionalidades (v2)
+
+- **Categorias dinâmicas** — modal ⚙ Categorias no topbar, add/edit cor+label/delete
+- **Fluxo de Caixa** — aba 📊 Fluxo: saldo inicial configurável, gráfico histórico + projeção até Dez/26
+- **Contas a Pagar/Receber** — aba 💳 Contas com sub-tabs, mark as pago/recebido, alertas de vencimento
+
 ## Pendências / melhorias possíveis
 
 - [ ] Migrar banco para PostgreSQL se Railway volume der problema
