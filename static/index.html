@@ -45,7 +45,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .login-err{font-size:11px;color:var(--rd);margin-top:10px;min-height:16px}
 
 /* ══ TOPBAR ═══════════════════════════════════════════════════════════════════ */
-.topbar{background:var(--s1);border-bottom:1px solid var(--bdr);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:300;gap:8px;box-shadow:0 1px 0 var(--bdr)}
+.topbar{background:var(--s1);border-bottom:1px solid var(--bdr);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:300;gap:8px;box-shadow:0 1px 0 var(--bdr)}
 .topbar-logo{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
 .topbar-logo .dot{width:8px;height:8px;background:var(--g);border-radius:50%;display:inline-block}
 .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -55,9 +55,9 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .sync-badge.error{color:var(--rd);border-color:rgba(255,87,87,.3)}
 
 /* ══ NAV ══════════════════════════════════════════════════════════════════════ */
-.nav{background:var(--s1);border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;gap:1px;overflow-x:auto;position:sticky;top:53px;z-index:299;scrollbar-width:none}
+.nav{background:var(--s1);border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;gap:1px;overflow-x:auto;position:sticky;top:52px;z-index:299;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
-.mn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;padding:10px 13px;border:none;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap;text-transform:uppercase;transition:.15s;border-bottom:2px solid transparent;position:relative;top:1px}
+.mn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;padding:10px 13px;border:none;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap;text-transform:uppercase;transition:all .15s ease;border-bottom:2px solid transparent;position:relative;top:1px}
 .mn:hover:not(.active){color:var(--tx)}
 .mn.active{color:var(--g);border-bottom-color:var(--g)}
 .mn.badge::after{content:'';position:absolute;top:8px;right:6px;width:5px;height:5px;background:var(--am);border-radius:50%}
@@ -72,9 +72,9 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .g6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
 
 /* ══ CARDS ════════════════════════════════════════════════════════════════════ */
-.card{background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:var(--sh);transition:border-color .2s}
+.card{background:var(--s1);border:1px solid var(--bdr);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.25);transition:border-color .2s}
 .card:hover{border-color:var(--bdr2)}
-.ct{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--mu);margin-bottom:12px;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;justify-content:space-between}
+.ct{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--mu);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;justify-content:space-between}
 .ct span{color:var(--g)}
 .sh-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;letter-spacing:-.2px}
 
@@ -101,7 +101,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .sum-sub{font-size:10px;color:var(--mu)}
 
 /* ══ BUTTONS ══════════════════════════════════════════════════════════════════ */
-.btn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:6px 12px;border-radius:8px;border:1.5px solid var(--bdr);cursor:pointer;background:transparent;color:var(--mu);transition:.15s;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.btn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px 13px;border-radius:8px;border:1.5px solid var(--bdr);cursor:pointer;background:transparent;color:var(--mu);transition:all .15s ease;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .btn:hover{color:var(--tx);border-color:var(--mu)}
 .btn.grn{border-color:rgba(0,229,160,.4);color:var(--g)}.btn.grn:hover{background:rgba(0,229,160,.1);border-color:var(--g)}
 .btn.red{border-color:rgba(255,87,87,.4);color:var(--rd)}.btn.red:hover{background:rgba(255,87,87,.1);border-color:var(--rd)}
@@ -120,7 +120,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .etable-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bdr);background:var(--s1)}
 .etable{width:100%;border-collapse:collapse;font-size:12px}
 .etable th{background:var(--s2);color:var(--mu);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
-.etable td{padding:3px 4px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.etable td{padding:10px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle}
 .etable tr:last-child td{border-bottom:none}
 .etable tr:hover td{background:rgba(255,255,255,.015)}
 [data-theme="light"] .etable tr:hover td{background:rgba(0,0,0,.02)}
@@ -276,7 +276,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 @media(max-width:760px){.g2,.g3,.g4,.g5,.g6{grid-template-columns:1fr!important}.summary-bar{gap:10px}.sum-item{border-right:none;padding:6px 0;border-bottom:1px solid var(--bdr)}.sum-item:last-child{border-bottom:none}}
 
 /* ══ STATUS BADGES ═══════════════════════════════════════════════════════════ */
-.status-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:.04em;white-space:nowrap}
+.status-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:.04em;white-space:nowrap}
 .s-pendente{background:rgba(245,166,35,.12);color:var(--am)}
 .s-pago{background:rgba(0,229,160,.12);color:var(--g)}
 .s-recebido{background:rgba(0,229,160,.12);color:var(--g)}
@@ -322,6 +322,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
       <span id="user-name" style="font-size:11px;color:var(--mu);font-weight:500"></span>
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema"></button>
       <button class="btn sm" onclick="openCatsModal()">⚙ Categorias</button>
+      <button class="btn sm pur" onclick="openRecurringModal()">🔁 Recorrentes</button>
       <button class="btn sm" onclick="openGoalsModal()">🎯 Metas</button>
       <button class="btn sm pur" onclick="openBonusModal()">💰 Bônus</button>
       <button class="btn sm" onclick="doBackup()" title="Baixar backup JSON">💾 Backup</button>
@@ -510,6 +511,45 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
   </div>
 </div>
 
+<!-- Make Recurring Modal -->
+<div id="mkr-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeMakeRecurringModal()">
+  <div class="modal">
+    <div class="modal-title">🔁 Tornar Recorrente <button class="btn sm" onclick="closeMakeRecurringModal()">✕</button></div>
+    <div class="al alp" style="margin-bottom:14px;font-size:11px">A partir do próximo mês, este item será projetado automaticamente nos meses futuros.</div>
+    <div class="mrow"><label>Data de término (opcional)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="mkr-end-month" style="background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:8px;padding:8px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;flex:1">
+          <option value="">Mês (opcional)</option>
+          <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+          <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+          <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+          <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+        </select>
+        <select id="mkr-end-year" style="background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:8px;padding:8px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;flex:1">
+          <option value="">Ano (opcional)</option>
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+        </select>
+      </div>
+      <div class="hint">Deixe em branco para recorrência indefinida.</div>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeMakeRecurringModal()">Cancelar</button>
+      <button class="btn pur" onclick="submitMakeRecurring()">🔁 Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Recurring Management Modal -->
+<div id="rec-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeRecurringModal()">
+  <div class="modal modal-lg">
+    <div class="modal-title">🔁 Gerenciar Recorrentes <button class="btn sm" onclick="closeRecurringModal()">✕</button></div>
+    <div class="al alp" style="margin-bottom:14px;font-size:11px">Gerencie receitas e despesas recorrentes. Itens marcados como "projetados" aparecem nos meses futuros até o encerramento.</div>
+    <div id="rec-list"></div>
+    <div class="mfooter"><button class="btn" onclick="closeRecurringModal()">Fechar</button></div>
+  </div>
+</div>
+
 <!-- Conta a Pagar Modal -->
 <div id="pay-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closePayModal()">
   <div class="modal">
@@ -562,6 +602,7 @@ const S = {
   settings: {},
   receivables: [],
   payables: [],
+  recurring: [],
   contasSubTab: 'receber',
   _editRecvId: null,
   _editPayId: null,
@@ -666,17 +707,19 @@ function confirmResolve(v){ e('confirm-overlay').style.display='none'; if(_cr){_
 // DATA
 // ══════════════════════════════════════════════════════════════════════════════
 async function loadData() {
-  const [months, goals, cats, settings] = await Promise.all([
+  const [months, goals, cats, settings, recurring] = await Promise.all([
     api('GET','/api/months'),
     api('GET','/api/goals'),
     api('GET','/api/categories'),
     api('GET','/api/settings'),
+    api('GET','/api/recurring'),
   ]);
   S.months=months; S.map={}; months.forEach(m=>S.map[m.id]=m);
   S.goals=goals;
   S.revCats  = cats.revenue || [];
   S.costCats = cats.cost    || [];
   S.settings = settings;
+  S.recurring = recurring || [];
   applyCatData();
 }
 
@@ -716,17 +759,24 @@ function trailing12Rev(monthId) {
   return slice.reduce((s,mo)=>s+mo.revenues.reduce((r,x)=>r+(parseFloat(x.amount)||0),0),0);
 }
 function calcMonth(m) {
-  const rev=m.revenues.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-  const cos=m.costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  // Realizado = only status='realizado' or null (legacy rows)
+  const realRevs=m.revenues.filter(r=>!r.status||r.status==='realizado');
+  const realCoss=m.costs.filter(c=>!c.status||c.status==='realizado');
+  // Projetado = ALL items (realizado + projetado)
+  const rev=realRevs.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const cos=realCoss.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const revProj=m.revenues.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const cosProj=m.costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
   const bal=rev-cos;
+  const balProj=revProj-cosProj;
   const margin=rev>0?(bal/rev*100):0;
-  const clients=m.revenues.filter(r=>(parseFloat(r.amount)||0)>0).length;
-  const newClients=m.revenues.filter(r=>r.is_new_client&&(parseFloat(r.amount)||0)>0).length;
+  const clients=realRevs.filter(r=>(parseFloat(r.amount)||0)>0).length;
+  const newClients=realRevs.filter(r=>r.is_new_client&&(parseFloat(r.amount)||0)>0).length;
   const avgTicket=clients>0?rev/clients:0;
   let dasEst=0;
   if(m.regime==='MEI') dasEst=(parseFloat(m.mei_das)||86.90)*2;
   else dasEst=rev*dasEf(trailing12Rev(m.id));
-  return{rev,cos,bal,margin,clients,newClients,avgTicket,dasEst};
+  return{rev,cos,bal,margin,clients,newClients,avgTicket,dasEst,revProj,cosProj,balProj};
 }
 function annualMetrics() {
   let totalRev=0,totalCos=0,ms=[];
@@ -1489,9 +1539,26 @@ function renderMonthTab(mid) {
   const costCatSel=`<select class="cell-select" style="width:110px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
     ${COST_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
 
-  const revRows=m.revenues.map(r=>`
-    <tr class="${r.is_new_client?'new-client':''}">
+  const revRows=m.revenues.map(r=>{
+    const isProj=r.status==='projetado';
+    const hasRec=!!r.recurring_id;
+    const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
+    if(isProj){
+      return `<tr style="${rowStyle}">
+        <td style="padding-left:8px">
+          <span style="font-size:12px;color:var(--tx2)">${esc(r.client_name)||'—'}</span>
+          <span class="status-badge s-pendente" style="margin-left:6px;background:rgba(167,139,250,.15);color:var(--pu)">🔁 Projetado</span>
+        </td>
+        <td><span style="font-family:'Syne',sans-serif;font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(r.amount)||'0,00'}</span></td>
+        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
+        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(r.category)}</span></td>
+        <td><button class="btn sm grn" onclick="confirmItem('revenue',${r.id})">✓ Confirmar</button></td>
+        <td><button class="del-btn" onclick="deleteRevenue(${mid},${r.id})">✕</button></td>
+      </tr>`;
+    }
+    return `<tr class="${r.is_new_client?'new-client':''}">
       <td style="padding-left:${r.is_new_client?'20px':'8px'}">
+        ${hasRec?'<span style="color:var(--pu);font-size:10px;margin-right:4px" title="Recorrente">🔁</span>':''}
         <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)">
       </td>
       <td><input class="cell-input amount" type="text" value="${fmtAmt(r.amount)}" placeholder="0,00"
@@ -1504,13 +1571,36 @@ function renderMonthTab(mid) {
           ${REV_CATS.map(c=>`<option value="${c}" ${c===r.category?'selected':''}>${catLabel(c)}</option>`).join('')}
         </select>
       </td>
-      <td><button class="new-btn ${r.is_new_client?'active':''}" onclick="toggleNewClient(${mid},${r.id},this)">${r.is_new_client?'★ Novo':'☆ Novo'}</button></td>
+      <td style="white-space:nowrap">
+        <button class="new-btn ${r.is_new_client?'active':''}" onclick="toggleNewClient(${mid},${r.id},this)">${r.is_new_client?'★ Novo':'☆ Novo'}</button>
+        ${!hasRec?`<button class="del-btn" title="Tornar recorrente" onclick="openMakeRecurringModal('revenue',${r.id})" style="font-size:11px;width:22px;height:22px;color:var(--pu)">🔁</button>`:''}
+      </td>
       <td><button class="del-btn" onclick="deleteRevenue(${mid},${r.id})">✕</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
-  const costRows=m.costs.map(c=>`
-    <tr>
-      <td><input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)"></td>
+  const costRows=m.costs.map(c=>{
+    const isProj=c.status==='projetado';
+    const hasRec=!!c.recurring_id;
+    const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
+    if(isProj){
+      return `<tr style="${rowStyle}">
+        <td>
+          <span style="font-size:12px;color:var(--tx2)">${esc(c.name)||'—'}</span>
+          <span class="status-badge s-pendente" style="margin-left:6px;background:rgba(167,139,250,.15);color:var(--pu)">🔁 Projetado</span>
+        </td>
+        <td><span style="font-family:'Syne',sans-serif;font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(c.amount)||'0,00'}</span></td>
+        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
+        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(c.category)}</span></td>
+        <td><button class="btn sm grn" onclick="confirmItem('cost',${c.id})">✓ Confirmar</button></td>
+        <td><button class="del-btn" onclick="deleteCost(${mid},${c.id})">✕</button></td>
+      </tr>`;
+    }
+    return `<tr>
+      <td>
+        ${hasRec?'<span style="color:var(--pu);font-size:10px;margin-right:4px" title="Recorrente">🔁</span>':''}
+        <input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)">
+      </td>
       <td><input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
         onfocus="this.value=this.value.replace(/\\./g,'').replace(',','.')"
         onblur="this.value=fmtAmt(this.value.replace(/\\./g,'').replace(',','.'));onCostChange(${mid},${c.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"
@@ -1521,8 +1611,12 @@ function renderMonthTab(mid) {
           ${COST_CATS.map(cat=>`<option value="${cat}" ${cat===c.category?'selected':''}>${catLabel(cat)}</option>`).join('')}
         </select>
       </td>
+      <td style="white-space:nowrap">
+        ${!hasRec?`<button class="del-btn" title="Tornar recorrente" onclick="openMakeRecurringModal('cost',${c.id})" style="font-size:11px;width:22px;height:22px;color:var(--pu)">🔁</button>`:''}
+      </td>
       <td><button class="del-btn" onclick="deleteCost(${mid},${c.id})">✕</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const dasInfo=m.regime==='MEI'
     ? `MEI · DAS <strong>${brl(parseFloat(m.mei_das)||86.90)}</strong> × 2 sócios = <strong>${brl((parseFloat(m.mei_das)||86.90)*2)}</strong>`
@@ -1561,6 +1655,8 @@ function renderMonthTab(mid) {
 
   <div id="summary-${mid}" class="summary-bar"></div>
 
+  <div id="proj-panel-${mid}"></div>
+
   <div class="g2">
     <!-- RECEITAS -->
     <div>
@@ -1575,7 +1671,7 @@ function renderMonthTab(mid) {
               <th style="min-width:95px;text-align:right">R$</th>
               <th style="min-width:70px">Data</th>
               <th style="min-width:105px">Categoria</th>
-              <th style="min-width:65px"></th>
+              <th style="min-width:80px"></th>
               <th style="width:28px"></th>
             </tr></thead>
             <tbody>${revRows}</tbody>
@@ -1603,6 +1699,7 @@ function renderMonthTab(mid) {
               <th style="min-width:90px;text-align:right">R$</th>
               <th style="min-width:70px">Data</th>
               <th style="min-width:105px">Categoria</th>
+              <th style="min-width:36px"></th>
               <th style="width:28px"></th>
             </tr></thead>
             <tbody>${costRows}</tbody>
@@ -1638,15 +1735,53 @@ function updateSummary(mid) {
   const balCol=sc.bal>=0?'var(--g)':'var(--rd)';
   const colors={g:'var(--g)',a:'var(--am)',r:'var(--rd)'};
   el.innerHTML=`
-    <div class="sum-item"><div class="sum-lbl">Receita bruta</div><div class="sum-val" style="color:var(--g)">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes</div></div>
+    <div class="sum-item"><div class="sum-lbl">Receita realizada</div><div class="sum-val" style="color:var(--g)">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes</div></div>
     <div class="sum-item"><div class="sum-lbl">Ticket médio</div><div class="sum-val" style="color:var(--bl)">${brl(sc.avgTicket)}</div><div class="sum-sub">por cliente</div></div>
-    <div class="sum-item"><div class="sum-lbl">Despesas</div><div class="sum-val" style="color:var(--rd)">${brl(sc.cos)}</div></div>
-    <div class="sum-item"><div class="sum-lbl">Saldo</div><div class="sum-val" style="color:${balCol}">${brl(sc.bal)}</div></div>
+    <div class="sum-item"><div class="sum-lbl">Despesas realizadas</div><div class="sum-val" style="color:var(--rd)">${brl(sc.cos)}</div></div>
+    <div class="sum-item"><div class="sum-lbl">Saldo realizado</div><div class="sum-val" style="color:${balCol}">${brl(sc.bal)}</div></div>
     <div class="sum-item"><div class="sum-lbl">Margem</div><div class="sum-val" style="color:${colors[mc]}">${pct(sc.margin)}</div></div>
     ${sc.newClients>0?`<div class="sum-item"><div class="sum-lbl">Entrada clientes</div><div class="sum-val" style="color:var(--am)">★ ${sc.newClients} novo${sc.newClients>1?'s':''}</div></div>`:''}
   `;
   const rt=e(`rev-total-${mid}`);  if(rt) rt.textContent=brl(sc.rev);
   const ct=e(`cost-total-${mid}`); if(ct) ct.textContent=brl(sc.cos);
+
+  // Projetado × Realizado panel
+  const pp=e(`proj-panel-${mid}`); if(!pp) return;
+  const hasProj=m.revenues.some(r=>r.status==='projetado')||m.costs.some(c=>c.status==='projetado');
+  if(!hasProj&&sc.revProj===sc.rev&&sc.cosProj===sc.cos){ pp.innerHTML=''; return; }
+  const revPct=sc.revProj>0?Math.min(sc.rev/sc.revProj*100,100):100;
+  const cosPct=sc.cosProj>0?Math.min(sc.cos/sc.cosProj*100,100):100;
+  const balProjCol=sc.balProj>=0?'var(--g)':'var(--rd)';
+  const balRealCol=sc.bal>=0?'var(--g)':'var(--rd)';
+  pp.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.04)">
+    <div class="ct" style="color:var(--pu)">Projetado × Realizado</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:var(--mu)">Receita</span>
+          <span><span style="color:var(--g);font-weight:700">${brl(sc.rev)}</span> <span style="color:var(--mu)">/ ${brl(sc.revProj)}</span></span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${revPct}%;background:var(--g)"></div></div>
+        <div style="font-size:10px;color:var(--mu);margin-top:3px">${revPct.toFixed(0)}% realizado</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:var(--mu)">Despesa</span>
+          <span><span style="color:var(--rd);font-weight:700">${brl(sc.cos)}</span> <span style="color:var(--mu)">/ ${brl(sc.cosProj)}</span></span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${cosPct}%;background:var(--rd)"></div></div>
+        <div style="font-size:10px;color:var(--mu);margin-top:3px">${cosPct.toFixed(0)}% realizado</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Saldo</div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div><div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em">Projetado</div><div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:${balProjCol}">${brl(sc.balProj)}</div></div>
+          <div style="color:var(--mu)">→</div>
+          <div><div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em">Realizado</div><div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:${balRealCol}">${brl(sc.bal)}</div></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2439,6 +2574,232 @@ async function deleteConta(type, id) {
     else       { await api('DELETE',`/api/payables/${id}`);   S.payables=S.payables.filter(p=>p.id!==id); }
     drawContasTab();
   } catch(err){ alert(err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════════════════════
+function showToast(msg, duration=3000) {
+  let t=document.getElementById('_toast');
+  if(!t){ t=document.createElement('div'); t.id='_toast';
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--s1);border:1px solid var(--g);color:var(--g);padding:10px 18px;border-radius:10px;font-family:Syne,sans-serif;font-size:12px;font-weight:700;z-index:9999;box-shadow:var(--sh2);transition:opacity .3s';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{ t.style.opacity='0'; },duration);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RECURRING — CONFIRM ITEM
+// ══════════════════════════════════════════════════════════════════════════════
+async function confirmItem(type, id) {
+  const today = new Date().toISOString().slice(0,10);
+  const field = type === 'revenue' ? 'received_date' : 'paid_date';
+  const endpoint = type === 'revenue' ? `/api/revenues/${id}/confirm` : `/api/costs/${id}/confirm`;
+  syncLabel('Salvando…','saving');
+  try {
+    await api('POST', endpoint, { [field]: today });
+    const mid = _findMidForItem(type, id);
+    const updated = await api('GET', `/api/months/${mid}`);
+    if(mid) { S.map[mid]=updated; const idx=S.months.findIndex(x=>x.id===mid); if(idx>=0) S.months[idx]=updated; }
+    if(S.tab===`m${mid}`) renderMonthTab(mid);
+    updateDashboard();
+    syncLabel('Confirmado ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    showToast('Item confirmado como realizado ✓');
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+function _findMidForItem(type, id) {
+  for(const m of S.months) {
+    const list = type==='revenue' ? m.revenues : m.costs;
+    if(list && list.find(x=>x.id===id)) return m.id;
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RECURRING — MAKE RECURRING MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+let _mkRecType=null, _mkRecId=null;
+
+function openMakeRecurringModal(type, itemId) {
+  _mkRecType=type; _mkRecId=itemId;
+  e('mkr-overlay').style.display='flex';
+  e('mkr-end-month').value=''; e('mkr-end-year').value='';
+}
+function closeMakeRecurringModal(){ e('mkr-overlay').style.display='none'; }
+
+async function submitMakeRecurring() {
+  const ey=parseInt(e('mkr-end-year').value)||null;
+  const em=parseInt(e('mkr-end-month').value)||null;
+  const body={};
+  if(ey&&em){ body.end_year=ey; body.end_month=em; }
+  const endpoint = _mkRecType==='revenue' ? `/api/revenues/${_mkRecId}/make-recurring` : `/api/costs/${_mkRecId}/make-recurring`;
+  syncLabel('Salvando…','saving');
+  try {
+    const item = await api('POST', endpoint, body);
+    S.recurring.push(item);
+    const mid = _findMidForItem(_mkRecType, _mkRecId);
+    const updated = await api('GET', `/api/months/${mid}`);
+    if(mid){ S.map[mid]=updated; const idx=S.months.findIndex(x=>x.id===mid); if(idx>=0) S.months[idx]=updated; }
+    const allMonths = await api('GET','/api/months');
+    S.months=allMonths; S.map={}; allMonths.forEach(m=>S.map[m.id]=m);
+    closeMakeRecurringModal();
+    if(S.tab===`m${mid}`) renderMonthTab(mid);
+    updateDashboard();
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    showToast('Item adicionado como recorrente ✓');
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RECURRING — MANAGE MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+function openRecurringModal() {
+  renderRecurringList();
+  e('rec-overlay').style.display='flex';
+}
+function closeRecurringModal(){ e('rec-overlay').style.display='none'; }
+
+function renderRecurringList() {
+  const el=e('rec-list'); if(!el) return;
+  const revItems=S.recurring.filter(r=>r.type==='revenue');
+  const cosItems=S.recurring.filter(r=>r.type==='cost');
+  const mn=m=>MONTHS_PT[m-1];
+  const mkItem=item=>{
+    const end=item.end_year&&item.end_month?`${mn(item.end_month)}/${item.end_year}`:'Sem encerramento';
+    const endBadge=item.end_year&&item.end_month?`<span style="background:rgba(245,166,35,.15);color:var(--am);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;margin-left:6px">Encerra ${end}</span>`:'';
+    return `<div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <div style="flex:1;min-width:0">
+          <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px">${esc(item.description)}${item.client_name&&item.client_name!==item.description?` <span style="color:var(--mu);font-weight:400">(${esc(item.client_name)})</span>`:''}</span>
+          ${endBadge}
+          <div style="font-size:11px;color:var(--mu);margin-top:3px">Desde ${mn(item.start_month)}/${item.start_year} · ${brl(item.amount)}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="btn sm blu" onclick="openEditRecurring(${item.id})">✎ Editar</button>
+          <button class="btn sm am" onclick="openEndRecurring(${item.id})">⏹ Encerrar</button>
+          <button class="del-btn" onclick="deleteRecurring(${item.id})" title="Excluir recorrente e lançamentos futuros">✕</button>
+        </div>
+      </div>
+      <div id="rec-edit-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
+            <input id="rec-edit-amt-${item.id}" type="number" step="0.01" value="${item.amount}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none"></div>
+          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês</label>
+            <select id="rec-edit-em-${item.id}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+              <option value="">—</option>
+              ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}" ${item.end_month===i+1?'selected':''}>${mn}</option>`).join('')}
+            </select></div>
+          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra ano</label>
+            <select id="rec-edit-ey-${item.id}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+              <option value="">—</option>
+              <option value="2026" ${item.end_year===2026?'selected':''}>2026</option>
+              <option value="2027" ${item.end_year===2027?'selected':''}>2027</option>
+            </select></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn sm grn" onclick="submitEditRecurring(${item.id})">✓ Salvar</button>
+          <button class="btn sm" onclick="e('rec-edit-${item.id}').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+      <div id="rec-end-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
+        <div style="font-size:12px;color:var(--tx2);margin-bottom:8px">A partir de qual mês este item para de aparecer?</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <select id="rec-end-em-${item.id}" style="background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+            ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}">${mn}</option>`).join('')}
+          </select>
+          <select id="rec-end-ey-${item.id}" style="background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
+            <option value="2026">2026</option><option value="2027">2027</option>
+          </select>
+        </div>
+        <div style="font-size:10px;color:var(--mu);margin-bottom:8px">Os meses anteriores permanecem. A partir do mês selecionado, o item não será mais projetado.</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn sm am" onclick="submitEndRecurring(${item.id})">✓ Confirmar encerramento</button>
+          <button class="btn sm" onclick="e('rec-end-${item.id}').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+    </div>`;
+  };
+  el.innerHTML=`
+    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Receitas Recorrentes (${revItems.length})</div>
+    ${revItems.length?revItems.map(mkItem).join(''):'<div style="color:var(--mu);font-size:12px;margin-bottom:14px">Nenhuma receita recorrente cadastrada.</div>'}
+    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.05em;margin-top:14px;margin-bottom:8px">Despesas Recorrentes (${cosItems.length})</div>
+    ${cosItems.length?cosItems.map(mkItem).join(''):'<div style="color:var(--mu);font-size:12px">Nenhuma despesa recorrente cadastrada.</div>'}
+  `;
+}
+
+function openEditRecurring(id) {
+  // Hide all other edit forms first
+  document.querySelectorAll('[id^="rec-edit-"]').forEach(el=>{ if(el.id!==`rec-edit-${id}`) el.style.display='none'; });
+  document.querySelectorAll('[id^="rec-end-"]').forEach(el=>el.style.display='none');
+  const el=e(`rec-edit-${id}`);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+
+function openEndRecurring(id) {
+  document.querySelectorAll('[id^="rec-end-"]').forEach(el=>{ if(el.id!==`rec-end-${id}`) el.style.display='none'; });
+  document.querySelectorAll('[id^="rec-edit-"]').forEach(el=>el.style.display='none');
+  const el=e(`rec-end-${id}`);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function submitEditRecurring(id) {
+  const item=S.recurring.find(r=>r.id===id); if(!item) return;
+  const amt=parseFloat(e(`rec-edit-amt-${id}`)?.value||item.amount);
+  const em=parseInt(e(`rec-edit-em-${id}`)?.value)||null;
+  const ey=parseInt(e(`rec-edit-ey-${id}`)?.value)||null;
+  syncLabel('Salvando…','saving');
+  try {
+    const updated=await api('PUT',`/api/recurring/${id}`,{...item, amount:amt, end_month:em||null, end_year:ey||null});
+    const idx=S.recurring.findIndex(r=>r.id===id); if(idx>=0) S.recurring[idx]=updated;
+    const allMonths = await api('GET','/api/months');
+    S.months=allMonths; S.map={}; allMonths.forEach(m=>S.map[m.id]=m);
+    renderRecurringList();
+    if(S.tab!=='dashboard'){ const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
+    updateDashboard();
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    showToast('Recorrente atualizado ✓');
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+async function submitEndRecurring(id) {
+  const item=S.recurring.find(r=>r.id===id); if(!item) return;
+  const em=parseInt(e(`rec-end-em-${id}`)?.value)||1;
+  const ey=parseInt(e(`rec-end-ey-${id}`)?.value)||2026;
+  const ok=await confirm2('Encerrar recorrente',`Encerrar <strong>${esc(item.description)}</strong> a partir de <strong>${MONTHS_PT[em-1]}/${ey}</strong>?<br><small style="color:var(--mu)">Os lançamentos anteriores serão mantidos.</small>`,'Confirmar encerramento','am');
+  if(!ok) return;
+  syncLabel('Salvando…','saving');
+  try {
+    const updated=await api('PUT',`/api/recurring/${id}`,{...item, end_year:ey, end_month:em});
+    const idx=S.recurring.findIndex(r=>r.id===id); if(idx>=0) S.recurring[idx]=updated;
+    const allMonths = await api('GET','/api/months');
+    S.months=allMonths; S.map={}; allMonths.forEach(m=>S.map[m.id]=m);
+    renderRecurringList();
+    if(S.tab!=='dashboard'){ const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
+    updateDashboard();
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    showToast(`Recorrente encerrado a partir de ${MONTHS_PT[em-1]}/${ey} ✓`);
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+async function deleteRecurring(id) {
+  const item=S.recurring.find(r=>r.id===id); if(!item) return;
+  const ok=await confirm2('Excluir recorrente',`Excluir <strong>${esc(item.description)}</strong>? Todos os lançamentos futuros <em>projetados</em> serão removidos. Os já realizados permanecem.`,'Excluir','red');
+  if(!ok) return;
+  syncLabel('Salvando…','saving');
+  try {
+    await api('DELETE',`/api/recurring/${id}`);
+    S.recurring=S.recurring.filter(r=>r.id!==id);
+    const allMonths = await api('GET','/api/months');
+    S.months=allMonths; S.map={}; allMonths.forEach(m=>S.map[m.id]=m);
+    renderRecurringList();
+    if(S.tab!=='dashboard'){ const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
+    updateDashboard();
+    syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    showToast('Recorrente excluído ✓');
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

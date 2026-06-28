@@ -117,6 +117,20 @@ def init_db():
                 notes       TEXT    DEFAULT '',
                 created_at  TEXT    DEFAULT (datetime('now'))
             );
+            CREATE TABLE IF NOT EXISTS recurring_items (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                type        TEXT    NOT NULL,
+                description TEXT    NOT NULL,
+                client_name TEXT    DEFAULT '',
+                amount      REAL    DEFAULT 0,
+                category    TEXT    DEFAULT 'servico',
+                start_year  INTEGER NOT NULL,
+                start_month INTEGER NOT NULL,
+                end_year    INTEGER,
+                end_month   INTEGER,
+                active      INTEGER DEFAULT 1,
+                created_at  TEXT    DEFAULT (datetime('now'))
+            );
         ''')
 
         # Migrations for existing DBs
@@ -124,6 +138,10 @@ def init_db():
             "ALTER TABLE revenues ADD COLUMN category TEXT DEFAULT 'servico'",
             "ALTER TABLE revenues ADD COLUMN is_new_client INTEGER DEFAULT 0",
             "CREATE TABLE IF NOT EXISTS audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, username TEXT NOT NULL, action TEXT NOT NULL, detail TEXT DEFAULT '')",
+            "ALTER TABLE revenues ADD COLUMN recurring_id INTEGER",
+            "ALTER TABLE revenues ADD COLUMN status TEXT DEFAULT 'realizado'",
+            "ALTER TABLE costs ADD COLUMN recurring_id INTEGER",
+            "ALTER TABLE costs ADD COLUMN status TEXT DEFAULT 'realizado'",
         ]:
             try: c.execute(sql)
             except Exception: pass
@@ -348,7 +366,7 @@ def copy_previous(mid):
         if not prev: return jsonify({'error':'Mês anterior sem dados'}),404
 
         if kind == 'revenues':
-            prevs = c.execute('SELECT * FROM revenues WHERE month_id=? ORDER BY sort_order,id',(prev['id'],)).fetchall()
+            prevs = c.execute("SELECT * FROM revenues WHERE month_id=? AND (status IS NULL OR status='realizado') ORDER BY sort_order,id",(prev['id'],)).fetchall()
             if mode=='replace': c.execute('DELETE FROM revenues WHERE month_id=?',(mid,))
             for r in prevs:
                 c.execute('INSERT INTO revenues (month_id,client_name,amount,received_date,category,is_new_client,sort_order) VALUES (?,?,?,?,?,?,?)',
@@ -356,7 +374,7 @@ def copy_previous(mid):
             c.commit()
             rows = [dict(r) for r in c.execute('SELECT * FROM revenues WHERE month_id=? ORDER BY sort_order,id',(mid,)).fetchall()]
         else:
-            prevs = c.execute('SELECT * FROM costs WHERE month_id=? ORDER BY sort_order,id',(prev['id'],)).fetchall()
+            prevs = c.execute("SELECT * FROM costs WHERE month_id=? AND (status IS NULL OR status='realizado') ORDER BY sort_order,id",(prev['id'],)).fetchall()
             if mode=='replace': c.execute('DELETE FROM costs WHERE month_id=?',(mid,))
             for r in prevs:
                 c.execute('INSERT INTO costs (month_id,name,amount,payment_date,category,sort_order) VALUES (?,?,?,?,?,?)',
@@ -625,6 +643,185 @@ def delete_payable(pid):
     audit(request.user['username'], 'conta_pagar_excluída', f"ID {pid}")
     return jsonify({'success': True})
 
+# ── Recurring Items ────────────────────────────────────────────────────────────
+
+def _gen_recurring_rows(c, item):
+    """Generate projected revenue/cost rows for a recurring_item across matching months."""
+    months = c.execute('SELECT * FROM months ORDER BY year,month').fetchall()
+    sy, sm = item['start_year'], item['start_month']
+    ey, em = item['end_year'], item['end_month']
+    for m in months:
+        y, mo = m['year'], m['month']
+        after_start = (y > sy) or (y == sy and mo >= sm)
+        if ey and em:
+            before_end = (y < ey) or (y == ey and mo <= em)
+        else:
+            before_end = True
+        if not after_start or not before_end:
+            continue
+        iid = item['id']
+        if item['type'] == 'revenue':
+            ex = c.execute('SELECT id FROM revenues WHERE month_id=? AND recurring_id=?', (m['id'], iid)).fetchone()
+            if not ex:
+                c.execute('INSERT INTO revenues (month_id,client_name,amount,received_date,category,is_new_client,sort_order,recurring_id,status) VALUES (?,?,?,?,?,?,?,?,?)',
+                    (m['id'], item['client_name'] or item['description'], item['amount'], '', item['category'], 0, 999, iid, 'projetado'))
+        else:
+            ex = c.execute('SELECT id FROM costs WHERE month_id=? AND recurring_id=?', (m['id'], iid)).fetchone()
+            if not ex:
+                c.execute('INSERT INTO costs (month_id,name,amount,payment_date,category,sort_order,recurring_id,status) VALUES (?,?,?,?,?,?,?,?)',
+                    (m['id'], item['description'], item['amount'], '', item['category'], 999, iid, 'projetado'))
+
+@app.get('/api/recurring')
+@auth
+def get_recurring():
+    with db() as c:
+        rows = c.execute('SELECT * FROM recurring_items WHERE active=1 ORDER BY type,id').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.post('/api/recurring')
+@auth
+def create_recurring():
+    d = request.get_json() or {}
+    tp   = d.get('type', 'revenue')
+    desc = d.get('description', '').strip()
+    if not desc:
+        return jsonify({'error': 'Descrição obrigatória'}), 400
+    with db() as c:
+        cur = c.execute(
+            'INSERT INTO recurring_items (type,description,client_name,amount,category,start_year,start_month,end_year,end_month) VALUES (?,?,?,?,?,?,?,?,?)',
+            (tp, desc, d.get('client_name',''), float(d.get('amount',0)),
+             d.get('category','servico' if tp=='revenue' else 'operacional'),
+             int(d.get('start_year',2026)), int(d.get('start_month',1)),
+             d.get('end_year') or None, d.get('end_month') or None))
+        c.commit()
+        item = dict(c.execute('SELECT * FROM recurring_items WHERE id=?',(cur.lastrowid,)).fetchone())
+        _gen_recurring_rows(c, item)
+        c.commit()
+    audit(request.user['username'], 'recorrente_criado', desc)
+    return jsonify(item)
+
+@app.put('/api/recurring/<int:rid>')
+@auth
+def update_recurring(rid):
+    d = request.get_json() or {}
+    with db() as c:
+        item = c.execute('SELECT * FROM recurring_items WHERE id=?',(rid,)).fetchone()
+        if not item: return jsonify({'error':'Não encontrado'}),404
+        new_ey = d.get('end_year') or None
+        new_em = d.get('end_month') or None
+        new_amt = float(d.get('amount', item['amount']))
+        new_desc = d.get('description', item['description'])
+        new_client = d.get('client_name', item['client_name'])
+        new_cat = d.get('category', item['category'])
+        c.execute('UPDATE recurring_items SET description=?,client_name=?,amount=?,category=?,start_year=?,start_month=?,end_year=?,end_month=? WHERE id=?',
+            (new_desc, new_client, new_amt, new_cat,
+             int(d.get('start_year', item['start_year'])), int(d.get('start_month', item['start_month'])),
+             new_ey, new_em, rid))
+        tp = item['type']
+        if tp == 'revenue':
+            c.execute("UPDATE revenues SET amount=?,category=?,client_name=? WHERE recurring_id=? AND status='projetado'",
+                (new_amt, new_cat, new_client or new_desc, rid))
+            if new_ey and new_em:
+                for m in c.execute("SELECT id FROM months WHERE year>? OR (year=? AND month>?)",(new_ey,new_ey,new_em)).fetchall():
+                    c.execute("DELETE FROM revenues WHERE month_id=? AND recurring_id=? AND status='projetado'",(m['id'],rid))
+        else:
+            c.execute("UPDATE costs SET amount=?,category=?,name=? WHERE recurring_id=? AND status='projetado'",
+                (new_amt, new_cat, new_desc, rid))
+            if new_ey and new_em:
+                for m in c.execute("SELECT id FROM months WHERE year>? OR (year=? AND month>?)",(new_ey,new_ey,new_em)).fetchall():
+                    c.execute("DELETE FROM costs WHERE month_id=? AND recurring_id=? AND status='projetado'",(m['id'],rid))
+        # Generate new projected rows if end date extended or removed
+        updated = dict(c.execute('SELECT * FROM recurring_items WHERE id=?',(rid,)).fetchone())
+        _gen_recurring_rows(c, updated)
+        c.commit()
+    audit(request.user['username'], 'recorrente_editado', f"ID {rid} — {new_desc}")
+    return jsonify(updated)
+
+@app.delete('/api/recurring/<int:rid>')
+@auth
+def delete_recurring(rid):
+    with db() as c:
+        item = c.execute('SELECT * FROM recurring_items WHERE id=?',(rid,)).fetchone()
+        if not item: return jsonify({'error':'Não encontrado'}),404
+        if item['type'] == 'revenue':
+            c.execute("DELETE FROM revenues WHERE recurring_id=? AND status='projetado'",(rid,))
+        else:
+            c.execute("DELETE FROM costs WHERE recurring_id=? AND status='projetado'",(rid,))
+        c.execute('UPDATE recurring_items SET active=0 WHERE id=?',(rid,))
+        c.commit()
+    audit(request.user['username'], 'recorrente_excluído', f"ID {rid} — {item['description']}")
+    return jsonify({'success':True})
+
+@app.post('/api/revenues/<int:rid>/make-recurring')
+@auth
+def make_revenue_recurring(rid):
+    d = request.get_json() or {}
+    with db() as c:
+        rev = c.execute('SELECT r.*,m.year,m.month FROM revenues r JOIN months m ON r.month_id=m.id WHERE r.id=?',(rid,)).fetchone()
+        if not rev: return jsonify({'error':'Não encontrado'}),404
+        sy, sm = rev['year'], rev['month']
+        sm += 1
+        if sm > 12: sy += 1; sm = 1
+        cur = c.execute(
+            'INSERT INTO recurring_items (type,description,client_name,amount,category,start_year,start_month,end_year,end_month) VALUES (?,?,?,?,?,?,?,?,?)',
+            ('revenue', rev['client_name'] or 'Receita', rev['client_name'], rev['amount'],
+             rev['category'], sy, sm, d.get('end_year') or None, d.get('end_month') or None))
+        c.commit()
+        item = dict(c.execute('SELECT * FROM recurring_items WHERE id=?',(cur.lastrowid,)).fetchone())
+        c.execute('UPDATE revenues SET recurring_id=? WHERE id=?',(item['id'],rid))
+        _gen_recurring_rows(c, item)
+        c.commit()
+    audit(request.user['username'], 'receita_tornou_recorrente', f"ID {rid}")
+    return jsonify(item)
+
+@app.post('/api/costs/<int:cid>/make-recurring')
+@auth
+def make_cost_recurring(cid):
+    d = request.get_json() or {}
+    with db() as c:
+        cost = c.execute('SELECT c.*,m.year,m.month FROM costs c JOIN months m ON c.month_id=m.id WHERE c.id=?',(cid,)).fetchone()
+        if not cost: return jsonify({'error':'Não encontrado'}),404
+        sy, sm = cost['year'], cost['month']
+        sm += 1
+        if sm > 12: sy += 1; sm = 1
+        cur = c.execute(
+            'INSERT INTO recurring_items (type,description,client_name,amount,category,start_year,start_month,end_year,end_month) VALUES (?,?,?,?,?,?,?,?,?)',
+            ('cost', cost['name'] or 'Despesa', '', cost['amount'], cost['category'], sy, sm,
+             d.get('end_year') or None, d.get('end_month') or None))
+        c.commit()
+        item = dict(c.execute('SELECT * FROM recurring_items WHERE id=?',(cur.lastrowid,)).fetchone())
+        c.execute('UPDATE costs SET recurring_id=? WHERE id=?',(item['id'],cid))
+        _gen_recurring_rows(c, item)
+        c.commit()
+    audit(request.user['username'], 'despesa_tornou_recorrente', f"ID {cid}")
+    return jsonify(item)
+
+@app.post('/api/revenues/<int:rid>/confirm')
+@auth
+def confirm_revenue(rid):
+    d = request.get_json() or {}
+    date = d.get('received_date', datetime.date.today().isoformat())
+    with db() as c:
+        c.execute("UPDATE revenues SET status='realizado',received_date=? WHERE id=?",(date,rid))
+        c.commit()
+        rev = c.execute('SELECT r.*,m.year,m.month FROM revenues r JOIN months m ON r.month_id=m.id WHERE r.id=?',(rid,)).fetchone()
+    mref = f"{MONTHS_PT[rev['month']-1]}/{rev['year']}" if rev else str(rid)
+    audit(request.user['username'], 'receita_confirmada', f"ID {rid} — {mref} — {rev['client_name'] if rev else ''}")
+    return jsonify({'success':True})
+
+@app.post('/api/costs/<int:cid>/confirm')
+@auth
+def confirm_cost(cid):
+    d = request.get_json() or {}
+    date = d.get('paid_date', datetime.date.today().isoformat())
+    with db() as c:
+        c.execute("UPDATE costs SET status='realizado',payment_date=? WHERE id=?",(date,cid))
+        c.commit()
+        cost = c.execute('SELECT c.*,m.year,m.month FROM costs c JOIN months m ON c.month_id=m.id WHERE c.id=?',(cid,)).fetchone()
+    mref = f"{MONTHS_PT[cost['month']-1]}/{cost['year']}" if cost else str(cid)
+    audit(request.user['username'], 'despesa_confirmada', f"ID {cid} — {mref} — {cost['name'] if cost else ''}")
+    return jsonify({'success':True})
+
 # ── Export (para Painel v4) ────────────────────────────────────────────────────
 
 @app.get('/api/export')
@@ -647,10 +844,11 @@ def backup():
         goals   = [dict(g) for g in c.execute('SELECT * FROM goals WHERE active=1').fetchall()]
         audit   = [dict(r) for r in c.execute('SELECT * FROM audit_log ORDER BY id').fetchall()]
     with db() as c2:
-        cats  = [dict(r) for r in c2.execute('SELECT * FROM categories WHERE active=1').fetchall()]
-        recvs = [dict(r) for r in c2.execute('SELECT * FROM receivables').fetchall()]
-        pays  = [dict(r) for r in c2.execute('SELECT * FROM payables').fetchall()]
-        setts = {r['key']: r['value'] for r in c2.execute('SELECT * FROM settings').fetchall()}
+        cats      = [dict(r) for r in c2.execute('SELECT * FROM categories WHERE active=1').fetchall()]
+        recvs     = [dict(r) for r in c2.execute('SELECT * FROM receivables').fetchall()]
+        pays      = [dict(r) for r in c2.execute('SELECT * FROM payables').fetchall()]
+        setts     = {r['key']: r['value'] for r in c2.execute('SELECT * FROM settings').fetchall()}
+        recurring = [dict(r) for r in c2.execute('SELECT * FROM recurring_items WHERE active=1').fetchall()]
     payload = {
         'version': 1,
         'created_at': datetime.datetime.now().isoformat(),
@@ -661,6 +859,7 @@ def backup():
         'receivables': recvs,
         'payables':    pays,
         'settings':    setts,
+        'recurring':   recurring,
     }
     from flask import Response
     ts = datetime.datetime.now().strftime('%Y%m%d_%H%M')
@@ -721,6 +920,13 @@ def restore():
         # Settings
         for key, value in payload.get('settings', {}).items():
             c.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', (key, str(value)))
+        # Recurring items
+        for r in payload.get('recurring', []):
+            c.execute('INSERT OR IGNORE INTO recurring_items (id,type,description,client_name,amount,category,start_year,start_month,end_year,end_month,active,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                (r.get('id'), r.get('type','revenue'), r.get('description',''), r.get('client_name',''),
+                 r.get('amount',0), r.get('category','servico'),
+                 r.get('start_year',2026), r.get('start_month',1),
+                 r.get('end_year'), r.get('end_month'), r.get('active',1), r.get('created_at','')))
         c.commit()
     audit(request.user['username'], 'restore', 'Backup restaurado')
     return jsonify({'success': True})
