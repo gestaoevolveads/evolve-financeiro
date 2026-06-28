@@ -336,6 +336,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
     <div id="tab-dashboard" class="tab active"></div>
     <div id="tab-cashflow" class="tab"></div>
     <div id="tab-contas" class="tab"></div>
+    <div id="tab-projecao" class="tab"></div>
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
   </div>
@@ -604,6 +605,7 @@ const S = {
   payables: [],
   recurring: [],
   contasSubTab: 'receber',
+  projecaoHorizon: 3,
   _editRecvId: null,
   _editPayId: null,
   tab:   'dashboard',
@@ -2009,6 +2011,7 @@ function buildNav() {
   });
   html+=`<button class="mn" id="nav-cashflow" onclick="goTab('cashflow')">📊 Fluxo</button>`;
   html+=`<button class="mn" id="nav-contas" onclick="goTab('contas')">💳 Contas</button>`;
+  html+=`<button class="mn" id="nav-projecao" onclick="goTab('projecao')">🔭 Projeção</button>`;
   html+=`<button class="mn" id="nav-search" onclick="goTab('search')">🔍 Busca</button>`;
   html+=`<button class="mn" id="nav-audit" onclick="goTab('audit')">📋 Histórico</button>`;
   nav.innerHTML=html;
@@ -2028,6 +2031,7 @@ function goTab(id) {
   if(id==='dashboard') renderDashboard();
   else if(id==='cashflow') renderCashflowTab();
   else if(id==='contas') renderContasTab();
+  else if(id==='projecao') renderProjecaoTab();
   else if(id==='search') renderSearchTab();
   else if(id==='audit') renderAuditTab();
   else { const mid=parseInt(id.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
@@ -2294,6 +2298,238 @@ async function saveSaldoInicial() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// PROJEÇÃO
+// ══════════════════════════════════════════════════════════════════════════════
+function renderProjecaoTab() {
+  const el = e('tab-projecao'); if (!el) return;
+  const horizon = S.projecaoHorizon || 3;
+  const today = new Date();
+  const curYear = today.getFullYear(), curMonth = today.getMonth() + 1;
+
+  // Build ordered list of months with projection data
+  const saldoInicial = parseFloat(S.settings?.saldo_inicial || 0);
+
+  // All months sorted
+  const allMonths = [...S.months].sort((a,b)=> a.year!==b.year ? a.year-b.year : a.month-b.month);
+
+  // Determine which months to show based on horizon
+  // horizon: 1,2,3,6,12 = future months from now; 0 = full year
+  const futureMonths = allMonths.filter(m =>
+    (m.year > curYear) || (m.year === curYear && m.month >= curMonth)
+  );
+  const pastMonths = allMonths.filter(m =>
+    (m.year < curYear) || (m.year === curYear && m.month < curMonth)
+  );
+
+  let viewMonths;
+  if (horizon === 0) {
+    // Full year 2026
+    viewMonths = allMonths.filter(m => m.year === 2026);
+  } else {
+    // Show last 2 past months + N future months for context
+    const pastCtx = pastMonths.slice(-2);
+    const futCtx = futureMonths.slice(0, horizon);
+    viewMonths = [...pastCtx, ...futCtx];
+  }
+
+  // Compute per-month stats
+  let cumCash = saldoInicial;
+  // First accumulate past months not in view
+  const priorMonths = allMonths.filter(m => !viewMonths.includes(m) &&
+    ((m.year < viewMonths[0]?.year) || (m.year === viewMonths[0]?.year && m.month < viewMonths[0]?.month)));
+  priorMonths.forEach(m => { const sc = calcMonth(m); cumCash += sc.rev - sc.cos; });
+
+  const rows = viewMonths.map(m => {
+    const sc = calcMonth(m);
+    const isPast = (m.year < curYear) || (m.year === curYear && m.month < curMonth);
+    const isCurrent = m.year === curYear && m.month === curMonth;
+    const isFuture = !isPast && !isCurrent;
+    // For projection: use projetado values for future, real for past
+    const projRev = isFuture || isCurrent ? sc.revProj : sc.rev;
+    const projCos = isFuture || isCurrent ? sc.cosProj : sc.cos;
+    const projBal = projRev - projCos;
+    cumCash += projBal;
+    const margin = projRev > 0 ? (projBal / projRev * 100) : 0;
+    return { m, sc, isPast, isCurrent, isFuture, projRev, projCos, projBal, margin, cumCash: cumCash - projBal, cumCashEnd: cumCash };
+  });
+  // fix cumCash: subtract last add since we added in loop
+  // recalc properly
+  let cc = saldoInicial;
+  priorMonths.forEach(m => { const sc = calcMonth(m); cc += sc.rev - sc.cos; });
+  rows.forEach(r => { r.cumCash = cc; cc += r.projBal; r.cumCashEnd = cc; });
+
+  // Summary totals for selected horizon
+  const futureRows = rows.filter(r => r.isFuture || r.isCurrent);
+  const totalProjRev = futureRows.reduce((s,r) => s + r.projRev, 0);
+  const totalProjCos = futureRows.reduce((s,r) => s + r.projCos, 0);
+  const totalProjBal = totalProjRev - totalProjCos;
+  const avgMargin = totalProjRev > 0 ? (totalProjBal / totalProjRev * 100) : 0;
+  const negativoMonths = futureRows.filter(r => r.projBal < 0);
+  const endCash = rows.length ? rows[rows.length-1].cumCashEnd : saldoInicial;
+
+  // Chart data
+  const chartLabels = rows.map(r => MONTHS_PT[r.m.month-1] + '/' + String(r.m.year).slice(2));
+  const chartRev = rows.map(r => r.projRev);
+  const chartCos = rows.map(r => r.projCos);
+  const chartCash = rows.map(r => r.cumCashEnd);
+  const chartFutureMask = rows.map(r => r.isFuture || r.isCurrent);
+
+  const horizonOpts = [
+    {v:1, l:'1 mês'}, {v:2, l:'2 meses'}, {v:3, l:'3 meses'},
+    {v:6, l:'6 meses'}, {v:12, l:'12 meses'}, {v:0, l:'Ano 2026'}
+  ];
+
+  const alertHtml = negativoMonths.length ? `
+    <div style="background:rgba(255,87,87,.1);border:1px solid rgba(255,87,87,.3);border-radius:10px;padding:10px 14px;margin-bottom:18px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">⚠️</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--rd)">Atenção: saldo negativo projetado</div>
+        <div style="font-size:11px;color:var(--mu);margin-top:2px">${negativoMonths.map(r=>MONTHS_FULL[r.m.month-1]).join(', ')} ${negativoMonths.length===1?'tem':'têm'} resultado negativo projetado.</div>
+      </div>
+    </div>` : '';
+
+  el.innerHTML = `
+  <div class="sh-title"><span>🔭 Projeção</span></div>
+
+  <!-- Horizon selector -->
+  <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">
+    ${horizonOpts.map(o=>`
+      <button onclick="S.projecaoHorizon=${o.v};renderProjecaoTab()"
+        style="padding:6px 16px;border-radius:20px;border:1.5px solid ${horizon===o.v?'var(--pu)':'var(--bdr)'};background:${horizon===o.v?'rgba(167,139,250,.15)':'transparent'};color:${horizon===o.v?'var(--pu)':'var(--tx2)'};font-family:'Inter',sans-serif;font-size:12px;font-weight:${horizon===o.v?'700':'400'};cursor:pointer;transition:all .15s ease">
+        ${o.l}
+      </button>`).join('')}
+  </div>
+
+  ${alertHtml}
+
+  <!-- Summary cards -->
+  <div class="g3" style="margin-bottom:20px;grid-template-columns:repeat(4,1fr)">
+    <div class="mc green">
+      <div class="ml">Receita projetada</div>
+      <div class="mv g">${brl(totalProjRev)}</div>
+      <div class="mv-sub">${futureRows.length} ${futureRows.length===1?'mês':'meses'}</div>
+    </div>
+    <div class="mc red">
+      <div class="ml">Despesa projetada</div>
+      <div class="mv r">${brl(totalProjCos)}</div>
+      <div class="mv-sub">Média ${brl(futureRows.length?totalProjCos/futureRows.length:0)}/mês</div>
+    </div>
+    <div class="mc ${totalProjBal>=0?'green':'red'}">
+      <div class="ml">Resultado projetado</div>
+      <div class="mv ${totalProjBal>=0?'g':'r'}">${brl(totalProjBal)}</div>
+      <div class="mv-sub">Margem média ${avgMargin.toFixed(1)}%</div>
+    </div>
+    <div class="mc purple">
+      <div class="ml">Caixa ao final do período</div>
+      <div class="mv p">${brl(endCash)}</div>
+      <div class="mv-sub">Acumulado projetado</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="card" style="padding:20px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="ct" style="margin-bottom:0">Receita × Despesa × Caixa acumulado</div>
+      <div style="display:flex;gap:12px;font-size:10px;color:var(--mu)">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--g);margin-right:4px"></span>Receita</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--rd);margin-right:4px"></span>Despesa</span>
+        <span><span style="display:inline-block;width:10px;height:2px;background:var(--pu);margin-right:4px;vertical-align:middle"></span>Caixa</span>
+      </div>
+    </div>
+    <canvas id="proj-chart" height="90"></canvas>
+  </div>
+
+  <!-- Month by month table -->
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--bdr)">
+      <div class="ct" style="margin-bottom:0">Mês a mês</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="etable">
+        <thead><tr>
+          <th style="min-width:90px">Mês</th>
+          <th style="min-width:60px">Status</th>
+          <th class="r" style="min-width:110px">Receita</th>
+          <th class="r" style="min-width:110px">Despesa</th>
+          <th class="r" style="min-width:110px">Resultado</th>
+          <th class="r" style="min-width:60px">Margem</th>
+          <th class="r" style="min-width:120px">Caixa acumulado</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => {
+            const statusBadge = r.isPast
+              ? `<span class="status-badge s-recebido">Realizado</span>`
+              : r.isCurrent
+                ? `<span class="status-badge s-pendente" style="background:rgba(79,158,255,.15);color:#4f9eff;border-color:rgba(79,158,255,.3)">Atual</span>`
+                : `<span class="status-badge" style="background:rgba(167,139,250,.12);color:var(--pu);border:1px solid rgba(167,139,250,.3)">Projetado</span>`;
+            const rowStyle = r.isFuture ? 'opacity:.85' : r.isCurrent ? 'background:rgba(79,158,255,.04)' : '';
+            const balColor = r.projBal >= 0 ? 'var(--g)' : 'var(--rd)';
+            const cashColor = r.cumCashEnd >= 0 ? 'var(--tx)' : 'var(--rd)';
+            const nameStyle = r.isFuture ? 'color:var(--tx2)' : 'font-weight:600';
+            return `<tr style="${rowStyle}">
+              <td style="padding:10px 12px;${nameStyle}">${MONTHS_FULL[r.m.month-1]} ${r.m.year}</td>
+              <td style="padding:10px 12px">${statusBadge}</td>
+              <td class="r" style="padding:10px 12px;color:var(--g);font-family:'Syne',sans-serif;font-weight:700">${brl(r.projRev)}</td>
+              <td class="r" style="padding:10px 12px;color:var(--rd);font-family:'Syne',sans-serif;font-weight:700">${brl(r.projCos)}</td>
+              <td class="r" style="padding:10px 12px;color:${balColor};font-family:'Syne',sans-serif;font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
+              <td class="r" style="padding:10px 12px;color:${r.margin>=0?'var(--tx2)':'var(--rd)'};font-size:12px">${r.margin.toFixed(1)}%</td>
+              <td class="r" style="padding:10px 12px;color:${cashColor};font-family:'Syne',sans-serif;font-weight:700">${brl(r.cumCashEnd)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Disclaimer -->
+  <div style="font-size:10px;color:var(--mu);text-align:center;margin-bottom:8px">
+    * Meses passados mostram valores realizados. Mês atual e futuros mostram o total registrado (realizados + projetados). Não inclui estimativas automáticas.
+  </div>`;
+
+  // Render chart
+  requestAnimationFrame(() => {
+    const ctx = document.getElementById('proj-chart');
+    if (!ctx) return;
+    if (ctx._chartInst) { ctx._chartInst.destroy(); ctx._chartInst = null; }
+
+    // Split into past/future datasets for visual distinction
+    const revPast = chartRev.map((v,i) => chartFutureMask[i] ? null : v);
+    const revFuture = chartRev.map((v,i) => chartFutureMask[i] ? v : null);
+    const cosPast = chartCos.map((v,i) => chartFutureMask[i] ? null : v);
+    const cosFuture = chartCos.map((v,i) => chartFutureMask[i] ? v : null);
+
+    ctx._chartInst = new Chart(ctx, {
+      data: {
+        labels: chartLabels,
+        datasets: [
+          { type:'bar', label:'Receita (real)', data:revPast, backgroundColor:'rgba(0,229,160,.65)', borderRadius:4, order:2 },
+          { type:'bar', label:'Receita (proj.)', data:revFuture, backgroundColor:'rgba(0,229,160,.25)', borderColor:'rgba(0,229,160,.6)', borderWidth:1.5, borderRadius:4, order:2 },
+          { type:'bar', label:'Despesa (real)', data:cosPast, backgroundColor:'rgba(255,87,87,.6)', borderRadius:4, order:2 },
+          { type:'bar', label:'Despesa (proj.)', data:cosFuture, backgroundColor:'rgba(255,87,87,.18)', borderColor:'rgba(255,87,87,.5)', borderWidth:1.5, borderRadius:4, order:2 },
+          { type:'line', label:'Caixa acumulado', data:chartCash, borderColor:'var(--pu)', backgroundColor:'rgba(167,139,250,.08)', borderWidth:2.5, pointBackgroundColor:'var(--pu)', pointRadius:4, fill:true, tension:.35, order:1 }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:true,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{
+          legend:{ display:false },
+          tooltip:{
+            backgroundColor:'var(--s2)', borderColor:'var(--bdr)', borderWidth:1,
+            titleColor:'var(--tx)', bodyColor:'var(--tx2)', padding:10,
+            callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${brl(ctx.parsed.y||0)}` }
+          }
+        },
+        scales:{
+          x:{ grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'var(--mu)', font:{size:10} } },
+          y:{ grid:{ color:'rgba(255,255,255,.06)' }, ticks:{ color:'var(--mu)', font:{size:10}, callback: v => 'R$'+( v>=1000?(v/1000).toFixed(0)+'k':v) } }
+        }
+      }
+    });
+  });
+}
+
 // CONTAS A PAGAR / RECEBER
 // ══════════════════════════════════════════════════════════════════════════════
 async function renderContasTab() {
