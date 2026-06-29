@@ -3087,7 +3087,7 @@ function renderRecurringList() {
           <button class="del-btn" onclick="deleteRecurring(${item.id})" title="Excluir recorrente e lançamentos futuros">✕</button>
         </div>
       </div>
-      <div id="rec-edit-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
+      <div id="rec-edit-form-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
         <div style="margin-bottom:8px">
           <label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Nome / Descrição</label>
           <input id="rec-edit-desc-${item.id}" type="text" value="${esc(item.description)}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box">
@@ -3111,10 +3111,10 @@ function renderRecurringList() {
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn sm grn" onclick="submitEditRecurring(${item.id})">✓ Salvar</button>
-          <button class="btn sm" onclick="e('rec-edit-${item.id}').style.display='none'">Cancelar</button>
+          <button class="btn sm" onclick="e('rec-edit-form-${item.id}').style.display='none'">Cancelar</button>
         </div>
       </div>
-      <div id="rec-end-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
+      <div id="rec-end-form-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
         <div style="font-size:12px;color:var(--tx2);margin-bottom:8px">A partir de qual mês este item para de aparecer?</div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <select id="rec-end-em-${item.id}" style="background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
@@ -3127,7 +3127,7 @@ function renderRecurringList() {
         <div style="font-size:10px;color:var(--mu);margin-bottom:8px">Os meses anteriores permanecem. A partir do mês selecionado, o item não será mais projetado.</div>
         <div style="display:flex;gap:6px">
           <button class="btn sm am" onclick="submitEndRecurring(${item.id})">✓ Confirmar encerramento</button>
-          <button class="btn sm" onclick="e('rec-end-${item.id}').style.display='none'">Cancelar</button>
+          <button class="btn sm" onclick="e('rec-end-form-${item.id}').style.display='none'">Cancelar</button>
         </div>
       </div>
     </div>`;
@@ -3228,17 +3228,16 @@ async function submitNewRecurring(type) {
 }
 
 function openEditRecurring(id) {
-  // Hide all other edit forms first
-  document.querySelectorAll('[id^="rec-edit-"]').forEach(el=>{ if(el.id!==`rec-edit-${id}`) el.style.display='none'; });
-  document.querySelectorAll('[id^="rec-end-"]').forEach(el=>el.style.display='none');
-  const el=e(`rec-edit-${id}`);
+  document.querySelectorAll('[id^="rec-edit-form-"]').forEach(el=>{ if(el.id!==`rec-edit-form-${id}`) el.style.display='none'; });
+  document.querySelectorAll('[id^="rec-end-form-"]').forEach(el=>el.style.display='none');
+  const el=e(`rec-edit-form-${id}`);
   if(el) el.style.display=el.style.display==='none'?'block':'none';
 }
 
 function openEndRecurring(id) {
-  document.querySelectorAll('[id^="rec-end-"]').forEach(el=>{ if(el.id!==`rec-end-${id}`) el.style.display='none'; });
-  document.querySelectorAll('[id^="rec-edit-"]').forEach(el=>el.style.display='none');
-  const el=e(`rec-end-${id}`);
+  document.querySelectorAll('[id^="rec-end-form-"]').forEach(el=>{ if(el.id!==`rec-end-form-${id}`) el.style.display='none'; });
+  document.querySelectorAll('[id^="rec-edit-form-"]').forEach(el=>el.style.display='none');
+  const el=e(`rec-end-form-${id}`);
   if(el) el.style.display=el.style.display==='none'?'block':'none';
 }
 
