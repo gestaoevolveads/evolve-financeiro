@@ -1560,8 +1560,10 @@ function renderMonthTab(mid) {
     }
     return `<tr class="${r.is_new_client?'new-client':''}">
       <td style="padding-left:${r.is_new_client?'20px':'8px'}">
-        ${hasRec?'<span style="color:var(--pu);font-size:10px;margin-right:4px" title="Recorrente">🔁</span>':''}
-        <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)">
+        <div style="display:flex;align-items:center;gap:3px">
+          ${hasRec?'<span style="color:var(--pu);font-size:10px;flex-shrink:0" title="Recorrente">🔁</span>':''}
+          <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)" style="flex:1;min-width:0">
+        </div>
       </td>
       <td><input class="cell-input amount" type="text" value="${fmtAmt(r.amount)}" placeholder="0,00"
         onfocus="this.value=this.value.replace(/\\./g,'').replace(',','.')"
@@ -1600,8 +1602,10 @@ function renderMonthTab(mid) {
     }
     return `<tr>
       <td>
-        ${hasRec?'<span style="color:var(--pu);font-size:10px;margin-right:4px" title="Recorrente">🔁</span>':''}
-        <input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)">
+        <div style="display:flex;align-items:center;gap:3px">
+          ${hasRec?'<span style="color:var(--pu);font-size:10px;flex-shrink:0" title="Recorrente">🔁</span>':''}
+          <input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)" style="flex:1;min-width:0">
+        </div>
       </td>
       <td><input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
         onfocus="this.value=this.value.replace(/\\./g,'').replace(',','.')"
@@ -1908,7 +1912,10 @@ function renderDashboard() {
         </tr>
       </table>
     </div>
-  </div>`;
+  </div>
+
+  <!-- RECURRING CALENDAR -->
+  ${buildRecurringCalendar()}`;
 
   // Draw chart
   const ctx=e('dash-chart'); if(!ctx) return;
@@ -1938,6 +1945,114 @@ function renderDashboard() {
 }
 
 function updateDashboard() { if(S.tab==='dashboard') renderDashboard(); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RECURRING CALENDAR
+// ══════════════════════════════════════════════════════════════════════════════
+function buildRecurringCalendar() {
+  const recItems = (S.recurring||[]).filter(r=>r.day_of_month&&r.active!==0);
+  const now = new Date();
+  const months = [];
+  for(let i=0;i<2;i++){
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    months.push({year:d.getFullYear(), month:d.getMonth()+1});
+  }
+
+  const calHtml = months.map(({year,month})=>{
+    const daysInMonth = new Date(year,month,0).getDate();
+    const firstDow = new Date(year,month-1,1).getDay(); // 0=Sun
+    const mLabel = MONTHS_FULL[month-1]+' '+year;
+
+    // Map day -> items active in this month
+    const dayMap={};
+    recItems.forEach(r=>{
+      if(r.end_year&&r.end_month){
+        if(year>r.end_year||(year===r.end_year&&month>r.end_month)) return;
+      }
+      if(year<r.start_year||(year===r.start_year&&month<r.start_month)) return;
+      const d=r.day_of_month;
+      if(d>=1&&d<=daysInMonth){
+        if(!dayMap[d]) dayMap[d]=[];
+        dayMap[d].push(r);
+      }
+    });
+
+    const dayNames=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    const headerRow=dayNames.map(d=>`<div style="text-align:center;font-size:9px;font-weight:700;color:var(--mu);padding:4px 0;text-transform:uppercase;letter-spacing:.05em">${d}</div>`).join('');
+
+    let cells='';
+    // blank cells before first day
+    for(let i=0;i<firstDow;i++) cells+=`<div></div>`;
+    for(let day=1;day<=daysInMonth;day++){
+      const items=dayMap[day]||[];
+      const isToday=year===now.getFullYear()&&month===now.getMonth()+1&&day===now.getDate();
+      const hasRev=items.some(r=>r.type==='revenue');
+      const hasCos=items.some(r=>r.type==='cost');
+      const dotHtml=items.length?`<div style="display:flex;gap:2px;justify-content:center;margin-top:2px">${hasRev?'<span style="width:5px;height:5px;border-radius:50%;background:var(--g);display:inline-block"></span>':''}${hasCos?'<span style="width:5px;height:5px;border-radius:50%;background:var(--rd);display:inline-block"></span>':''}</div>`:'';
+      const tooltip=items.map(r=>`${r.description}: ${brl(r.amount)}`).join('\n');
+      const bg=isToday?'var(--pu)':items.length?'var(--s2)':'transparent';
+      const border=isToday?'1.5px solid var(--pu)':items.length?'1px solid var(--bdr)':'1px solid transparent';
+      const txColor=isToday?'#fff':items.length?'var(--tx)':'var(--tx2)';
+      cells+=`<div title="${tooltip}" style="background:${bg};border:${border};border-radius:6px;min-height:38px;padding:4px;cursor:${items.length?'pointer':'default'};transition:background .15s" ${items.length?`onclick="showDayTooltip(event,${JSON.stringify(items.map(r=>({n:r.description,a:r.amount,t:r.type})))})"`:''}>>
+        <div style="text-align:center;font-size:11px;font-weight:${isToday?700:items.length?600:400};color:${txColor}">${day}</div>
+        ${dotHtml}
+      </div>`;
+    }
+
+    // Tooltip items list for the month
+    const itemList=Object.entries(dayMap).sort((a,b)=>+a[0]-+b[0]).map(([d,items])=>{
+      return items.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bdr);gap:8px">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0">
+          <span style="width:7px;height:7px;border-radius:50%;background:${r.type==='revenue'?'var(--g)':'var(--rd)'};flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.description)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-size:10px;color:var(--mu)">Dia ${d}</span>
+          <span style="font-size:11px;font-family:'Syne',sans-serif;font-weight:700;color:${r.type==='revenue'?'var(--g)':'var(--rd)'}">${brl(r.amount)}</span>
+        </div>
+      </div>`).join('');
+    }).join('');
+
+    return `<div class="card" style="flex:1;min-width:260px">
+      <div class="ct" style="margin-bottom:10px">${mLabel}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:12px">
+        ${headerRow}${cells}
+      </div>
+      ${itemList?`<div style="margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px">${itemList}</div>`:'<div style="font-size:11px;color:var(--mu);text-align:center;padding:8px 0">Nenhum lançamento recorrente com data definida</div>'}
+    </div>`;
+  }).join('');
+
+  return `<div class="card" style="margin-top:14px;padding:0;overflow:hidden">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+      <div class="ct" style="margin-bottom:0">📅 Agenda de Recorrentes</div>
+      <div style="display:flex;gap:10px;font-size:10px;align-items:center">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--g);display:inline-block"></span>Entrada</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--rd);display:inline-block"></span>Saída</span>
+        <button class="btn sm" onclick="openRecurringModal()" style="font-size:10px">⚙ Gerenciar</button>
+      </div>
+    </div>
+    <div style="padding:14px;display:flex;gap:14px;flex-wrap:wrap">${calHtml}</div>
+  </div>`;
+}
+
+function showDayTooltip(ev, items) {
+  // Simple: show alert with items - could be enhanced later
+  const lines = items.map(i=>`${i.t==='revenue'?'▲':'▼'} ${i.n} — R$ ${i.a.toFixed(2).replace('.',',')}`).join('\n');
+  const existing = document.getElementById('day-tooltip-popup');
+  if(existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'day-tooltip-popup';
+  popup.style.cssText=`position:fixed;z-index:9999;background:var(--s1);border:1.5px solid var(--bdr);border-radius:10px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.25);min-width:200px;max-width:280px`;
+  popup.innerHTML = items.map(i=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12px">
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${i.t==='revenue'?'var(--g)':'var(--rd)'};display:inline-block"></span>${esc(i.n)}</span>
+    <span style="font-family:'Syne',sans-serif;font-weight:700;color:${i.t==='revenue'?'var(--g)':'var(--rd)'}">R$ ${parseFloat(i.a).toFixed(2).replace('.',',')}</span>
+  </div>`).join('')+`<div style="text-align:right;margin-top:8px"><button class="btn sm" onclick="document.getElementById('day-tooltip-popup').remove()">Fechar</button></div>`;
+  const rect=ev.currentTarget.getBoundingClientRect();
+  popup.style.top=(rect.bottom+6)+'px';
+  popup.style.left=Math.min(rect.left, window.innerWidth-300)+'px';
+  document.body.appendChild(popup);
+  setTimeout(()=>{ document.addEventListener('click', ()=>popup.remove(), {once:true}); }, 10);
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AUDIT LOG TAB
@@ -2699,7 +2814,52 @@ function drawContasTab() {
       <div class="ct" style="margin-bottom:0;color:var(--mu)">${isRecv?'✓ Recebidas':'✓ Pagas'} — histórico (${done.length})</div>
     </div>
     <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${doneRows}</tbody></table></div>
-  </div>`:''}`;
+  </div>`:''}
+
+  ${buildRecurringContasSection(isRecv)}`;
+}
+
+function buildRecurringContasSection(isRecv) {
+  const recType = isRecv ? 'revenue' : 'cost';
+  const recItems = (S.recurring||[]).filter(r=>r.type===recType&&r.active!==0);
+  if(!recItems.length) return '';
+  const rows = recItems.map(r=>{
+    const domLabel = r.day_of_month ? `Dia ${r.day_of_month}` : '—';
+    const endLabel = r.end_year&&r.end_month ? `até ${MONTHS_PT[r.end_month-1]}/${r.end_year}` : 'sem encerramento';
+    const color = isRecv ? 'var(--g)' : 'var(--rd)';
+    return `<tr>
+      <td style="padding:9px 8px">
+        <span style="background:rgba(167,139,250,.15);color:var(--pu);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700">${domLabel}</span>
+      </td>
+      <td style="padding:9px 8px;font-weight:600">${esc(r.description)}${isRecv&&r.client_name&&r.client_name!==r.description?`<br><span style="font-size:10px;color:var(--mu);font-weight:400">${esc(r.client_name)}</span>`:''}</td>
+      <td class="r" style="padding:9px 8px;color:${color};font-family:'Syne',sans-serif;font-weight:700">${brl(r.amount)}</td>
+      <td style="padding:9px 8px"><span style="font-size:11px;color:var(--mu)">${catLabel(r.category)}</span></td>
+      <td style="padding:9px 8px"><span style="font-size:10px;color:var(--mu)">${endLabel}</span></td>
+      <td style="padding:9px 8px">
+        <button class="btn sm" onclick="openRecurringModal()" title="Gerenciar recorrentes">✎ Editar</button>
+      </td>
+    </tr>`;
+  }).join('');
+  const total = recItems.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  return `<div class="card" style="padding:0;overflow:hidden;margin-top:14px">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+      <div class="ct" style="margin-bottom:0;color:var(--pu)">🔁 ${isRecv?'Receitas':'Despesas'} Recorrentes (${recItems.length})</div>
+      <span style="font-size:12px;font-family:'Syne',sans-serif;font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(total)}/mês</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="etable">
+        <thead><tr>
+          <th style="min-width:80px">Dia</th>
+          <th style="min-width:180px">${isRecv?'Cliente / Descrição':'Descrição'}</th>
+          <th class="r" style="min-width:100px">Valor/mês</th>
+          <th style="min-width:100px">Categoria</th>
+          <th style="min-width:130px">Vigência</th>
+          <th style="min-width:80px"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
 }
 
 function openContaModal(type, id=null) {
@@ -2919,7 +3079,7 @@ function renderRecurringList() {
         <div style="flex:1;min-width:0">
           <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px">${esc(item.description)}${item.client_name&&item.client_name!==item.description?` <span style="color:var(--mu);font-weight:400">(${esc(item.client_name)})</span>`:''}</span>
           ${endBadge}
-          <div style="font-size:11px;color:var(--mu);margin-top:3px">Desde ${mn(item.start_month)}/${item.start_year} · ${brl(item.amount)}</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:3px">Desde ${mn(item.start_month)}/${item.start_year} · ${brl(item.amount)}${item.day_of_month?` · <span style="color:var(--pu);font-weight:600">Dia ${item.day_of_month}</span>`:''}</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
           <button class="btn sm blu" onclick="openEditRecurring(${item.id})">✎ Editar</button>
@@ -2928,9 +3088,15 @@ function renderRecurringList() {
         </div>
       </div>
       <div id="rec-edit-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <div style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Nome / Descrição</label>
+          <input id="rec-edit-desc-${item.id}" type="text" value="${esc(item.description)}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
           <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
             <input id="rec-edit-amt-${item.id}" type="number" step="0.01" value="${item.amount}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none"></div>
+          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Dia do mês</label>
+            <input id="rec-edit-dom-${item.id}" type="number" min="1" max="31" value="${item.day_of_month||''}" placeholder="ex: 5" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none"></div>
           <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês</label>
             <select id="rec-edit-em-${item.id}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
               <option value="">—</option>
@@ -2982,7 +3148,9 @@ function renderRecurringList() {
           <input id="rec-new-desc-${type}" type="text" placeholder="${type==='revenue'?'Ex: Cliente Fulano':'Ex: Assinatura Ferramenta'}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
         <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
           <input id="rec-new-amt-${type}" type="number" step="0.01" min="0" placeholder="0,00" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
-        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Categoria</label>
+        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Dia do mês</label>
+          <input id="rec-new-dom-${type}" type="number" min="1" max="31" placeholder="ex: 5" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
+        <div style="grid-column:1/-1"><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Categoria</label>
           <select id="rec-new-cat-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
             ${mkCatOpts(cats,defCat)}
           </select></div>
@@ -3040,12 +3208,13 @@ async function submitNewRecurring(type) {
   const sy=parseInt(e(`rec-new-sy-${type}`)?.value)||2026;
   const em=parseInt(e(`rec-new-em-${type}`)?.value)||null;
   const ey=parseInt(e(`rec-new-ey-${type}`)?.value)||null;
+  const dom=parseInt(e(`rec-new-dom-${type}`)?.value)||null;
   syncLabel('Salvando…','saving');
   try {
     const item=await api('POST','/api/recurring',{
       type, description:desc, client_name:type==='revenue'?desc:'',
       amount:amt, category:cat, start_year:sy, start_month:sm,
-      end_year:ey||null, end_month:em||null
+      end_year:ey||null, end_month:em||null, day_of_month:dom||null
     });
     S.recurring.push(item);
     const allMonths=await api('GET','/api/months');
@@ -3075,12 +3244,14 @@ function openEndRecurring(id) {
 
 async function submitEditRecurring(id) {
   const item=S.recurring.find(r=>r.id===id); if(!item) return;
+  const desc=(e(`rec-edit-desc-${id}`)?.value||item.description).trim();
   const amt=parseFloat(e(`rec-edit-amt-${id}`)?.value||item.amount);
+  const dom=parseInt(e(`rec-edit-dom-${id}`)?.value)||null;
   const em=parseInt(e(`rec-edit-em-${id}`)?.value)||null;
   const ey=parseInt(e(`rec-edit-ey-${id}`)?.value)||null;
   syncLabel('Salvando…','saving');
   try {
-    const updated=await api('PUT',`/api/recurring/${id}`,{...item, amount:amt, end_month:em||null, end_year:ey||null});
+    const updated=await api('PUT',`/api/recurring/${id}`,{...item, description:desc, client_name:item.type==='revenue'?desc:item.client_name, amount:amt, day_of_month:dom||null, end_month:em||null, end_year:ey||null});
     const idx=S.recurring.findIndex(r=>r.id===id); if(idx>=0) S.recurring[idx]=updated;
     const allMonths = await api('GET','/api/months');
     S.months=allMonths; S.map={}; allMonths.forEach(m=>S.map[m.id]=m);

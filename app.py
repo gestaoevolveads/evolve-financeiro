@@ -142,6 +142,7 @@ def init_db():
             "ALTER TABLE revenues ADD COLUMN status TEXT DEFAULT 'realizado'",
             "ALTER TABLE costs ADD COLUMN recurring_id INTEGER",
             "ALTER TABLE costs ADD COLUMN status TEXT DEFAULT 'realizado'",
+            "ALTER TABLE recurring_items ADD COLUMN day_of_month INTEGER",
         ]:
             try: c.execute(sql)
             except Exception: pass
@@ -688,11 +689,12 @@ def create_recurring():
         return jsonify({'error': 'Descrição obrigatória'}), 400
     with db() as c:
         cur = c.execute(
-            'INSERT INTO recurring_items (type,description,client_name,amount,category,start_year,start_month,end_year,end_month) VALUES (?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO recurring_items (type,description,client_name,amount,category,start_year,start_month,end_year,end_month,day_of_month) VALUES (?,?,?,?,?,?,?,?,?,?)',
             (tp, desc, d.get('client_name',''), float(d.get('amount',0)),
              d.get('category','servico' if tp=='revenue' else 'operacional'),
              int(d.get('start_year',2026)), int(d.get('start_month',1)),
-             d.get('end_year') or None, d.get('end_month') or None))
+             d.get('end_year') or None, d.get('end_month') or None,
+             int(d['day_of_month']) if d.get('day_of_month') else None))
         c.commit()
         item = dict(c.execute('SELECT * FROM recurring_items WHERE id=?',(cur.lastrowid,)).fetchone())
         _gen_recurring_rows(c, item)
@@ -713,10 +715,11 @@ def update_recurring(rid):
         new_desc = d.get('description', item['description'])
         new_client = d.get('client_name', item['client_name'])
         new_cat = d.get('category', item['category'])
-        c.execute('UPDATE recurring_items SET description=?,client_name=?,amount=?,category=?,start_year=?,start_month=?,end_year=?,end_month=? WHERE id=?',
+        new_dom = int(d['day_of_month']) if d.get('day_of_month') else None
+        c.execute('UPDATE recurring_items SET description=?,client_name=?,amount=?,category=?,start_year=?,start_month=?,end_year=?,end_month=?,day_of_month=? WHERE id=?',
             (new_desc, new_client, new_amt, new_cat,
              int(d.get('start_year', item['start_year'])), int(d.get('start_month', item['start_month'])),
-             new_ey, new_em, rid))
+             new_ey, new_em, new_dom, rid))
         tp = item['type']
         if tp == 'revenue':
             c.execute("UPDATE revenues SET amount=?,category=?,client_name=? WHERE recurring_id=? AND status='projetado'",
