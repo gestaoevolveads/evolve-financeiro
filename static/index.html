@@ -1,65 +1,85 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Evolve · Financeiro 2026</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
 
-/* ══ THEMES ══════════════════════════════════════════════════════════════════ */
-:root,[data-theme="dark"]{
-  --bg:#0c1120;--s1:#111827;--s2:#1a2338;--s3:#1f2a40;--bdr:#1e2d45;--bdr2:#253550;
-  --g:#00e5a0;--g2:#00c987;--am:#f5a623;--rd:#ff5757;--bl:#4f9eff;--pu:#a78bfa;--te:#2dd4bf;
-  --tx:#e8edf5;--tx2:#b0bfd4;--mu:#6b7fa3;
-  --sh:0 2px 8px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.25);
-  --sh2:0 8px 24px rgba(0,0,0,.4);
-  --input-bg:#1a2338;
+/* ══ DESIGN TOKENS ═══════════════════════════════════════════════════════════
+   Fonte única: Inter. Cor da marca: roxo Evolve. Verde/vermelho/âmbar são
+   SEMÂNTICOS (dinheiro e status) — nunca decoração.
+   ═════════════════════════════════════════════════════════════════════════ */
+:root,[data-theme="light"]{
+  /* superfícies */
+  --bg:#F6F6F9;--s1:#FFFFFF;--s2:#F2F2F6;--s3:#EBEBF1;--bdr:#E5E5EE;--bdr2:#D4D4E1;
+  /* texto */
+  --tx:#1C1C2E;--tx2:#4E4E66;--mu:#6B6B85;
+  /* marca (Evolve) */
+  --ac:#6D5CE7;--ac2:#5B4BD1;--ac-soft:rgba(109,92,231,.09);--ac-ring:rgba(109,92,231,.18);
+  /* semânticas */
+  --g:#087551;--g2:#066145;--rd:#C42D25;--am:#8F5B09;
+  --bl:#3B6FD4;--pu:#7A5AF0;--te:#0E8F86;
+  --sh:0 1px 2px rgba(24,24,44,.04),0 1px 3px rgba(24,24,44,.05);
+  --sh2:0 12px 32px rgba(24,24,44,.13),0 2px 8px rgba(24,24,44,.06);
+  --input-bg:#F2F2F6;
+  --r:14px;--r2:10px;--r3:8px;
 }
-[data-theme="light"]{
-  --bg:#f0f4fb;--s1:#ffffff;--s2:#f5f7fc;--s3:#eef1f8;--bdr:#dde4f0;--bdr2:#c8d3e8;
-  --g:#009e6f;--g2:#007a56;--am:#d4850a;--rd:#e03e3e;--bl:#2563eb;--pu:#7c3aed;--te:#0d9488;
-  --tx:#1a2340;--tx2:#4a5568;--mu:#8494b0;
-  --sh:0 2px 8px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
-  --sh2:0 8px 24px rgba(0,0,0,.1);
-  --input-bg:#f5f7fc;
+[data-theme="dark"]{
+  --bg:#101018;--s1:#191926;--s2:#20202F;--s3:#282839;--bdr:#27273B;--bdr2:#34344B;
+  --tx:#EFEFF6;--tx2:#B9B9CE;--mu:#82829B;
+  --ac:#8B7BFF;--ac2:#7A6AF0;--ac-soft:rgba(139,123,255,.13);--ac-ring:rgba(139,123,255,.25);
+  --g:#34D399;--g2:#25B383;--rd:#F87171;--am:#FBBF24;
+  --bl:#6BA0F5;--pu:#A78BFA;--te:#2DD4BF;
+  --sh:0 1px 2px rgba(0,0,0,.28);
+  --sh2:0 16px 40px rgba(0,0,0,.5);
+  --input-bg:#20202F;
 }
 
-html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;min-height:100%;transition:background .25s,color .25s}
+html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;min-height:100%;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;transition:background .25s,color .25s}
+/* Números alinham em coluna — dinheiro nunca "dança" entre linhas */
+.r,.mv,.sum-val,.val,input[type=number]{font-variant-numeric:tabular-nums}
+/* Apple §1: feedback no pointer-down, instantâneo */
+button:active:not(:disabled){transform:scale(.97)}
+button{transition:transform .1s ease-out,background .15s,border-color .15s,color .15s}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
 
 /* ══ LOGIN ════════════════════════════════════════════════════════════════════ */
 #login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
 .login-card{background:var(--s1);border:1px solid var(--bdr);border-radius:20px;padding:36px 32px;width:360px;text-align:center;box-shadow:var(--sh2)}
-.login-logo{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
-.login-logo span{color:var(--g)}
-.login-sub{font-size:11px;color:var(--mu);margin-bottom:28px;letter-spacing:.04em;text-transform:uppercase}
+.login-logo{font-size:28px;font-weight:700;letter-spacing:-.03em;margin-bottom:6px}
+.login-logo span{color:var(--ac)}
+.login-sub{font-size:13px;color:var(--mu);margin-bottom:28px}
 .login-field{margin-bottom:14px;text-align:left}
-.login-field label{font-size:11px;color:var(--mu);display:block;margin-bottom:5px;font-weight:500;letter-spacing:.03em}
+.login-field label{font-size:12px;color:var(--tx2);display:block;margin-bottom:6px;font-weight:500}
 .login-field input{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:10px;padding:11px 14px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:.2s}
-.login-field input:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,229,160,.12)}
-.login-btn{width:100%;background:var(--g);color:#0a1a14;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;padding:12px;border:none;border-radius:10px;cursor:pointer;margin-top:4px;transition:.2s}
-.login-btn:hover{background:var(--g2);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,229,160,.3)}
+.login-field input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.login-btn{width:100%;background:var(--ac);color:#fff;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;padding:12px;border:none;border-radius:var(--r2);cursor:pointer;margin-top:6px}
+.login-btn:hover{background:var(--ac2)}
 .login-err{font-size:11px;color:var(--rd);margin-top:10px;min-height:16px}
 
 /* ══ TOPBAR ═══════════════════════════════════════════════════════════════════ */
-.topbar{background:var(--s1);border-bottom:1px solid var(--bdr);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:300;gap:8px;box-shadow:0 1px 0 var(--bdr)}
-.topbar-logo{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
-.topbar-logo .dot{width:8px;height:8px;background:var(--g);border-radius:50%;display:inline-block}
+.topbar{background:color-mix(in srgb,var(--s1) 78%,transparent);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--bdr);padding:0 20px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:300;gap:8px}
+.topbar-logo{font-size:16px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.topbar-logo .dot{width:8px;height:8px;background:var(--ac);border-radius:50%;display:inline-block}
 .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.sync-badge{font-size:10px;color:var(--mu);background:var(--s2);padding:3px 8px;border-radius:20px;border:1px solid var(--bdr)}
+.sync-badge{font-size:11px;color:var(--mu);background:var(--s2);padding:4px 10px;border-radius:999px;border:1px solid var(--bdr)}
 .sync-badge.saving{color:var(--am);border-color:rgba(245,166,35,.3)}
-.sync-badge.saved{color:var(--g);border-color:rgba(0,229,160,.3)}
+.sync-badge.saved{color:var(--g);border-color:transparent;background:var(--s2)}
 .sync-badge.error{color:var(--rd);border-color:rgba(255,87,87,.3)}
 
 /* ══ NAV ══════════════════════════════════════════════════════════════════════ */
-.nav{background:var(--s1);border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;gap:1px;overflow-x:auto;position:sticky;top:52px;z-index:299;scrollbar-width:none}
+.nav{background:color-mix(in srgb,var(--s1) 78%,transparent);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--bdr);padding:0 16px;display:flex;gap:2px;overflow-x:auto;position:sticky;top:54px;z-index:299;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
-.mn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;padding:10px 13px;border:none;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap;text-transform:uppercase;transition:all .15s ease;border-bottom:2px solid transparent;position:relative;top:1px}
+.mn{font-size:13px;font-weight:500;padding:11px 13px;border:none;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap;border-bottom:2px solid transparent;position:relative;top:1px}
 .mn:hover:not(.active){color:var(--tx)}
-.mn.active{color:var(--g);border-bottom-color:var(--g)}
+.mn.active{color:var(--tx);border-bottom-color:var(--ac);font-weight:600}
 .mn.badge::after{content:'';position:absolute;top:8px;right:6px;width:5px;height:5px;background:var(--am);border-radius:50%}
 
 /* ══ LAYOUT ═══════════════════════════════════════════════════════════════════ */
@@ -72,97 +92,97 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .g6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
 
 /* ══ CARDS ════════════════════════════════════════════════════════════════════ */
-.card{background:var(--s1);border:1px solid var(--bdr);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.25);transition:border-color .2s}
+.card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:var(--sh);transition:border-color .2s}
 .card:hover{border-color:var(--bdr2)}
-.ct{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--mu);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;justify-content:space-between}
-.ct span{color:var(--g)}
-.sh-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;letter-spacing:-.2px}
+.ct{font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.ct span{color:var(--ac)}
+.sh-title{font-size:17px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;letter-spacing:-.02em}
 
 /* ══ METRIC CARDS ════════════════════════════════════════════════════════════ */
-.mc{background:var(--s2);border-radius:12px;padding:14px 16px;border:1px solid var(--bdr);transition:.2s;border-left:3px solid transparent}
-.mc.green{border-left-color:var(--g)}
-.mc.red{border-left-color:var(--rd)}
-.mc.blue{border-left-color:var(--bl)}
-.mc.purple{border-left-color:var(--pu)}
-.mc.amber{border-left-color:var(--am)}
-.mc.teal{border-left-color:var(--te)}
-.ml{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;font-weight:500}
-.mv{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:-.3px}
-.mv.g{color:var(--g)}.mv.r{color:var(--rd)}.mv.b{color:var(--bl)}.mv.p{color:var(--pu)}.mv.a{color:var(--am)}.mv.te{color:var(--te)}
-.mv-sub{font-size:10px;color:var(--mu);margin-top:3px}
+.mc{background:var(--s1);border-radius:var(--r2);padding:16px;border:1px solid var(--bdr);box-shadow:var(--sh);transition:.2s}
+.mc.green{}
+.mc.red{}
+.mc.blue{}
+.mc.purple{}
+.mc.amber{}
+.mc.teal{}
+.ml{font-size:12px;color:var(--mu);margin-bottom:6px;font-weight:400}
+.mv{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.mv.g,.mv.b,.mv.p,.mv.a,.mv.te{color:var(--tx)}.mv.r{color:var(--rd)}
+.mv-sub{font-size:11px;color:var(--mu);margin-top:4px}
 
 /* ══ SUMMARY BAR ═════════════════════════════════════════════════════════════ */
 .summary-bar{background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:stretch;gap:0;flex-wrap:wrap;box-shadow:var(--sh)}
 .sum-item{display:flex;flex-direction:column;gap:3px;padding:0 18px;flex:1;min-width:100px;border-right:1px solid var(--bdr)}
 .sum-item:first-child{padding-left:0}
 .sum-item:last-child{border-right:none}
-.sum-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
-.sum-val{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.3px}
-.sum-sub{font-size:10px;color:var(--mu)}
+.sum-lbl{font-size:11px;color:var(--mu);font-weight:500}
+.sum-val{font-family:'Inter',sans-serif;font-size:17px;font-weight:700;letter-spacing:-.3px}
+.sum-sub{font-size:11px;color:var(--mu)}
 
 /* ══ BUTTONS ══════════════════════════════════════════════════════════════════ */
-.btn{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px 13px;border-radius:8px;border:1.5px solid var(--bdr);cursor:pointer;background:transparent;color:var(--mu);transition:all .15s ease;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
-.btn:hover{color:var(--tx);border-color:var(--mu)}
-.btn.grn{border-color:rgba(0,229,160,.4);color:var(--g)}.btn.grn:hover{background:rgba(0,229,160,.1);border-color:var(--g)}
-.btn.red{border-color:rgba(255,87,87,.4);color:var(--rd)}.btn.red:hover{background:rgba(255,87,87,.1);border-color:var(--rd)}
-.btn.blu{border-color:rgba(79,158,255,.4);color:var(--bl)}.btn.blu:hover{background:rgba(79,158,255,.1);border-color:var(--bl)}
-.btn.pur{border-color:rgba(167,139,250,.4);color:var(--pu)}.btn.pur:hover{background:rgba(167,139,250,.1);border-color:var(--pu)}
-.btn.am{border-color:rgba(245,166,35,.4);color:var(--am)}.btn.am:hover{background:rgba(245,166,35,.1);border-color:var(--am)}
-.btn.sm{font-size:9px;padding:4px 9px;border-radius:6px}
-.btn.filled-g{background:var(--g);color:#0a1a14;border-color:var(--g);font-weight:700}.btn.filled-g:hover{background:var(--g2)}
+.btn{font-size:12px;font-weight:500;padding:7px 13px;border-radius:var(--r3);border:1px solid var(--bdr);cursor:pointer;background:var(--s1);color:var(--tx2);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{color:var(--tx);background:var(--s2);border-color:var(--bdr2)}
+.btn.grn{color:var(--ac);border-color:var(--ac-ring)}.btn.grn:hover{background:var(--ac-soft);border-color:var(--ac);color:var(--ac)}
+.btn.red{color:var(--rd)}.btn.red:hover{color:var(--rd);background:color-mix(in srgb,var(--rd) 8%,transparent);border-color:color-mix(in srgb,var(--rd) 35%,transparent)}
+.btn.blu{}
+.btn.pur{}
+.btn.am{}
+.btn.sm{font-size:12px;padding:5px 10px;border-radius:var(--r3)}
+.btn.filled-g{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}.btn.filled-g:hover{background:var(--ac2);border-color:var(--ac2)}
 .del-btn{background:transparent;border:none;color:var(--mu);cursor:pointer;font-size:14px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:.1s;line-height:1;flex-shrink:0}
 .del-btn:hover{color:var(--rd);background:rgba(255,87,87,.12)}
 .add-row{display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;color:var(--mu);font-size:11px;transition:.15s;border-top:1px solid var(--bdr);border-radius:0 0 10px 10px}
-.add-row:hover{color:var(--g);background:rgba(0,229,160,.05)}
+.add-row:hover{color:var(--ac);background:var(--ac-soft)}
 .add-row .icon{font-size:16px;font-weight:700;line-height:1}
 
 /* ══ TABLES ═══════════════════════════════════════════════════════════════════ */
 .etable-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bdr);background:var(--s1)}
 .etable{width:100%;border-collapse:collapse;font-size:12px}
-.etable th{background:var(--s2);color:var(--mu);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.etable th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
 .etable td{padding:10px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle}
 .etable tr:last-child td{border-bottom:none}
 .etable tr:hover td{background:rgba(255,255,255,.015)}
 [data-theme="light"] .etable tr:hover td{background:rgba(0,0,0,.02)}
 .etable tr.new-client td:first-child{position:relative}
-.etable tr.new-client td:first-child::before{content:'★';color:var(--am);font-size:10px;position:absolute;left:4px;top:50%;transform:translateY(-50%)}
+.etable tr.new-client td:first-child::before{content:'★';color:var(--ac);font-size:11px;position:absolute;left:4px;top:50%;transform:translateY(-50%)}
 
 .cell-input{width:100%;background:transparent;border:1.5px solid transparent;border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;transition:.15s}
-.cell-input:focus{background:var(--input-bg);border-color:var(--g);box-shadow:0 0 0 2px rgba(0,229,160,.1)}
-.cell-input.amount{text-align:right;font-family:'Syne',sans-serif;font-weight:600}
+.cell-input:focus{background:var(--input-bg);border-color:var(--ac);box-shadow:0 0 0 2px var(--ac-ring)}
+.cell-input.amount{text-align:right;font-family:'Inter',sans-serif;font-weight:600}
 .cell-input.date{text-align:center}
 .cell-select{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none;cursor:pointer;transition:.15s}
-.cell-select:focus{border-color:var(--g)}
+.cell-select:focus{border-color:var(--ac)}
 .cell-select option{background:var(--s1)}
 
 /* category dot */
 .cat-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
-.new-btn{background:transparent;border:1.5px solid var(--bdr);border-radius:5px;font-size:9px;font-family:'Syne',sans-serif;font-weight:700;color:var(--mu);cursor:pointer;padding:2px 6px;transition:.15s;white-space:nowrap}
-.new-btn.active{border-color:var(--am);color:var(--am);background:rgba(245,166,35,.1)}
-.new-btn:hover:not(.active){border-color:var(--am);color:var(--am)}
+.new-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);font-size:11px;font-weight:500;color:var(--mu);cursor:pointer;padding:3px 8px;white-space:nowrap}
+.new-btn.active{border-color:var(--ac-ring);color:var(--ac);background:var(--ac-soft)}
+.new-btn:hover:not(.active){border-color:var(--bdr2);color:var(--tx2)}
 
 /* ══ CATEGORY COLORS ═════════════════════════════════════════════════════════ */
 /* Revenue */
-.c-servico{color:var(--g)}.c-consultoria{color:var(--bl)}.c-recorrente{color:var(--pu)}.c-pontual{color:var(--am)}.c-rv-outros{color:var(--mu)}
+.c-servico,.c-consultoria,.c-recorrente,.c-pontual,.c-rv-outros{color:var(--tx2)}
 .bg-servico{background:var(--g)}.bg-consultoria{background:var(--bl)}.bg-recorrente{background:var(--pu)}.bg-pontual{background:var(--am)}.bg-rv-outros{background:var(--mu)}
 /* Costs */
 .c-pro-labore{color:var(--pu)}.c-pessoal{color:var(--bl)}.c-imposto{color:var(--rd)}.c-ferramentas{color:var(--am)}.c-marketing{color:var(--te)}.c-operacional{color:var(--mu)}.c-outros{color:var(--mu)}
 .bg-pro-labore{background:var(--pu)}.bg-pessoal{background:var(--bl)}.bg-imposto{background:var(--rd)}.bg-ferramentas{background:var(--am)}.bg-marketing{background:var(--te)}.bg-operacional{background:var(--mu)}.bg-outros{background:var(--mu)}
 
 /* ══ SETTINGS ROW ════════════════════════════════════════════════════════════ */
-.settings-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;background:rgba(79,158,255,.05);border:1px solid rgba(79,158,255,.15);border-radius:10px;margin-bottom:14px}
+.settings-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r2);margin-bottom:14px}
 .settings-row label{font-size:11px;color:var(--mu);font-weight:500}
 .settings-row input,.settings-row select{background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:7px;padding:5px 9px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;transition:.15s}
-.settings-row input:focus,.settings-row select:focus{border-color:var(--g)}
+.settings-row input:focus,.settings-row select:focus{border-color:var(--ac)}
 .settings-row select option{background:var(--s1)}
 
 /* ══ ALERTS ══════════════════════════════════════════════════════════════════ */
-.al{padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:12px;line-height:1.65;border-left:3px solid}
-.alg{background:rgba(0,229,160,.07);border-color:var(--g);color:#a7f3d0}
-.ala{background:rgba(245,166,35,.07);border-color:var(--am);color:#fde68a}
-.alr{background:rgba(255,87,87,.07);border-color:var(--rd);color:#fca5a5}
-.alb{background:rgba(79,158,255,.07);border-color:var(--bl);color:#bfdbfe}
-.alp{background:rgba(167,139,250,.07);border-color:var(--pu);color:#ddd6fe}
+.al{padding:11px 14px;border-radius:var(--r2);font-size:12px;margin-bottom:12px;line-height:1.6;border-left:3px solid;background:var(--s2);color:var(--tx2)}
+.alg{border-color:var(--g)}
+.ala{border-color:var(--am)}
+.alr{border-color:var(--rd)}
+.alb{border-color:var(--ac)}
+.alp{border-color:var(--ac)}
 
 /* ══ PROGRESS BAR ════════════════════════════════════════════════════════════ */
 .prog-track{height:6px;background:var(--s3);border-radius:3px;overflow:hidden;margin-top:6px}
@@ -170,14 +190,14 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 
 /* ══ DASHBOARD TABLE ══════════════════════════════════════════════════════════ */
 .dt{width:100%;border-collapse:collapse;font-size:12px}
-.dt th{background:var(--s2);color:var(--mu);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.dt th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
 .dt td{padding:9px 10px;border-bottom:1px solid var(--bdr);vertical-align:middle}
 .dt tr:last-child td{border-bottom:none}
 .dt tr:hover td{background:var(--s2)}
 .dt td.r{text-align:right}
-.dt tr.tot td{border-top:2px solid var(--bdr);font-family:'Syne',sans-serif;font-weight:700;font-size:13px}
-.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
-.pill.g{background:rgba(0,229,160,.12);color:var(--g)}
+.dt tr.tot td{border-top:2px solid var(--bdr);font-family:'Inter',sans-serif;font-weight:700;font-size:13px}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.pill.g{background:color-mix(in srgb,var(--g) 12%,transparent);color:var(--g)}
 .pill.a{background:rgba(245,166,35,.12);color:var(--am)}
 .pill.r{background:rgba(255,87,87,.12);color:var(--rd)}
 
@@ -196,28 +216,28 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px}
 .modal{background:var(--s1);border:1px solid var(--bdr);border-radius:16px;padding:24px;min-width:340px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--sh2)}
 .modal-lg{max-width:700px}
-.modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;letter-spacing:-.2px}
+.modal-title{font-family:'Inter',sans-serif;font-size:15px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;letter-spacing:-.2px}
 .mrow{margin-bottom:13px}
 .mrow label{display:block;font-size:11px;color:var(--mu);margin-bottom:5px;font-weight:500}
 .mrow input,.mrow select,.mrow textarea{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:8px;padding:8px 11px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:.2s}
-.mrow input:focus,.mrow select:focus,.mrow textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,229,160,.1)}
+.mrow input:focus,.mrow select:focus,.mrow textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
 .mrow textarea{resize:vertical;min-height:80px}
-.mrow .hint{font-size:10px;color:var(--mu);margin-top:4px}
+.mrow .hint{font-size:11px;color:var(--mu);margin-top:4px}
 .mrow select option{background:var(--s1)}
 .mfooter{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--bdr)}
-.msep{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 10px;padding-top:12px;border-top:1px solid var(--bdr)}
+.msep{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--pu);margin:14px 0 10px;padding-top:12px;border-top:1px solid var(--bdr)}
 
 /* ══ SEARCH ══════════════════════════════════════════════════════════════════ */
 .search-input-wrap{position:relative;margin-bottom:16px}
 .search-input{width:100%;background:var(--s1);border:2px solid var(--bdr);border-radius:12px;padding:13px 16px 13px 42px;color:var(--tx);font-family:'Inter',sans-serif;font-size:14px;outline:none;transition:.2s}
-.search-input:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,229,160,.1)}
+.search-input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
 .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--mu);font-size:16px}
 .search-result-group{margin-bottom:16px}
-.search-result-header{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)}
+.search-result-header{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)}
 
 /* ══ BONUS CARD ══════════════════════════════════════════════════════════════ */
 .bonus-quarter{background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:14px;margin-bottom:10px}
-.bonus-quarter-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.bonus-quarter-title{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .bonus-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bdr)}
 .bonus-row:last-child{border-bottom:none}
 .bonus-row .lbl{color:var(--tx2)}
@@ -226,73 +246,73 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 /* ══ THEME TOGGLE ════════════════════════════════════════════════════════════ */
 .theme-btn{width:34px;height:20px;background:var(--s3);border:1.5px solid var(--bdr);border-radius:20px;cursor:pointer;position:relative;transition:.25s;flex-shrink:0}
 .theme-btn::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;background:var(--mu);border-radius:50%;transition:.25s}
-[data-theme="light"] .theme-btn{background:var(--bl);border-color:var(--bl)}
+[data-theme="light"] .theme-btn{background:var(--ac);border-color:var(--ac)}
 [data-theme="light"] .theme-btn::after{background:#fff;left:calc(100% - 15px)}
 
 /* ══ FILE UPLOAD ════════════════════════════════════════════════════════════ */
 .file-drop{border:2px dashed var(--bdr);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:.2s;color:var(--mu)}
-.file-drop:hover{border-color:var(--g);color:var(--g);background:rgba(0,229,160,.04)}
+.file-drop:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-soft)}
 .file-drop input{display:none}
 
 /* ══ MISC ════════════════════════════════════════════════════════════════════ */
 .sep{border-top:1px solid var(--bdr);margin:12px 0}
 
 /* ══ LIGHT MODE FIXES ════════════════════════════════════════════════════════ */
-[data-theme="light"] .alg{color:#065f46}
-[data-theme="light"] .ala{color:#78350f}
-[data-theme="light"] .alr{color:#991b1b}
-[data-theme="light"] .alb{color:#1e40af}
-[data-theme="light"] .alp{color:#5b21b6}
+
+
+
+
+
 [data-theme="light"] .etable tr:hover td{background:rgba(0,0,0,.025)}
 [data-theme="light"] .cell-input{color:var(--tx)}
 [data-theme="light"] .cell-select{color:var(--tx)}
-[data-theme="light"] .mc{background:#f0f4fb}
-[data-theme="light"] .topbar{box-shadow:0 1px 4px rgba(0,0,0,.08)}
-[data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04)}
+
+
+
 [data-theme="light"] .login-card{box-shadow:0 8px 32px rgba(0,0,0,.1)}
-[data-theme="light"] .bonus-quarter{background:#f5f7fc}
+[data-theme="light"] .bonus-quarter{background:var(--s2)}
 [data-theme="light"] .dist-item{color:var(--tx2)}
-[data-theme="light"] .add-row:hover{background:rgba(0,158,111,.06)}
+
 
 /* ══ REPORT ══════════════════════════════════════════════════════════════════ */
 .report-section{margin-bottom:20px}
 .report-metric-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .report-metric{flex:1;min-width:120px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px}
-.report-metric .lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
-.report-metric .val{font-family:'Syne',sans-serif;font-size:18px;font-weight:800}
-.report-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+.report-metric .lbl{font-size:11px;color:var(--mu);margin-bottom:4px}
+.report-metric .val{font-family:'Inter',sans-serif;font-size:18px;font-weight:700}
+.report-title{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
 .report-sub{font-size:12px;color:var(--mu);margin-bottom:20px}
 #report-content table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
-#report-content th{background:var(--s2);color:var(--mu);font-size:10px;font-weight:600;text-transform:uppercase;padding:7px 10px;text-align:left;border-bottom:1px solid var(--bdr)}
+#report-content th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:7px 10px;text-align:left;border-bottom:1px solid var(--bdr)}
 #report-content td{padding:7px 10px;border-bottom:1px solid var(--bdr)}
 #report-content tr:last-child td{border-bottom:none}
 #report-content .r{text-align:right}
 
 /* ══ IMPORT TABS ═════════════════════════════════════════════════════════════ */
 .itab-bar{display:flex;gap:4px;margin-bottom:14px;background:var(--s2);padding:4px;border-radius:10px;border:1px solid var(--bdr)}
-.itab{flex:1;padding:7px;border:none;background:transparent;color:var(--mu);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border-radius:8px;transition:.15s}
-.itab.active{background:var(--s1);color:var(--g);box-shadow:var(--sh)}
+.itab{flex:1;padding:7px;border:none;background:transparent;color:var(--mu);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border-radius:8px;transition:.15s}
+.itab.active{background:var(--s1);color:var(--ac);box-shadow:var(--sh)}
 
 @media(max-width:760px){.g2,.g3,.g4,.g5,.g6{grid-template-columns:1fr!important}.summary-bar{gap:10px}.sum-item{border-right:none;padding:6px 0;border-bottom:1px solid var(--bdr)}.sum-item:last-child{border-bottom:none}}
 
 /* ══ STATUS BADGES ═══════════════════════════════════════════════════════════ */
-.status-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:.04em;white-space:nowrap}
+.status-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;white-space:nowrap}
 .s-pendente{background:rgba(245,166,35,.12);color:var(--am)}
-.s-pago{background:rgba(0,229,160,.12);color:var(--g)}
-.s-recebido{background:rgba(0,229,160,.12);color:var(--g)}
+.s-pago{background:color-mix(in srgb,var(--g) 12%,transparent);color:var(--g)}
+.s-recebido{background:color-mix(in srgb,var(--g) 12%,transparent);color:var(--g)}
 .s-vencido{background:rgba(255,87,87,.12);color:var(--rd)}
 
 /* ══ CONTAS SUB-TABS ════════════════════════════════════════════════════════ */
 .ctab-bar{display:flex;gap:6px;margin-bottom:16px}
-.ctab{padding:8px 18px;border:1.5px solid var(--bdr);background:transparent;color:var(--mu);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border-radius:8px;transition:.15s}
+.ctab{padding:8px 18px;border:1.5px solid var(--bdr);background:transparent;color:var(--mu);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border-radius:8px;transition:.15s}
 .ctab:hover{color:var(--tx);border-color:var(--mu)}
-.ctab.active{background:var(--s1);color:var(--g);border-color:var(--g);box-shadow:var(--sh)}
+.ctab.active{background:var(--s1);color:var(--ac);border-color:var(--ac);box-shadow:var(--sh)}
 
 /* ══ CATEGORY ADMIN ════════════════════════════════════════════════════════ */
 .cat-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--bdr);margin-bottom:6px}
 .cat-row-color{width:14px;height:14px;border-radius:4px;flex-shrink:0}
 .cat-row-label{flex:1;font-size:12px;font-weight:500}
-.cat-row-slug{font-size:10px;color:var(--mu);font-family:monospace;background:var(--s3);padding:2px 6px;border-radius:4px}
+.cat-row-slug{font-size:11px;color:var(--mu);font-family:monospace;background:var(--s3);padding:2px 6px;border-radius:4px}
 
 /* ══ CONTA FORM ════════════════════════════════════════════════════════════ */
 .conta-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -321,12 +341,12 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
       <span id="sync-lbl" class="sync-badge">—</span>
       <span id="user-name" style="font-size:11px;color:var(--mu);font-weight:500"></span>
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema"></button>
-      <button class="btn sm" onclick="openCatsModal()">⚙ Categorias</button>
-      <button class="btn sm pur" onclick="openRecurringModal()">🔁 Recorrentes</button>
-      <button class="btn sm" onclick="openGoalsModal()">🎯 Metas</button>
-      <button class="btn sm pur" onclick="openBonusModal()">💰 Bônus</button>
-      <button class="btn sm" onclick="doBackup()" title="Baixar backup JSON">💾 Backup</button>
-      <button class="btn sm" id="restore-btn-topbar" onclick="openRestoreModal()" style="display:none" title="Restaurar backup">↩ Restaurar</button>
+      <button class="btn sm" onclick="openCatsModal()">Categorias</button>
+      <button class="btn sm pur" onclick="openRecurringModal()">Recorrentes</button>
+      <button class="btn sm" onclick="openGoalsModal()">Metas</button>
+      <button class="btn sm pur" onclick="openBonusModal()">Bônus</button>
+      <button class="btn sm" onclick="doBackup()" title="Baixar backup JSON">Backup</button>
+      <button class="btn sm" id="restore-btn-topbar" onclick="openRestoreModal()" style="display:none" title="Restaurar backup">Restaurar</button>
       <button class="btn sm" onclick="openPwModal()">🔑</button>
       <button class="btn sm red" onclick="doLogout()">Sair</button>
     </div>
@@ -349,7 +369,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
   <div class="modal">
     <div class="modal-title">Alterar senha <button class="btn sm" onclick="closePwModal()">✕</button></div>
     <div class="mrow"><label>Senha atual</label><input id="pw-cur" type="password"></div>
-    <div class="mrow"><label>Nova senha</label><input id="pw-new" type="password"></div>
+    <div class="mrow"><label>Nova senha</label><input id="pw-new" type="password" minlength="12" placeholder="mínimo 12 caracteres"></div>
     <div id="pw-err" style="font-size:11px;color:var(--rd);min-height:16px"></div>
     <div class="mfooter"><button class="btn" onclick="closePwModal()">Cancelar</button><button class="btn grn" onclick="submitPw()">✓ Salvar</button></div>
   </div>
@@ -370,10 +390,10 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 <!-- Goals -->
 <div id="goals-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeGoalsModal()">
   <div class="modal modal-lg">
-    <div class="modal-title">🎯 Gerenciar Metas <button class="btn sm" onclick="closeGoalsModal()">✕</button></div>
+    <div class="modal-title">Gerenciar Metas <button class="btn sm" onclick="closeGoalsModal()">✕</button></div>
     <div id="goals-list"></div>
     <div class="sep"></div>
-    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Nova meta</div>
+    <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--g);margin-bottom:10px;">Nova meta</div>
     <div class="g2">
       <div class="mrow"><label>Nome da meta</label><input id="goal-name" type="text" placeholder="Ex: Receita mensal R$15k"></div>
       <div class="mrow"><label>Valor alvo (R$)</label><input id="goal-target" type="number" placeholder="15000"></div>
@@ -397,7 +417,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 <!-- Bonus -->
 <div id="bonus-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeBonusModal()">
   <div class="modal modal-lg">
-    <div class="modal-title">💰 Calculadora de Bônus <button class="btn sm" onclick="closeBonusModal()">✕</button></div>
+    <div class="modal-title">Calculadora de Bônus <button class="btn sm" onclick="closeBonusModal()">✕</button></div>
     <div id="bonus-body"></div>
     <div class="mfooter"><button class="btn" onclick="closeBonusModal()">Fechar</button></div>
   </div>
@@ -408,8 +428,8 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
   <div class="modal modal-lg">
     <div class="modal-title" id="import-title">Importar dados <button class="btn sm" onclick="closeImportModal()">✕</button></div>
     <div class="itab-bar">
-      <button class="itab active" id="itab-csv" onclick="switchImportTab('csv')">📋 Colar CSV</button>
-      <button class="itab" id="itab-xlsx" onclick="switchImportTab('xlsx')">📊 Arquivo Excel / Sheets</button>
+      <button class="itab active" id="itab-csv" onclick="switchImportTab('csv')">Colar CSV</button>
+      <button class="itab" id="itab-xlsx" onclick="switchImportTab('xlsx')">Arquivo Excel / Sheets</button>
     </div>
     <div id="import-body"></div>
   </div>
@@ -441,7 +461,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
     <div class="mfooter">
       <button class="btn" onclick="closeReportModal()">Fechar</button>
       <button class="btn blu" onclick="exportReportPNG()">📷 Baixar PNG</button>
-      <button class="btn grn" onclick="exportReportPDF()">📄 Imprimir / PDF</button>
+      <button class="btn grn" onclick="exportReportPDF()">Imprimir / PDF</button>
     </div>
   </div>
 </div>
@@ -451,7 +471,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
   <div class="modal">
     <div class="modal-title">Exportar → Painel v4 <button class="btn sm" onclick="e('export-overlay').style.display='none'">✕</button></div>
     <div class="al alb" style="margin-bottom:12px">Este arquivo JSON contém seus dados reais de 2026. Você pode usá-lo como referência ao planejar no Painel v4.</div>
-    <div id="export-preview" style="background:var(--s2);border-radius:8px;padding:12px;font-size:10px;color:var(--mu);max-height:200px;overflow:auto;font-family:monospace;white-space:pre-wrap"></div>
+    <div id="export-preview" style="background:var(--s2);border-radius:8px;padding:12px;font-size:11px;color:var(--mu);max-height:200px;overflow:auto;font-family:monospace;white-space:pre-wrap"></div>
     <div class="mfooter">
       <button class="btn" onclick="e('export-overlay').style.display='none'">Fechar</button>
       <button class="btn grn" onclick="downloadExport()">⬇ Baixar JSON</button>
@@ -462,27 +482,27 @@ html,body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;fo
 <!-- Categories Modal -->
 <div id="cats-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeCatsModal()">
   <div class="modal modal-lg">
-    <div class="modal-title">⚙ Gerenciar Categorias <button class="btn sm" onclick="closeCatsModal()">✕</button></div>
+    <div class="modal-title">Gerenciar Categorias <button class="btn sm" onclick="closeCatsModal()">✕</button></div>
     <div class="g2">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Categorias de Receita</div>
+        <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--g);margin-bottom:10px">Categorias de Receita</div>
         <div id="cats-rev-list"></div>
         <div class="sep"></div>
-        <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--g);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Nova categoria de receita</div>
+        <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--g);margin-bottom:8px;">Nova categoria de receita</div>
         <div style="display:flex;gap:7px;align-items:flex-end;flex-wrap:wrap">
           <div class="mrow" style="flex:1;margin-bottom:0"><label>Nome</label><input id="newcat-rev-label" type="text" placeholder="Ex: E-commerce"></div>
-          <div class="mrow" style="margin-bottom:0"><label>Cor</label><input id="newcat-rev-color" type="color" value="#4f9eff" style="height:36px;width:50px;padding:2px;border-radius:6px;border:1.5px solid var(--bdr);background:var(--input-bg);cursor:pointer"></div>
+          <div class="mrow" style="margin-bottom:0"><label>Cor</label><input id="newcat-rev-color" type="color" value="#6D5CE7" style="height:36px;width:50px;padding:2px;border-radius:6px;border:1.5px solid var(--bdr);background:var(--input-bg);cursor:pointer"></div>
           <button class="btn grn" style="margin-bottom:0" onclick="addCategory('revenue')">+ Adicionar</button>
         </div>
       </div>
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Categorias de Despesa</div>
+        <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--rd);margin-bottom:10px">Categorias de Despesa</div>
         <div id="cats-cost-list"></div>
         <div class="sep"></div>
-        <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--rd);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Nova categoria de despesa</div>
+        <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--rd);margin-bottom:8px;">Nova categoria de despesa</div>
         <div style="display:flex;gap:7px;align-items:flex-end;flex-wrap:wrap">
           <div class="mrow" style="flex:1;margin-bottom:0"><label>Nome</label><input id="newcat-cost-label" type="text" placeholder="Ex: Comissão"></div>
-          <div class="mrow" style="margin-bottom:0"><label>Cor</label><input id="newcat-cost-color" type="color" value="#f5a623" style="height:36px;width:50px;padding:2px;border-radius:6px;border:1.5px solid var(--bdr);background:var(--input-bg);cursor:pointer"></div>
+          <div class="mrow" style="margin-bottom:0"><label>Cor</label><input id="newcat-cost-color" type="color" value="#7E52A0" style="height:36px;width:50px;padding:2px;border-radius:6px;border:1.5px solid var(--bdr);background:var(--input-bg);cursor:pointer"></div>
           <button class="btn red" style="margin-bottom:0" onclick="addCategory('cost')">+ Adicionar</button>
         </div>
       </div>
@@ -582,9 +602,9 @@ let REV_CATS  = ['servico','consultoria','recorrente','pontual','outros'];
 let COST_CATS = ['pro-labore','pessoal','imposto','ferramentas','marketing','operacional','outros'];
 
 let CAT_COLORS = {
-  servico:'#00e5a0', consultoria:'#4f9eff', recorrente:'#a78bfa', pontual:'#f5a623', 'rv-outros':'#6b7fa3',
-  'pro-labore':'#a78bfa', pessoal:'#4f9eff', imposto:'#ff5757', ferramentas:'#f5a623',
-  marketing:'#2dd4bf', operacional:'#6b7fa3', outros:'#6b7fa3'
+  servico:'#6D5CE7', consultoria:'#A06AF6', recorrente:'#7E52A0', pontual:'#C4B0F8', 'rv-outros':'#9A96B8',
+  'pro-labore':'#5B4BD1', pessoal:'#8B7BFF', imposto:'#29274C', ferramentas:'#A06AF6',
+  marketing:'#C4B0F8', operacional:'#7E52A0', outros:'#9A96B8'
 };
 let CAT_LABEL = {
   servico:'Serviço', consultoria:'Consultoria', recorrente:'Recorrente', pontual:'Pontual', 'rv-outros':'Outros',
@@ -625,7 +645,12 @@ const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').repl
 const fmtAmt = v => { const n=parseFloat(v)||0; return n===0?'':n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
 const marginClass = m => m>=45?'g':m>=25?'a':'r';
 const marginPill  = m => `<span class="pill ${marginClass(m)}">${pct(m)}</span>`;
-const catColor    = c => CAT_COLORS[c] || '#6b7fa3';
+const catColor    = c => CAT_COLORS[c] || '#9A96B8';
+const CV = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const rgba = (hex,a) => { const h=hex.replace('#',''); const b=parseInt(h.length===3?h.split('').map(x=>x+x).join(''):h,16);
+  return `rgba(${(b>>16)&255},${(b>>8)&255},${b&255},${a})`; };
+// Paleta de gráfico: receita = roxo da marca, despesa = neutro, saldo = índigo
+const CHART = () => ({ rev:CV('--ac'), cos:CV('--mu'), bal:CV('--ac2'), grid:CV('--bdr'), tick:CV('--mu') });
 const catDot      = c => `<span class="cat-dot" style="background:${catColor(c)}"></span>`;
 const catLabel    = c => CAT_LABEL[c] || c;
 
@@ -649,7 +674,7 @@ function toggleTheme() {
   setTimeout(()=>{ if(S.tab==='dashboard') renderDashboard(); else { const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) redrawMonthCharts(mid); } }, 100);
 }
 function applyTheme() {
-  const t = localStorage.getItem('ef_theme') || 'dark';
+  const t = localStorage.getItem('ef_theme') || 'light';
   document.documentElement.setAttribute('data-theme', t);
 }
 applyTheme();
@@ -676,7 +701,7 @@ async function doLogin() {
   e('login-err').textContent='';
   try {
     const d=await api('POST','/api/auth/login',{username:e('login-user').value.trim(),password:e('login-pass').value});
-    S.token=d.token; S.user={name:d.name,username:d.username};
+    S.token=d.token; S.user={name:d.name,username:d.username,role:d.role||'user'};
     localStorage.setItem('ef_token',S.token);
     await loadData();
     showApp();
@@ -703,7 +728,7 @@ function confirm2(title,body,okLabel='Confirmar',okCls='red') {
   e('confirm-overlay').style.display='flex';
   return new Promise(res=>{ _cr=res; });
 }
-function confirmResolve(v){ e('confirm-overlay').style.display='none'; if(_cr){_cr(v);_cr=null;} }
+function confirmResolve(v){ e('confirm-overlay').style.display='none'; if(_cr){_cr(v);_cr=null} }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DATA
@@ -949,14 +974,14 @@ function renderGoalsList() {
     const color=progPct>=100?'var(--g)':progPct>=70?'var(--am)':'var(--rd)';
     return `<div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px">${esc(g.name)}</span>
+        <span style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px">${esc(g.name)}</span>
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-size:11px;color:var(--mu)">${brl(cur)} / ${g.metric==='margem'||g.metric==='clientes'?g.target_value:brl(g.target_value)}</span>
           <button class="del-btn" onclick="deleteGoal(${g.id})">✕</button>
         </div>
       </div>
       <div class="prog-track"><div class="prog-fill" style="width:${progPct}%;background:${color}"></div></div>
-      <div style="font-size:10px;color:var(--mu);margin-top:4px">${progPct.toFixed(0)}% concluído</div>
+      <div style="font-size:11px;color:var(--mu);margin-top:4px">${progPct.toFixed(0)}% concluído</div>
     </div>`;
   }).join('');
 }
@@ -1014,8 +1039,8 @@ function openBonusModal() {
       <div class="bonus-row"><span class="lbl">Reserva mínima necessária (3 meses)</span><span class="val">${brl(reserveNeeded)}</span></div>
       <div class="bonus-row"><span class="lbl">Caixa estimado acumulado</span><span class="val" style="color:${cashOk?'var(--g)':'var(--rd)'}">${brl(accCash)} ${cashOk?'✓':'⚠ abaixo do ideal'}</span></div>
       <div class="bonus-row" style="border-top:1px solid var(--bdr);margin-top:4px;padding-top:8px">
-        <span class="lbl" style="font-weight:700;color:var(--tx)">💰 Disponível por sócio (50%÷2)</span>
-        <span class="val" style="font-family:'Syne',sans-serif;font-size:15px;color:${canDistribute?'var(--g)':'var(--mu)'}">${canDistribute?brl(perSocio):'—'}</span>
+        <span class="lbl" style="font-weight:700;color:var(--tx)">Disponível por sócio (50%÷2)</span>
+        <span class="val" style="font-family:'Inter',sans-serif;font-size:15px;color:${canDistribute?'var(--g)':'var(--mu)'}">${canDistribute?brl(perSocio):'—'}</span>
       </div>
       ${canDistribute?`<div style="font-size:11px;color:var(--mu);margin-top:6px">📅 Data sugerida: <strong>1–15 de ${q.after}</strong></div>`:''}
       ${!profitable?'<div style="font-size:11px;color:var(--rd);margin-top:6px">❌ Trimestre não foi lucrativo.</div>':''}
@@ -1025,10 +1050,10 @@ function openBonusModal() {
   });
   // Annual totals
   const annualDist=a.months.reduce((s,m)=>s+Math.max(m.bal,0),0)*0.5/2;
-  html+=`<div style="background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.2);border-radius:10px;padding:13px;margin-top:6px">
-    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:var(--g);margin-bottom:6px">📊 Potencial anual total</div>
+  html+=`<div style="background:var(--ac-soft);border:1px solid var(--ac-ring);border-radius:var(--r2);padding:13px;margin-top:6px">
+    <div style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;color:var(--g);margin-bottom:6px">Potencial anual total</div>
     <div style="font-size:12px;color:var(--tx2)">Se todos os critérios forem atendidos:</div>
-    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--g);margin-top:4px">${brl(annualDist)} <span style="font-size:11px;color:var(--mu);font-weight:400">por sócio / ano</span></div>
+    <div style="font-family:'Inter',sans-serif;font-size:20px;font-weight:700;color:var(--g);margin-top:4px">${brl(annualDist)} <span style="font-size:11px;color:var(--mu);font-weight:400">por sócio / ano</span></div>
   </div>`;
   body.innerHTML=html;
 }
@@ -1221,15 +1246,15 @@ function buildMonthReport(mid) {
   const cosDist=catDistribution(m.costs);
 
   const revRows=m.revenues.map(r=>`<tr>
-    <td>${esc(r.client_name)}${r.is_new_client?' <span style="color:#f5a623;font-size:10px">★ novo</span>':''}</td>
-    <td class="r" style="color:${getComputedStyle(document.documentElement).getPropertyValue('--g').trim()||'#00e5a0'}">${brl(r.amount)}</td>
+    <td>${esc(r.client_name)}${r.is_new_client?' <span style="color:var(--mu);font-size:11px">★ novo</span>':''}</td>
+    <td class="r">${brl(r.amount)}</td>
     <td>${esc(r.received_date)||'—'}</td>
     <td>${catLabel(r.category)}</td>
   </tr>`).join('');
 
   const costRows=m.costs.map(c=>`<tr>
     <td>${esc(c.name)}</td>
-    <td class="r" style="color:#ff5757">${brl(c.amount)}</td>
+    <td class="r" style="color:${tx}">${brl(c.amount)}</td>
     <td>${esc(c.payment_date)||'—'}</td>
     <td>${catLabel(c.category)}</td>
   </tr>`).join('');
@@ -1245,7 +1270,7 @@ function buildMonthReport(mid) {
     <div class="report-metric"><div class="lbl">Margem</div><div class="val">${pct(sc.margin)}</div></div>
     <div class="report-metric"><div class="lbl">Clientes</div><div class="val" style="color:var(--bl)">${sc.clients}</div></div>
     <div class="report-metric"><div class="lbl">Ticket médio</div><div class="val" style="color:var(--bl)">${brl(sc.avgTicket)}</div></div>
-    ${sc.newClients?`<div class="report-metric"><div class="lbl">Novos clientes</div><div class="val" style="color:var(--am)">★ ${sc.newClients}</div></div>`:''}
+    ${sc.newClients?`<div class="report-metric"><div class="lbl">Novos clientes</div><div class="val">★ ${sc.newClients}</div></div>`:''}
   </div>
 
   <div style="font-size:11px;color:var(--mu);margin-bottom:14px;padding:8px 12px;background:var(--s2);border-radius:8px">${dasInfo} · Pró-labore/sócio: ${brl(m.prolabore_socio||1400)}</div>
@@ -1253,7 +1278,7 @@ function buildMonthReport(mid) {
   ${m.notes?`<div class="al alb" style="font-size:11px;margin-bottom:14px"><strong>Observações:</strong> ${esc(m.notes)}</div>`:''}
 
   <div class="report-section">
-    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Receitas</div>
+    <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--g);margin-bottom:8px">Receitas</div>
     <table>
       <thead><tr><th>Cliente</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead>
       <tbody>${revRows}</tbody>
@@ -1262,7 +1287,7 @@ function buildMonthReport(mid) {
   </div>
 
   <div class="report-section">
-    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Despesas</div>
+    <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--rd);margin-bottom:8px">Despesas</div>
     <table>
       <thead><tr><th>Item</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead>
       <tbody>${costRows}</tbody>
@@ -1270,8 +1295,8 @@ function buildMonthReport(mid) {
     </table>
   </div>
 
-  ${revDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição de receitas</div>${renderDistBar(revDist)}</div>`:''}
-  ${cosDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição de despesas</div>${renderDistBar(cosDist,true)}</div>`:''}
+  ${revDist.length?`<div class="report-section"><div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin-bottom:8px">Distribuição de receitas</div>${renderDistBar(revDist)}</div>`:''}
+  ${cosDist.length?`<div class="report-section"><div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin-bottom:8px">Distribuição de despesas</div>${renderDistBar(cosDist,true)}</div>`:''}
   `;
 }
 
@@ -1291,11 +1316,11 @@ function buildAnnualReport() {
       <td style="font-weight:600">${MONTHS_FULL[m.month-1]}</td>
       <td class="r" style="color:var(--g)">${m.rev>0?brl(m.rev):'—'}</td>
       <td class="r" style="color:var(--bl)">${m.avgTicket>0?brl(m.avgTicket):'—'}</td>
-      <td class="r" style="color:#ff5757">${m.cos>0?brl(m.cos):'—'}</td>
-      <td class="r" style="color:${m.bal>=0?'var(--g)':'#ff5757'}">${hasData?brl(m.bal):'—'}</td>
+      <td class="r" style="color:${tx}">${m.cos>0?brl(m.cos):'—'}</td>
+      <td class="r" style="color:${m.bal>=0?'var(--tx)':'var(--rd)'}">${hasData?brl(m.bal):'—'}</td>
       <td class="r">${hasData?pct(m.margin):'—'}</td>
       <td class="r" style="color:var(--bl)">${m.clients||'—'}</td>
-      <td class="r" style="color:var(--am)">${m.newClients||'—'}</td>
+      <td class="r">${m.newClients||'—'}</td>
     </tr>`;
   }).join('');
 
@@ -1305,15 +1330,15 @@ function buildAnnualReport() {
 
   <div class="report-metric-row">
     <div class="report-metric"><div class="lbl">Receita total</div><div class="val" style="color:var(--g)">${brl(a.totalRev)}</div></div>
-    <div class="report-metric"><div class="lbl">Despesas totais</div><div class="val" style="color:#ff5757">${brl(a.totalCos)}</div></div>
-    <div class="report-metric"><div class="lbl">Saldo acumulado</div><div class="val" style="color:${a.totalBal>=0?'var(--g)':'#ff5757'}">${brl(a.totalBal)}</div></div>
+    <div class="report-metric"><div class="lbl">Despesas totais</div><div class="val" style="color:${tx}">${brl(a.totalCos)}</div></div>
+    <div class="report-metric"><div class="lbl">Saldo acumulado</div><div class="val" style="color:${a.totalBal>=0?'var(--tx)':'var(--rd)'}">${brl(a.totalBal)}</div></div>
     <div class="report-metric"><div class="lbl">Margem média</div><div class="val">${pct(a.avgMargin)}</div></div>
     <div class="report-metric"><div class="lbl">Ticket médio</div><div class="val" style="color:var(--bl)">${brl(annAvgTicket)}</div></div>
     ${totalNew?`<div class="report-metric"><div class="lbl">Novos clientes</div><div class="val" style="color:var(--am)">★ ${totalNew}</div></div>`:''}
   </div>
 
   <div class="report-section">
-    <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Resumo mensal</div>
+    <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin-bottom:8px">Resumo mensal</div>
     <table>
       <thead><tr><th>Mês</th><th class="r">Receita</th><th class="r">Ticket médio</th><th class="r">Despesas</th><th class="r">Saldo</th><th class="r">Margem</th><th class="r">Clientes</th><th class="r">Novos</th></tr></thead>
       <tbody>${monthRows}</tbody>
@@ -1322,7 +1347,7 @@ function buildAnnualReport() {
         <td class="r" style="color:var(--g)"><strong>${brl(a.totalRev)}</strong></td>
         <td class="r" style="color:var(--bl)"><strong>${brl(annAvgTicket)}</strong></td>
         <td class="r" style="color:#ff5757"><strong>${brl(a.totalCos)}</strong></td>
-        <td class="r" style="color:${a.totalBal>=0?'var(--g)':'#ff5757'}"><strong>${brl(a.totalBal)}</strong></td>
+        <td class="r" style="color:${a.totalBal>=0?'var(--tx)':'var(--rd)'}"><strong>${brl(a.totalBal)}</strong></td>
         <td class="r"><strong>${pct(a.avgMargin)}</strong></td>
         <td class="r" style="color:var(--bl)"><strong>${a.months.reduce((s,m)=>Math.max(s,m.clients),0)}</strong></td>
         <td class="r" style="color:var(--am)"><strong>${totalNew||'—'}</strong></td>
@@ -1330,44 +1355,39 @@ function buildAnnualReport() {
     </table>
   </div>
 
-  ${annRevDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição anual de receitas</div>${renderDistBar(annRevDist)}</div>`:''}
-  ${annCosDist.length?`<div class="report-section"><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Distribuição anual de despesas</div>${renderDistBar(annCosDist,true)}</div>`:''}
+  ${annRevDist.length?`<div class="report-section"><div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin-bottom:8px">Distribuição anual de receitas</div>${renderDistBar(annRevDist)}</div>`:''}
+  ${annCosDist.length?`<div class="report-section"><div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin-bottom:8px">Distribuição anual de despesas</div>${renderDistBar(annCosDist,true)}</div>`:''}
   `;
 }
 
 function exportReportPDF() {
   const title=e('report-modal-title').textContent.replace('✕','').trim();
   const content=e('report-content').innerHTML;
-  const theme=document.documentElement.getAttribute('data-theme')||'dark';
-  const isDark=theme==='dark';
-  const bg=isDark?'#0c1120':'#ffffff';
-  const tx=isDark?'#e8edf5':'#1a2340';
-  const mu=isDark?'#6b7fa3':'#8494b0';
-  const s1=isDark?'#111827':'#ffffff';
-  const s2=isDark?'#1a2338':'#f5f7fc';
-  const bdr=isDark?'#1e2d45':'#dde4f0';
-  const gn=isDark?'#00e5a0':'#009e6f';
+  const theme=document.documentElement.getAttribute('data-theme')||'light';
+  // Relatório é sempre claro — vai para papel/PDF
+  const bg='#FFFFFF', tx='#1C1C2E', mu='#8B8BA3', s1='#FFFFFF', s2='#F6F6F9', bdr='#E5E5EE';
+  const gn='#0A8F63', ac='#6D5CE7';
   const win=window.open('','_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
     body{background:${bg};color:${tx};font-family:'Inter',sans-serif;font-size:13px;line-height:1.6;padding:32px 40px;max-width:900px;margin:0 auto}
-    :root{--g:${gn};--rd:#ff5757;--bl:#4f9eff;--am:#f5a623;--pu:#a78bfa;--mu:${mu};--tx:${tx};--s2:${s2};--bdr:${bdr}}
-    .report-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+    :root{--g:${gn};--rd:#D0342C;--bl:${ac};--am:#B5730B;--pu:${ac};--ac:${ac};--mu:${mu};--tx:${tx};--s2:${s2};--bdr:${bdr}}
+    .report-title{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
     .report-sub{font-size:11px;color:${mu};margin-bottom:20px}
     .report-metric-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
     .report-metric{flex:1;min-width:110px;background:${s2};border:1px solid ${bdr};border-radius:8px;padding:10px 13px}
-    .report-metric .lbl{font-size:9px;color:${mu};text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
-    .report-metric .val{font-family:'Syne',sans-serif;font-size:17px;font-weight:800}
+    .report-metric .lbl{font-size:11px;color:${mu};margin-bottom:3px}
+    .report-metric .val{font-family:'Inter',sans-serif;font-size:17px;font-weight:700}
     .report-section{margin-bottom:20px}
     table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px}
-    th{background:${s2};color:${mu};font-size:10px;font-weight:600;text-transform:uppercase;padding:7px 10px;text-align:left;border-bottom:1px solid ${bdr}}
+    th{background:${s2};color:${mu};font-size:11px;font-weight:600;padding:7px 10px;text-align:left;border-bottom:1px solid ${bdr}}
     td{padding:7px 10px;border-bottom:1px solid ${bdr};vertical-align:middle}
     .r{text-align:right}
     tfoot tr{font-weight:700}
     .al{padding:8px 12px;border-radius:8px;font-size:11px;margin-bottom:12px;border-left:3px solid}
-    .alb{background:rgba(79,158,255,.08);border-color:#4f9eff}
+    .alb{background:${s2};border-color:${ac}}
     .dist-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:1px;margin:6px 0}
     .dist-seg{height:100%}
     .dist-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -1376,7 +1396,7 @@ function exportReportPDF() {
     @media print{body{padding:16px 20px}@page{margin:12mm}}
   </style></head><body>
   ${content}
-  <script>window.onload=function(){window.print();}<\/script>
+  <script>window.onload=function(){window.print()}<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -1501,7 +1521,7 @@ async function doSearch() {
       let totalRev=0;
       res.revenues.forEach(r=>{ totalRev+=(parseFloat(r.amount)||0); });
       html+=`<div style="overflow-x:auto"><table class="dt"><thead><tr><th>Mês</th><th>Cliente</th><th class="r">Valor</th><th>Data</th><th>Categoria</th></tr></thead><tbody>`;
-      res.revenues.forEach(r=>{ html+=`<tr><td style="color:var(--mu)">${MONTHS_PT[r.month-1]}/${r.year}</td><td style="font-weight:600">${esc(r.client_name)}${r.is_new_client?` <span style="color:var(--am);font-size:10px">★ novo</span>`:''}</td><td class="r" style="color:var(--g)">${brl(r.amount)}</td><td>${esc(r.received_date)||'—'}</td><td>${catDot(r.category)} ${catLabel(r.category)}</td></tr>`; });
+      res.revenues.forEach(r=>{ html+=`<tr><td style="color:var(--mu)">${MONTHS_PT[r.month-1]}/${r.year}</td><td style="font-weight:600">${esc(r.client_name)}${r.is_new_client?` <span style="color:var(--am);font-size:11px">★ novo</span>`:''}</td><td class="r" style="color:var(--g)">${brl(r.amount)}</td><td>${esc(r.received_date)||'—'}</td><td>${catDot(r.category)} ${catLabel(r.category)}</td></tr>`; });
       html+=`<tr class="tot"><td colspan="2">Total</td><td class="r" style="color:var(--g)">${brl(totalRev)}</td><td colspan="2"></td></tr></tbody></table></div></div>`;
     }
     if(res.costs.length){
@@ -1549,9 +1569,9 @@ function renderMonthTab(mid) {
       return `<tr style="${rowStyle}">
         <td style="padding-left:8px">
           <span style="font-size:12px;color:var(--tx2)">${esc(r.client_name)||'—'}</span>
-          <span class="status-badge s-pendente" style="margin-left:6px;background:rgba(167,139,250,.15);color:var(--pu)">🔁 Projetado</span>
+          <span class="status-badge s-pendente" style="margin-left:6px;background:var(--ac-soft);color:var(--ac)">Projetado</span>
         </td>
-        <td><span style="font-family:'Syne',sans-serif;font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(r.amount)||'0,00'}</span></td>
+        <td><span style="font-family:'Inter',sans-serif;font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(r.amount)||'0,00'}</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(r.category)}</span></td>
         <td><button class="btn sm grn" onclick="confirmItem('revenue',${r.id})">✓ Confirmar</button></td>
@@ -1561,7 +1581,7 @@ function renderMonthTab(mid) {
     return `<tr class="${r.is_new_client?'new-client':''}">
       <td style="padding-left:${r.is_new_client?'20px':'8px'}">
         <div style="display:flex;align-items:center;gap:3px">
-          ${hasRec?'<span style="color:var(--pu);font-size:10px;flex-shrink:0" title="Recorrente">🔁</span>':''}
+          ${hasRec?'<span style="color:var(--ac);font-size:11px;flex-shrink:0" title="Recorrente">↻</span>':''}
           <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)" style="flex:1;min-width:0">
         </div>
       </td>
@@ -1591,9 +1611,9 @@ function renderMonthTab(mid) {
       return `<tr style="${rowStyle}">
         <td>
           <span style="font-size:12px;color:var(--tx2)">${esc(c.name)||'—'}</span>
-          <span class="status-badge s-pendente" style="margin-left:6px;background:rgba(167,139,250,.15);color:var(--pu)">🔁 Projetado</span>
+          <span class="status-badge s-pendente" style="margin-left:6px;background:var(--ac-soft);color:var(--ac)">Projetado</span>
         </td>
-        <td><span style="font-family:'Syne',sans-serif;font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(c.amount)||'0,00'}</span></td>
+        <td><span style="font-family:'Inter',sans-serif;font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(c.amount)||'0,00'}</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(c.category)}</span></td>
         <td><button class="btn sm grn" onclick="confirmItem('cost',${c.id})">✓ Confirmar</button></td>
@@ -1603,7 +1623,7 @@ function renderMonthTab(mid) {
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:3px">
-          ${hasRec?'<span style="color:var(--pu);font-size:10px;flex-shrink:0" title="Recorrente">🔁</span>':''}
+          ${hasRec?'<span style="color:var(--ac);font-size:11px;flex-shrink:0" title="Recorrente">↻</span>':''}
           <input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)" style="flex:1;min-width:0">
         </div>
       </td>
@@ -1635,11 +1655,11 @@ function renderMonthTab(mid) {
   <div class="sh-title">
     <span>${mName}</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn sm blu" onclick="copyPrevious(${mid},'revenues')">↩ Copiar receitas</button>
-      <button class="btn sm" onclick="copyPrevious(${mid},'costs')">↩ Copiar despesas</button>
+      <button class="btn sm blu" onclick="copyPrevious(${mid},'revenues')">Copiar receitas</button>
+      <button class="btn sm" onclick="copyPrevious(${mid},'costs')">Copiar despesas</button>
       <button class="btn sm am" onclick="openImportModal(${mid},'revenues')">⬆ Import Rec.</button>
       <button class="btn sm" onclick="openImportModal(${mid},'costs')">⬆ Import Desp.</button>
-      <button class="btn sm" onclick="openReportModal(${mid})">📄 Relatório</button>
+      <button class="btn sm" onclick="openReportModal(${mid})">Relatório</button>
     </div>
   </div>
 
@@ -1668,7 +1688,7 @@ function renderMonthTab(mid) {
     <div>
       <div class="card" style="padding:0;overflow:hidden">
         <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between">
-          <div class="ct" style="margin-bottom:0;color:var(--g)">Receitas</div>
+          <div class="ct" style="margin-bottom:0">Receitas</div>
         </div>
         <div class="etable-wrap" style="border:none;border-radius:0">
           <table class="etable">
@@ -1683,10 +1703,10 @@ function renderMonthTab(mid) {
             <tbody>${revRows}</tbody>
           </table>
         </div>
-        <div class="add-row" onclick="addRevenue(${mid})"><span class="icon" style="color:var(--g)">+</span>Adicionar receita</div>
+        <div class="add-row" onclick="addRevenue(${mid})"><span class="icon">+</span>Adicionar receita</div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--bdr);background:var(--s2)">
-          <span style="font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Total receitas</span>
-          <span id="rev-total-${mid}" style="font-family:'Syne',sans-serif;font-weight:800;font-size:14px;color:var(--g)">${brl(sc.rev)}</span>
+          <span style="font-size:11px;color:var(--mu);font-weight:600">Total receitas</span>
+          <span id="rev-total-${mid}" style="font-weight:600;font-size:14px">${brl(sc.rev)}</span>
         </div>
       </div>
       ${revDist.length?`<div class="card"><div class="ct">Receitas por categoria</div>${renderDistBar(revDist)}</div>`:''}
@@ -1696,7 +1716,7 @@ function renderMonthTab(mid) {
     <div>
       <div class="card" style="padding:0;overflow:hidden">
         <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between">
-          <div class="ct" style="margin-bottom:0;color:var(--rd)">Despesas</div>
+          <div class="ct" style="margin-bottom:0">Despesas</div>
         </div>
         <div class="etable-wrap" style="border:none;border-radius:0">
           <table class="etable">
@@ -1711,10 +1731,10 @@ function renderMonthTab(mid) {
             <tbody>${costRows}</tbody>
           </table>
         </div>
-        <div class="add-row" onclick="addCost(${mid})"><span class="icon" style="color:var(--rd)">+</span>Adicionar despesa</div>
+        <div class="add-row" onclick="addCost(${mid})"><span class="icon">+</span>Adicionar despesa</div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--bdr);background:var(--s2)">
-          <span style="font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Total despesas</span>
-          <span id="cost-total-${mid}" style="font-family:'Syne',sans-serif;font-weight:800;font-size:14px;color:var(--rd)">${brl(sc.cos)}</span>
+          <span style="font-size:11px;color:var(--mu);font-weight:600">Total despesas</span>
+          <span id="cost-total-${mid}" style="font-weight:600;font-size:14px">${brl(sc.cos)}</span>
         </div>
       </div>
       ${cosDist.length?`<div class="card"><div class="ct">Despesas por categoria</div>${renderDistBar(cosDist,true)}</div>`:''}
@@ -1738,15 +1758,14 @@ function updateSummary(mid) {
   const m=S.map[mid]; if(!m) return;
   const sc=calcMonth(m);
   const mc=marginClass(sc.margin);
-  const balCol=sc.bal>=0?'var(--g)':'var(--rd)';
-  const colors={g:'var(--g)',a:'var(--am)',r:'var(--rd)'};
+  const balCol=sc.bal>=0?'var(--tx)':'var(--rd)';
   el.innerHTML=`
-    <div class="sum-item"><div class="sum-lbl">Receita realizada</div><div class="sum-val" style="color:var(--g)">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes</div></div>
-    <div class="sum-item"><div class="sum-lbl">Ticket médio</div><div class="sum-val" style="color:var(--bl)">${brl(sc.avgTicket)}</div><div class="sum-sub">por cliente</div></div>
-    <div class="sum-item"><div class="sum-lbl">Despesas realizadas</div><div class="sum-val" style="color:var(--rd)">${brl(sc.cos)}</div></div>
+    <div class="sum-item"><div class="sum-lbl">Receita realizada</div><div class="sum-val">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes</div></div>
+    <div class="sum-item"><div class="sum-lbl">Ticket médio</div><div class="sum-val">${brl(sc.avgTicket)}</div><div class="sum-sub">por cliente</div></div>
+    <div class="sum-item"><div class="sum-lbl">Despesas realizadas</div><div class="sum-val">${brl(sc.cos)}</div></div>
     <div class="sum-item"><div class="sum-lbl">Saldo realizado</div><div class="sum-val" style="color:${balCol}">${brl(sc.bal)}</div></div>
-    <div class="sum-item"><div class="sum-lbl">Margem</div><div class="sum-val" style="color:${colors[mc]}">${pct(sc.margin)}</div></div>
-    ${sc.newClients>0?`<div class="sum-item"><div class="sum-lbl">Entrada clientes</div><div class="sum-val" style="color:var(--am)">★ ${sc.newClients} novo${sc.newClients>1?'s':''}</div></div>`:''}
+    <div class="sum-item"><div class="sum-lbl">Margem</div><div class="sum-val" style="color:${sc.margin<0?'var(--rd)':'var(--tx)'}">${pct(sc.margin)}</div></div>
+    ${sc.newClients>0?`<div class="sum-item"><div class="sum-lbl">Entrada clientes</div><div class="sum-val">★ ${sc.newClients} novo${sc.newClients>1?'s':''}</div></div>`:''}
   `;
   const rt=e(`rev-total-${mid}`);  if(rt) rt.textContent=brl(sc.rev);
   const ct=e(`cost-total-${mid}`); if(ct) ct.textContent=brl(sc.cos);
@@ -1768,7 +1787,7 @@ function updateSummary(mid) {
           <span><span style="color:var(--g);font-weight:700">${brl(sc.rev)}</span> <span style="color:var(--mu)">/ ${brl(sc.revProj)}</span></span>
         </div>
         <div class="prog-track"><div class="prog-fill" style="width:${revPct}%;background:var(--g)"></div></div>
-        <div style="font-size:10px;color:var(--mu);margin-top:3px">${revPct.toFixed(0)}% realizado</div>
+        <div style="font-size:11px;color:var(--mu);margin-top:3px">${revPct.toFixed(0)}% realizado</div>
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
@@ -1776,14 +1795,14 @@ function updateSummary(mid) {
           <span><span style="color:var(--rd);font-weight:700">${brl(sc.cos)}</span> <span style="color:var(--mu)">/ ${brl(sc.cosProj)}</span></span>
         </div>
         <div class="prog-track"><div class="prog-fill" style="width:${cosPct}%;background:var(--rd)"></div></div>
-        <div style="font-size:10px;color:var(--mu);margin-top:3px">${cosPct.toFixed(0)}% realizado</div>
+        <div style="font-size:11px;color:var(--mu);margin-top:3px">${cosPct.toFixed(0)}% realizado</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Saldo</div>
         <div style="display:flex;gap:12px;align-items:center">
-          <div><div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em">Projetado</div><div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:${balProjCol}">${brl(sc.balProj)}</div></div>
+          <div><div style="font-size:11px;color:var(--mu);">Projetado</div><div style="font-family:'Inter',sans-serif;font-weight:700;font-size:14px;color:${balProjCol}">${brl(sc.balProj)}</div></div>
           <div style="color:var(--mu)">→</div>
-          <div><div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em">Realizado</div><div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:${balRealCol}">${brl(sc.bal)}</div></div>
+          <div><div style="font-size:11px;color:var(--mu);">Realizado</div><div style="font-family:'Inter',sans-serif;font-weight:700;font-size:14px;color:${balRealCol}">${brl(sc.bal)}</div></div>
         </div>
       </div>
     </div>
@@ -1819,14 +1838,14 @@ function renderDashboard() {
     const mc=marginClass(m.margin);
     const hasData=m.rev>0||m.cos>0;
     return `<tr ${!hasData?'style="opacity:.35"':''}>
-      <td style="font-family:'Syne',sans-serif;font-weight:700">${MONTHS_FULL[m.month-1]}</td>
+      <td style="font-family:'Inter',sans-serif;font-weight:700">${MONTHS_FULL[m.month-1]}</td>
       <td class="r" style="color:var(--g)">${m.rev>0?brl(m.rev):'—'}</td>
       <td class="r" style="color:var(--bl)">${m.avgTicket>0?brl(m.avgTicket):'—'}</td>
       <td class="r" style="color:var(--rd)">${m.cos>0?brl(m.cos):'—'}</td>
       <td class="r" style="color:${m.bal>=0?'var(--g)':'var(--rd)'}">${hasData?brl(m.bal):'—'}</td>
       <td class="r">${hasData?marginPill(m.margin):'—'}</td>
       <td class="r" style="color:var(--bl)">${m.clients||'—'}</td>
-      <td class="r" style="color:var(--am)">${m.newClients||'—'}</td>
+      <td class="r">${m.newClients||'—'}</td>
       <td><button class="btn sm" onclick="goTab('m${m.id}')">→</button></td>
     </tr>`;
   }).join('');
@@ -1839,36 +1858,36 @@ function renderDashboard() {
     const mLabel=g.month>0?` · ${MONTHS_PT[g.month-1]}`:'';
     return `<div style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px">
-        <span style="font-size:12px;font-weight:600">${esc(g.name)}<span style="color:var(--mu);font-weight:400;font-size:10px">${mLabel}</span></span>
-        <span style="font-size:11px;color:var(--mu)">${g.metric==='margem'?pct(cur):brl(cur)} / ${g.metric==='margem'?pct(g.target_value):brl(g.target_value)} <span style="font-family:'Syne',sans-serif;font-weight:700;color:${color}">${prog.toFixed(0)}%</span></span>
+        <span style="font-size:12px;font-weight:600">${esc(g.name)}<span style="color:var(--mu);font-weight:400;font-size:11px">${mLabel}</span></span>
+        <span style="font-size:11px;color:var(--mu)">${g.metric==='margem'?pct(cur):brl(cur)} / ${g.metric==='margem'?pct(g.target_value):brl(g.target_value)} <span style="font-family:'Inter',sans-serif;font-weight:700;color:${color}">${prog.toFixed(0)}%</span></span>
       </div>
       <div class="prog-track"><div class="prog-fill" style="width:${prog}%;background:${color}"></div></div>
     </div>`;
-  }).join(''):'<div style="font-size:12px;color:var(--mu)">Nenhuma meta cadastrada. Clique em 🎯 Metas no topo.</div>';
+  }).join(''):'<div style="font-size:12px;color:var(--mu)">Nenhuma meta cadastrada. Clique em Metas no topo.</div>';
 
   el.innerHTML=`
   <div class="sh-title">
     <span>Dashboard — 2026</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn sm" onclick="openReportModal(null)">📄 Relatório anual</button>
-      <button class="btn sm" onclick="openExportModal()">📤 Exportar → v4</button>
-      <button class="btn sm pur" onclick="openBonusModal()">💰 Calcular bônus</button>
+      <button class="btn sm" onclick="openReportModal(null)">Relatório anual</button>
+      <button class="btn sm" onclick="openExportModal()">Exportar → v4</button>
+      <button class="btn sm pur" onclick="openBonusModal()">Calcular bônus</button>
     </div>
   </div>
 
   <!-- METRICS GRID -->
   <div class="g5" style="margin-bottom:16px">
-    <div class="mc green"><div class="ml">Receita total 2026</div><div class="mv g">${brl(a.totalRev)}</div><div class="mv-sub">${withData.length} meses</div></div>
-    <div class="mc red"><div class="ml">Despesas totais</div><div class="mv r">${brl(a.totalCos)}</div></div>
-    <div class="mc ${a.totalBal>=0?'green':'red'}"><div class="ml">Saldo acumulado</div><div class="mv ${a.totalBal>=0?'g':'r'}">${brl(a.totalBal)}</div></div>
-    <div class="mc ${marginClass(a.avgMargin)==='g'?'green':marginClass(a.avgMargin)==='a'?'amber':'red'}"><div class="ml">Margem média</div><div class="mv ${marginClass(a.avgMargin)}">${pct(a.avgMargin)}</div></div>
-    <div class="mc blue"><div class="ml">Ticket médio</div><div class="mv b">${brl(annAvgTicket)}</div><div class="mv-sub">média dos meses</div></div>
+    <div class="mc"><div class="ml">Receita total 2026</div><div class="mv">${brl(a.totalRev)}</div><div class="mv-sub">${withData.length} meses</div></div>
+    <div class="mc"><div class="ml">Despesas totais</div><div class="mv">${brl(a.totalCos)}</div></div>
+    <div class="mc"><div class="ml">Saldo acumulado</div><div class="mv ${a.totalBal>=0?'':'r'}">${brl(a.totalBal)}</div></div>
+    <div class="mc"><div class="ml">Margem média</div><div class="mv ${a.avgMargin<0?'r':''}">${pct(a.avgMargin)}</div></div>
+    <div class="mc"><div class="ml">Ticket médio</div><div class="mv">${brl(annAvgTicket)}</div><div class="mv-sub">média dos meses</div></div>
   </div>
 
   ${bestRev||totalNew?`<div class="g${totalNew?'3':'2'}" style="margin-bottom:16px">
-    ${bestRev?`<div class="al alg" style="margin-bottom:0">🏆 <strong>Melhor receita:</strong> ${MONTHS_FULL[bestRev.month-1]} — ${brl(bestRev.rev)}</div>`:''}
-    ${bestMarg?`<div class="al alg" style="margin-bottom:0">📈 <strong>Melhor margem:</strong> ${MONTHS_FULL[bestMarg.month-1]} — ${pct(bestMarg.margin)}</div>`:''}
-    ${totalNew?`<div class="al ala" style="margin-bottom:0">★ <strong>${totalNew} cliente${totalNew>1?'s':''} novo${totalNew>1?'s':''}</strong> no ano</div>`:''}
+    ${bestRev?`<div class="al alb" style="margin-bottom:0"><strong>Melhor receita:</strong> ${MONTHS_FULL[bestRev.month-1]} — ${brl(bestRev.rev)}</div>`:''}
+    ${bestMarg?`<div class="al alb" style="margin-bottom:0"><strong>Melhor margem:</strong> ${MONTHS_FULL[bestMarg.month-1]} — ${pct(bestMarg.margin)}</div>`:''}
+    ${totalNew?`<div class="al alb" style="margin-bottom:0">★ <strong>${totalNew} cliente${totalNew>1?'s':''} novo${totalNew>1?'s':''}</strong> no ano</div>`:''}
   </div>`:''}
 
   <!-- METAS -->
@@ -1922,15 +1941,15 @@ function renderDashboard() {
   if(S.charts.dash){ S.charts.dash.destroy(); S.charts.dash=null; }
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(30,45,69,.6)':'rgba(200,211,232,.5)';
-  const tickColor=isDark?'#6b7fa3':'#8494b0';
+  const tickColor=CV('--mu');
   S.charts.dash=new Chart(ctx.getContext('2d'),{
     type:'bar',
     data:{
       labels,
       datasets:[
-        {label:'Receita',data:revData,backgroundColor:'rgba(0,229,160,.5)',borderColor:'rgba(0,229,160,.85)',borderWidth:1,borderRadius:4},
-        {label:'Despesas',data:cosData,backgroundColor:'rgba(255,87,87,.45)',borderColor:'rgba(255,87,87,.8)',borderWidth:1,borderRadius:4},
-        {label:'Saldo',data:balData,type:'line',borderColor:'rgba(167,139,250,.9)',backgroundColor:'transparent',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'rgba(167,139,250,.9)',tension:.3},
+        {label:'Receita',data:revData,backgroundColor:rgba(CHART().rev,.55),borderColor:CHART().rev,borderWidth:1,borderRadius:4},
+        {label:'Despesas',data:cosData,backgroundColor:rgba(CHART().cos,.45),borderColor:CHART().cos,borderWidth:1,borderRadius:4},
+        {label:'Saldo',data:balData,type:'line',borderColor:CHART().bal,backgroundColor:'transparent',borderWidth:2.5,pointRadius:4,pointBackgroundColor:CHART().bal,tension:.3},
       ]
     },
     options:{
@@ -1978,7 +1997,7 @@ function buildRecurringCalendar() {
     });
 
     const dayNames=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-    const headerRow=dayNames.map(d=>`<div style="text-align:center;font-size:9px;font-weight:700;color:var(--mu);padding:4px 0;text-transform:uppercase;letter-spacing:.05em">${d}</div>`).join('');
+    const headerRow=dayNames.map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:var(--mu);padding:4px 0;">${d}</div>`).join('');
 
     let cells='';
     // blank cells before first day
@@ -2007,8 +2026,8 @@ function buildRecurringCalendar() {
           <span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.description)}</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <span style="font-size:10px;color:var(--mu)">Dia ${d}</span>
-          <span style="font-size:11px;font-family:'Syne',sans-serif;font-weight:700;color:${r.type==='revenue'?'var(--g)':'var(--rd)'}">${brl(r.amount)}</span>
+          <span style="font-size:11px;color:var(--mu)">Dia ${d}</span>
+          <span style="font-size:11px;font-family:'Inter',sans-serif;font-weight:700;color:${r.type==='revenue'?'var(--g)':'var(--rd)'}">${brl(r.amount)}</span>
         </div>
       </div>`).join('');
     }).join('');
@@ -2025,10 +2044,10 @@ function buildRecurringCalendar() {
   return `<div class="card" style="margin-top:14px;padding:0;overflow:hidden">
     <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
       <div class="ct" style="margin-bottom:0">📅 Agenda de Recorrentes</div>
-      <div style="display:flex;gap:10px;font-size:10px;align-items:center">
+      <div style="display:flex;gap:10px;font-size:11px;align-items:center">
         <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--g);display:inline-block"></span>Entrada</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--rd);display:inline-block"></span>Saída</span>
-        <button class="btn sm" onclick="openRecurringModal()" style="font-size:10px">⚙ Gerenciar</button>
+        <button class="btn sm" onclick="openRecurringModal()" style="font-size:11px">Gerenciar</button>
       </div>
     </div>
     <div style="padding:14px;display:flex;gap:14px;flex-wrap:wrap">${calHtml}</div>
@@ -2045,7 +2064,7 @@ function showDayTooltip(ev, items) {
   popup.style.cssText=`position:fixed;z-index:9999;background:var(--s1);border:1.5px solid var(--bdr);border-radius:10px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.25);min-width:200px;max-width:280px`;
   popup.innerHTML = items.map(i=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12px">
     <span style="display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${i.t==='revenue'?'var(--g)':'var(--rd)'};display:inline-block"></span>${esc(i.n)}</span>
-    <span style="font-family:'Syne',sans-serif;font-weight:700;color:${i.t==='revenue'?'var(--g)':'var(--rd)'}">R$ ${parseFloat(i.a).toFixed(2).replace('.',',')}</span>
+    <span style="font-family:'Inter',sans-serif;font-weight:700;color:${i.t==='revenue'?'var(--g)':'var(--rd)'}">R$ ${parseFloat(i.a).toFixed(2).replace('.',',')}</span>
   </div>`).join('')+`<div style="text-align:right;margin-top:8px"><button class="btn sm" onclick="document.getElementById('day-tooltip-popup').remove()">Fechar</button></div>`;
   const rect=ev.currentTarget.getBoundingClientRect();
   popup.style.top=(rect.bottom+6)+'px';
@@ -2065,8 +2084,8 @@ const ACTION_LABELS = {
   'despesa_adicionada':'+ Despesa adicionada',
   'despesa_editada':'✏ Despesa editada',
   'despesa_excluída':'✕ Despesa excluída',
-  'cópia_de_revenues':'↩ Receitas copiadas',
-  'cópia_de_costs':'↩ Despesas copiadas',
+  'cópia_de_revenues':'Receitas copiadas',
+  'cópia_de_costs':'Despesas copiadas',
   'import_revenues':'⬆ Import receitas',
   'import_costs':'⬆ Import despesas',
 };
@@ -2097,14 +2116,14 @@ async function renderAuditTab() {
     Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
       const [y,mo,d]=date.split('-');
       const dateLabel=`${d}/${mo}/${y}`;
-      html+=`<div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)">${dateLabel}</div>`;
+      html+=`<div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)">${dateLabel}</div>`;
       byDate[date].forEach(r=>{
         const color=ACTION_COLOR[r.action]||'var(--mu)';
         const label=ACTION_LABELS[r.action]||r.action;
         const time=r.ts.slice(11,16);
         html+=`<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:8px;margin-bottom:3px;background:var(--s2);border:1px solid var(--bdr)">
-          <span style="font-size:10px;color:var(--mu);font-family:'Syne',sans-serif;flex-shrink:0;padding-top:1px">${time}</span>
-          <span style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.04em;flex-shrink:0;padding-top:1px;min-width:130px">${esc(label)}</span>
+          <span style="font-size:11px;color:var(--mu);font-family:'Inter',sans-serif;flex-shrink:0;padding-top:1px">${time}</span>
+          <span style="font-size:11px;font-weight:700;color:${color};flex-shrink:0;padding-top:1px;min-width:130px">${esc(label)}</span>
           <span style="font-size:12px;color:var(--tx2);flex:1">${esc(r.detail)}</span>
           <span style="font-size:11px;color:var(--mu);font-weight:500;flex-shrink:0">${esc(r.username)}</span>
         </div>`;
@@ -2124,11 +2143,11 @@ function buildNav() {
     const label=MONTHS_PT[m.month-1]+(m.year===2027?`'27`:`'26`);
     html+=`<button class="mn" id="nav-m${m.id}" onclick="goTab('m${m.id}')">${label}</button>`;
   });
-  html+=`<button class="mn" id="nav-cashflow" onclick="goTab('cashflow')">📊 Fluxo</button>`;
-  html+=`<button class="mn" id="nav-contas" onclick="goTab('contas')">💳 Contas</button>`;
-  html+=`<button class="mn" id="nav-projecao" onclick="goTab('projecao')">🔭 Projeção</button>`;
-  html+=`<button class="mn" id="nav-search" onclick="goTab('search')">🔍 Busca</button>`;
-  html+=`<button class="mn" id="nav-audit" onclick="goTab('audit')">📋 Histórico</button>`;
+  html+=`<button class="mn" id="nav-cashflow" onclick="goTab('cashflow')">Fluxo</button>`;
+  html+=`<button class="mn" id="nav-contas" onclick="goTab('contas')">Contas</button>`;
+  html+=`<button class="mn" id="nav-projecao" onclick="goTab('projecao')">Projeção</button>`;
+  html+=`<button class="mn" id="nav-search" onclick="goTab('search')">Busca</button>`;
+  html+=`<button class="mn" id="nav-audit" onclick="goTab('audit')">Histórico</button>`;
   nav.innerHTML=html;
 }
 function buildTabs() {
@@ -2172,7 +2191,7 @@ function renderCatsList() {
       <span class="cat-row-slug">${esc(cat.slug)}</span>
       <input type="text" value="${esc(cat.label)}" style="flex:1;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:4px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none"
         onchange="updateCatLabel(${cat.id},this.value,'${type}')"
-        onfocus="this.style.borderColor='var(--g)'" onblur="this.style.borderColor='var(--bdr)'">
+        onfocus="this.style.borderColor='var(--ac)'" onblur="this.style.borderColor='var(--bdr)'">
       <button class="del-btn" onclick="deleteCategory(${cat.id},'${type}')" title="Excluir categoria">✕</button>
     </div>`;
   revEl.innerHTML = S.revCats.length ? S.revCats.map(c=>mkRow(c,'revenue')).join('') : '<div style="color:var(--mu);font-size:12px;margin-bottom:8px">Nenhuma categoria.</div>';
@@ -2295,7 +2314,7 @@ function renderCashflowTab() {
   // Table HTML
   let tBody=`<tr style="background:var(--s2)">
     <td style="font-weight:600;color:var(--mu);padding:9px 10px" colspan="4">Saldo anterior (abertura)</td>
-    <td class="r" style="padding:9px 10px;font-family:'Syne',sans-serif;font-weight:700;color:${saldoInicial>=0?'var(--g)':'var(--rd)'}">${brl(saldoInicial)}</td>
+    <td class="r" style="padding:9px 10px;font-family:'Inter',sans-serif;font-weight:700;color:${saldoInicial>=0?'var(--g)':'var(--rd)'}">${brl(saldoInicial)}</td>
   </tr>`;
 
   rows.forEach(r=>{
@@ -2304,11 +2323,11 @@ function renderCashflowTab() {
     const saldoColor=r.saldo!=null?(r.saldo>=0?'var(--g)':'var(--rd)'):'var(--mu)';
     const resColor=r.mc.bal>=0?'var(--g)':'var(--rd)';
     tBody+=`<tr ${op}>
-      <td style="padding:9px 10px;font-weight:${isProj?400:600};color:${isProj?'var(--mu)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]}${isProj?' <span style="font-size:9px;color:var(--mu);font-style:italic">(proj.)</span>':''}</td>
+      <td style="padding:9px 10px;font-weight:${isProj?400:600};color:${isProj?'var(--mu)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]}${isProj?' <span style="font-size:11px;color:var(--mu);font-style:italic">(proj.)</span>':''}</td>
       <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':'var(--g)'}">${r.hasData||r.isProj?brl(r.mc.rev):'—'}</td>
       <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':'var(--rd)'}">${r.hasData||r.isProj?brl(r.mc.cos):'—'}</td>
       <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':resColor}">${r.hasData||r.isProj?brl(r.mc.bal):'—'}</td>
-      <td class="r" style="padding:9px 10px;font-family:'Syne',sans-serif;font-weight:700;color:${r.saldo!=null?saldoColor:'var(--mu)'}">${r.saldo!=null?brl(r.saldo):'—'}</td>
+      <td class="r" style="padding:9px 10px;font-family:'Inter',sans-serif;font-weight:700;color:${r.saldo!=null?saldoColor:'var(--mu)'}">${r.saldo!=null?brl(r.saldo):'—'}</td>
     </tr>`;
   });
 
@@ -2325,12 +2344,12 @@ function renderCashflowTab() {
     tBody+=`<tr style="background:rgba(167,139,250,.05)">
       <td style="padding:9px 10px;font-style:italic;color:var(--mu)">Saldo projetado Dez/26</td>
       <td colspan="3"></td>
-      <td class="r" style="padding:9px 10px;font-family:'Syne',sans-serif;font-weight:700;color:${lastProjRow.saldo>=0?'var(--pu)':'var(--rd)'}">≈ ${brl(lastProjRow.saldo)}</td>
+      <td class="r" style="padding:9px 10px;font-family:'Inter',sans-serif;font-weight:700;color:${lastProjRow.saldo>=0?'var(--pu)':'var(--rd)'}">≈ ${brl(lastProjRow.saldo)}</td>
     </tr>`;
   }
 
   el.innerHTML=`
-  <div class="sh-title"><span>📊 Fluxo de Caixa 2026</span></div>
+  <div class="sh-title"><span>Fluxo de Caixa 2026</span></div>
 
   <div class="card" style="margin-bottom:14px">
     <div class="ct">Saldo de abertura do período</div>
@@ -2340,7 +2359,7 @@ function renderCashflowTab() {
         <span style="font-size:13px;font-weight:600;color:var(--mu)">R$</span>
         <input id="cf-saldo-ini" type="number" step="0.01" value="${saldoInicial}"
           style="background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:8px;padding:7px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:13px;outline:none;width:140px;transition:.2s"
-          onfocus="this.style.borderColor='var(--g)'" onblur="this.style.borderColor='var(--bdr)'">
+          onfocus="this.style.borderColor='var(--ac)'" onblur="this.style.borderColor='var(--bdr)'">
         <button class="btn grn" onclick="saveSaldoInicial()">✓ Salvar</button>
       </div>
     </div>
@@ -2376,18 +2395,18 @@ function renderCashflowTab() {
 
   // Draw chart
   const ctx=e('cf-chart'); if(!ctx) return;
-  if(S.charts.cf){S.charts.cf.destroy();S.charts.cf=null;}
+  if(S.charts.cf){S.charts.cf.destroy();S.charts.cf=null}
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridC=isDark?'rgba(30,45,69,.6)':'rgba(200,211,232,.5)';
-  const tickC=isDark?'#6b7fa3':'#8494b0';
+  const tickC=CV('--mu');
   S.charts.cf=new Chart(ctx.getContext('2d'),{
     type:'bar',
     data:{
       labels,
       datasets:[
-        {label:'Entradas',data:entData,backgroundColor:'rgba(0,229,160,.4)',borderColor:'rgba(0,229,160,.8)',borderWidth:1,borderRadius:4,order:2},
+        {label:'Entradas',data:entData,backgroundColor:rgba(CHART().rev,.45),borderColor:CHART().rev,borderWidth:1,borderRadius:4,order:2},
         {label:'Saídas',data:saiData,backgroundColor:'rgba(255,87,87,.4)',borderColor:'rgba(255,87,87,.8)',borderWidth:1,borderRadius:4,order:3},
-        {label:'Saldo histórico',data:histLine,type:'line',borderColor:'rgba(0,229,160,.9)',backgroundColor:'rgba(0,229,160,.07)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'rgba(0,229,160,.9)',tension:.3,fill:true,spanGaps:false,order:1},
+        {label:'Saldo histórico',data:histLine,type:'line',borderColor:CHART().bal,backgroundColor:rgba(CHART().bal,.07),borderWidth:2.5,pointRadius:4,pointBackgroundColor:CHART().bal,tension:.3,fill:true,spanGaps:false,order:1},
         {label:'Projeção de saldo',data:projLine,type:'line',borderColor:'rgba(167,139,250,.8)',backgroundColor:'transparent',borderWidth:2,borderDash:[6,4],pointRadius:4,pointBackgroundColor:'rgba(167,139,250,.8)',tension:.3,fill:false,spanGaps:false,order:0},
       ]
     },
@@ -2485,11 +2504,11 @@ function renderProjecaoTab() {
 
   const pxrSection = pxrRows.length ? `
     <div class="card" style="padding:20px;margin-bottom:18px">
-      <div class="ct" style="margin-bottom:16px">📊 Projetado × Realizado</div>
+      <div class="ct" style="margin-bottom:16px">Projetado × Realizado</div>
       ${pxrRows.map(r => {
         const revPct = r.sc.revProj > 0 ? Math.min(r.sc.rev / r.sc.revProj * 100, 100) : 100;
         const cosPct = r.sc.cosProj > 0 ? Math.min(r.sc.cos / r.sc.cosProj * 100, 100) : 100;
-        const label = r.isCurrent ? `${MONTHS_FULL[r.m.month-1]} ${r.m.year} <span style="font-size:10px;color:#4f9eff;background:rgba(79,158,255,.15);border-radius:10px;padding:1px 7px;margin-left:6px">Mês atual</span>` : `${MONTHS_FULL[r.m.month-1]} ${r.m.year}`;
+        const label = r.isCurrent ? `${MONTHS_FULL[r.m.month-1]} ${r.m.year} <span style="font-size:11px;color:var(--ac);background:var(--ac-soft);border-radius:10px;padding:1px 7px;margin-left:6px">Mês atual</span>` : `${MONTHS_FULL[r.m.month-1]} ${r.m.year}`;
         return `<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bdr)">
           <div style="font-size:12px;font-weight:600;margin-bottom:10px">${label}</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -2499,7 +2518,7 @@ function renderProjecaoTab() {
                 <span><span style="color:var(--g);font-weight:700">${brl(r.sc.rev)}</span> <span style="color:var(--mu)">/ ${brl(r.sc.revProj)}</span></span>
               </div>
               ${progressBar(r.sc.rev, r.sc.revProj, 'var(--g)')}
-              <div style="font-size:10px;color:var(--mu);margin-top:3px">${revPct.toFixed(0)}% confirmado${r.sc.revProj > r.sc.rev ? ` · faltam ${brl(r.sc.revProj - r.sc.rev)}` : ' ✓'}</div>
+              <div style="font-size:11px;color:var(--mu);margin-top:3px">${revPct.toFixed(0)}% confirmado${r.sc.revProj > r.sc.rev ? ` · faltam ${brl(r.sc.revProj - r.sc.rev)}` : ' ✓'}</div>
             </div>
             <div>
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mu)">
@@ -2507,12 +2526,12 @@ function renderProjecaoTab() {
                 <span><span style="color:var(--rd);font-weight:700">${brl(r.sc.cos)}</span> <span style="color:var(--mu)">/ ${brl(r.sc.cosProj)}</span></span>
               </div>
               ${progressBar(r.sc.cos, r.sc.cosProj, 'var(--rd)')}
-              <div style="font-size:10px;color:var(--mu);margin-top:3px">${cosPct.toFixed(0)}% confirmado${r.sc.cosProj > r.sc.cos ? ` · faltam ${brl(r.sc.cosProj - r.sc.cos)}` : ' ✓'}</div>
+              <div style="font-size:11px;color:var(--mu);margin-top:3px">${cosPct.toFixed(0)}% confirmado${r.sc.cosProj > r.sc.cos ? ` · faltam ${brl(r.sc.cosProj - r.sc.cos)}` : ' ✓'}</div>
             </div>
           </div>
         </div>`;
       }).join('')}
-      <div style="font-size:10px;color:var(--mu)">* "Confirmado" = itens marcados como realizados. "/ total" = todos os lançamentos do mês incluindo projetados pendentes.</div>
+      <div style="font-size:11px;color:var(--mu)">* "Confirmado" = itens marcados como realizados. "/ total" = todos os lançamentos do mês incluindo projetados pendentes.</div>
     </div>` : '';
 
   const alertHtml = negativoMonths.length ? `
@@ -2531,7 +2550,7 @@ function renderProjecaoTab() {
   const futureMask = rows.map(r => r.isFuture || r.isCurrent);
 
   el.innerHTML = `
-  <div class="sh-title"><span>🔭 Projeção</span></div>
+  <div class="sh-title"><span>Projeção</span></div>
 
   <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">
     ${horizonOpts.map(pill).join('')}
@@ -2565,9 +2584,9 @@ function renderProjecaoTab() {
   <div class="card" style="padding:20px;margin-bottom:18px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div class="ct" style="margin-bottom:0">Receita × Despesa × Caixa acumulado</div>
-      <div style="display:flex;gap:12px;font-size:10px;color:var(--mu)">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(0,229,160,.65);margin-right:4px"></span>Receita real</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(0,229,160,.25);border:1px dashed rgba(0,229,160,.6);margin-right:4px"></span>Projetada</span>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--mu)">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--ac);margin-right:4px"></span>Receita real</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--ac-soft);border:1px dashed var(--ac);margin-right:4px"></span>Projetada</span>
         <span><span style="display:inline-block;width:24px;height:2px;background:var(--pu);margin-right:4px;vertical-align:middle"></span>Caixa</span>
       </div>
     </div>
@@ -2596,7 +2615,7 @@ function renderProjecaoTab() {
             const badge = r.isPast
               ? `<span class="status-badge s-recebido">Realizado</span>`
               : r.isCurrent
-                ? `<span class="status-badge" style="background:rgba(79,158,255,.15);color:#4f9eff;border:1px solid rgba(79,158,255,.3)">Atual</span>`
+                ? `<span class="status-badge" style="background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring)">Atual</span>`
                 : `<span class="status-badge" style="background:rgba(167,139,250,.12);color:var(--pu);border:1px solid rgba(167,139,250,.3)">Projetado</span>`;
             const balColor = r.projBal >= 0 ? 'var(--g)' : 'var(--rd)';
             const cashColor = r.cumCashEnd >= 0 ? 'var(--tx)' : 'var(--rd)';
@@ -2604,11 +2623,11 @@ function renderProjecaoTab() {
             return `<tr style="${rowBg}">
               <td style="padding:10px 12px;font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]} ${r.m.year}</td>
               <td style="padding:10px 12px">${badge}</td>
-              <td class="r" style="padding:10px 12px;color:var(--g);font-family:'Syne',sans-serif;font-weight:700">${brl(r.projRev)}</td>
-              <td class="r" style="padding:10px 12px;color:var(--rd);font-family:'Syne',sans-serif;font-weight:700">${brl(r.projCos)}</td>
-              <td class="r" style="padding:10px 12px;color:${balColor};font-family:'Syne',sans-serif;font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
+              <td class="r" style="padding:10px 12px;color:var(--g);font-family:'Inter',sans-serif;font-weight:700">${brl(r.projRev)}</td>
+              <td class="r" style="padding:10px 12px;color:var(--rd);font-family:'Inter',sans-serif;font-weight:700">${brl(r.projCos)}</td>
+              <td class="r" style="padding:10px 12px;color:${balColor};font-family:'Inter',sans-serif;font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
               <td class="r" style="padding:10px 12px;font-size:11px;color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
-              <td class="r" style="padding:10px 12px;color:${cashColor};font-family:'Syne',sans-serif;font-weight:700">${brl(r.cumCashEnd)}</td>
+              <td class="r" style="padding:10px 12px;color:${cashColor};font-family:'Inter',sans-serif;font-weight:700">${brl(r.cumCashEnd)}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -2616,7 +2635,7 @@ function renderProjecaoTab() {
     </div>
   </div>
 
-  <div style="font-size:10px;color:var(--mu);text-align:center;margin-bottom:8px">
+  <div style="font-size:11px;color:var(--mu);text-align:center;margin-bottom:8px">
     Meses passados: valores realizados. Mês atual e futuros: total registrado (confirmados + pendentes). Sem estimativas automáticas.
   </div>`;
 
@@ -2630,11 +2649,11 @@ function renderProjecaoTab() {
     const cosFut  = chartCos.map((v,i) => futureMask[i] ? v : null);
     ctx._chartInst = new Chart(ctx, {
       data: { labels: chartLabels, datasets: [
-        { type:'bar',  label:'Receita (real)',  data:revPast, backgroundColor:'rgba(0,229,160,.65)', borderRadius:4, order:2 },
-        { type:'bar',  label:'Receita (proj.)', data:revFut,  backgroundColor:'rgba(0,229,160,.22)', borderColor:'rgba(0,229,160,.55)', borderWidth:1.5, borderRadius:4, order:2 },
+        { type:'bar',  label:'Receita (real)',  data:revPast, backgroundColor:rgba(CHART().rev,.7), borderRadius:4, order:2 },
+        { type:'bar',  label:'Receita (proj.)', data:revFut,  backgroundColor:rgba(CHART().rev,.22), borderColor:rgba(CHART().rev,.55), borderWidth:1.5, borderRadius:4, order:2 },
         { type:'bar',  label:'Despesa (real)',  data:cosPast, backgroundColor:'rgba(255,87,87,.6)',  borderRadius:4, order:2 },
         { type:'bar',  label:'Despesa (proj.)', data:cosFut,  backgroundColor:'rgba(255,87,87,.16)', borderColor:'rgba(255,87,87,.45)', borderWidth:1.5, borderRadius:4, order:2 },
-        { type:'line', label:'Caixa acum.',     data:chartCash, borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.07)', borderWidth:2.5, pointBackgroundColor:'#a78bfa', pointRadius:4, fill:true, tension:.35, order:1 }
+        { type:'line', label:'Caixa acum.',     data:chartCash, borderColor:CHART().bal, backgroundColor:rgba(CHART().bal,.07), borderWidth:2.5, pointBackgroundColor:'#a78bfa', pointRadius:4, fill:true, tension:.35, order:1 }
       ]},
       options: {
         responsive:true, maintainAspectRatio:true,
@@ -2657,7 +2676,7 @@ function renderProjecaoTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 async function renderContasTab() {
   const el=e('tab-contas'); if(!el) return;
-  el.innerHTML='<div class="sh-title">💳 Contas</div><div style="color:var(--mu);font-size:12px;padding:20px;text-align:center">Carregando…</div>';
+  el.innerHTML='<div class="sh-title">Contas</div><div style="color:var(--mu);font-size:12px;padding:20px;text-align:center">Carregando…</div>';
   try{
     const [recv,pay]=await Promise.all([api('GET','/api/receivables'),api('GET','/api/payables')]);
     S.receivables=recv; S.payables=pay;
@@ -2702,8 +2721,8 @@ function drawContasTab() {
     const ovd=isOverdue||(item.due_date&&item.due_date<today);
     return `<tr>
       <td style="padding:9px 8px;color:${ovd?'var(--rd)':'var(--tx2)'};font-weight:${ovd?'600':'400'}">${fmtDate(item.due_date)}${ovd?' ⚠':''}</td>
-      <td style="padding:9px 8px;font-weight:600">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu);font-weight:400">${esc(item.client_name)}</span>`:''}</td>
-      <td class="r" style="padding:9px 8px;color:${isRecv?'var(--g)':'var(--rd)'};font-family:'Syne',sans-serif;font-weight:700">${brl(item.amount)}</td>
+      <td style="padding:9px 8px;font-weight:600">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:11px;color:var(--mu);font-weight:400">${esc(item.client_name)}</span>`:''}</td>
+      <td class="r" style="padding:9px 8px;color:${isRecv?'var(--g)':'var(--rd)'};font-family:'Inter',sans-serif;font-weight:700">${brl(item.amount)}</td>
       <td style="padding:9px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
       <td style="padding:9px 8px"><span class="status-badge ${ovd?'s-vencido':'s-pendente'}">${ovd?'Vencida':'Pendente'}</span></td>
       <td style="padding:9px 8px">
@@ -2727,7 +2746,7 @@ function drawContasTab() {
       pendingHtml+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;border-color:rgba(255,87,87,.35)">
         <div style="padding:10px 14px;border-bottom:1px solid rgba(255,87,87,.25);display:flex;align-items:center;justify-content:space-between;background:rgba(255,87,87,.05)">
           <div class="ct" style="margin-bottom:0;color:var(--rd)">⚠ Vencidas / Atrasadas</div>
-          <span style="font-size:11px;font-family:'Syne',sans-serif;font-weight:700;color:var(--rd)">${brl(overdue.reduce((s,i)=>s+(parseFloat(i.amount)||0),0))}</span>
+          <span style="font-size:11px;font-family:'Inter',sans-serif;font-weight:700;color:var(--rd)">${brl(overdue.reduce((s,i)=>s+(parseFloat(i.amount)||0),0))}</span>
         </div>
         <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${rows}</tbody></table></div>
       </div>`;
@@ -2746,7 +2765,7 @@ function drawContasTab() {
       pendingHtml+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
         <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
           <div class="ct" style="margin-bottom:0;color:${isRecv?'var(--g)':'var(--rd)'}">${mLabel}</div>
-          <span style="font-size:12px;font-family:'Syne',sans-serif;font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(mTotal)}</span>
+          <span style="font-size:12px;font-family:'Inter',sans-serif;font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(mTotal)}</span>
         </div>
         <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${rows}</tbody></table></div>
       </div>`;
@@ -2769,7 +2788,7 @@ function drawContasTab() {
     const dateFmt=fmtDate(item.received_date||item.paid_date||'');
     return `<tr style="opacity:.65">
       <td style="padding:7px 8px;color:var(--mu)">${dateFmt}</td>
-      <td style="padding:7px 8px">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:10px;color:var(--mu)">${esc(item.client_name)}</span>`:''}</td>
+      <td style="padding:7px 8px">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:11px;color:var(--mu)">${esc(item.client_name)}</span>`:''}</td>
       <td class="r" style="padding:7px 8px;font-weight:600">${brl(item.amount)}</td>
       <td style="padding:7px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
       <td style="padding:7px 8px"><span class="status-badge ${isRecv?'s-recebido':'s-pago'}">${isRecv?'Recebido':'Pago'}</span></td>
@@ -2779,13 +2798,13 @@ function drawContasTab() {
 
   el.innerHTML=`
   <div class="sh-title">
-    <span>💳 Contas</span>
+    <span>Contas</span>
     <button class="btn sm grn" onclick="openContaModal('${sub}')">+ Nova conta a ${isRecv?'receber':'pagar'}</button>
   </div>
 
   <div class="ctab-bar">
-    <button class="ctab ${sub==='receber'?'active':''}" onclick="S.contasSubTab='receber';drawContasTab()">📥 A Receber</button>
-    <button class="ctab ${sub==='pagar'?'active':''}" onclick="S.contasSubTab='pagar';drawContasTab()">📤 A Pagar</button>
+    <button class="ctab ${sub==='receber'?'active':''}" onclick="S.contasSubTab='receber';drawContasTab()">A Receber</button>
+    <button class="ctab ${sub==='pagar'?'active':''}" onclick="S.contasSubTab='pagar';drawContasTab()">A Pagar</button>
   </div>
 
   <div class="g3" style="margin-bottom:16px">
@@ -2829,12 +2848,12 @@ function buildRecurringContasSection(isRecv) {
     const color = isRecv ? 'var(--g)' : 'var(--rd)';
     return `<tr>
       <td style="padding:9px 8px">
-        <span style="background:rgba(167,139,250,.15);color:var(--pu);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700">${domLabel}</span>
+        <span style="background:rgba(167,139,250,.15);color:var(--pu);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">${domLabel}</span>
       </td>
-      <td style="padding:9px 8px;font-weight:600">${esc(r.description)}${isRecv&&r.client_name&&r.client_name!==r.description?`<br><span style="font-size:10px;color:var(--mu);font-weight:400">${esc(r.client_name)}</span>`:''}</td>
-      <td class="r" style="padding:9px 8px;color:${color};font-family:'Syne',sans-serif;font-weight:700">${brl(r.amount)}</td>
+      <td style="padding:9px 8px;font-weight:600">${esc(r.description)}${isRecv&&r.client_name&&r.client_name!==r.description?`<br><span style="font-size:11px;color:var(--mu);font-weight:400">${esc(r.client_name)}</span>`:''}</td>
+      <td class="r" style="padding:9px 8px;color:${color};font-family:'Inter',sans-serif;font-weight:700">${brl(r.amount)}</td>
       <td style="padding:9px 8px"><span style="font-size:11px;color:var(--mu)">${catLabel(r.category)}</span></td>
-      <td style="padding:9px 8px"><span style="font-size:10px;color:var(--mu)">${endLabel}</span></td>
+      <td style="padding:9px 8px"><span style="font-size:11px;color:var(--mu)">${endLabel}</span></td>
       <td style="padding:9px 8px">
         <button class="btn sm" onclick="openRecurringModal()" title="Gerenciar recorrentes">✎ Editar</button>
       </td>
@@ -2844,7 +2863,7 @@ function buildRecurringContasSection(isRecv) {
   return `<div class="card" style="padding:0;overflow:hidden;margin-top:14px">
     <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
       <div class="ct" style="margin-bottom:0;color:var(--pu)">🔁 ${isRecv?'Receitas':'Despesas'} Recorrentes (${recItems.length})</div>
-      <span style="font-size:12px;font-family:'Syne',sans-serif;font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(total)}/mês</span>
+      <span style="font-size:12px;font-family:'Inter',sans-serif;font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(total)}/mês</span>
     </div>
     <div style="overflow-x:auto">
       <table class="etable">
@@ -2869,7 +2888,7 @@ function openContaModal(type, id=null) {
     e('recv-modal-title').innerHTML=`${id?'Editar':'Nova'} Conta a Receber <button class="btn sm" onclick="closeRecvModal()">✕</button>`;
     // Populate category select
     const sel=e('recv-cat');
-    sel.innerHTML=S.revCats.map(c=>`<option value="${c.slug}">${c.label}</option>`).join('');
+    sel.innerHTML=S.revCats.map(c=>`<option value="${esc(c.slug)}">${esc(c.label)}</option>`).join('');
     // Fill if editing
     if(id){
       const item=S.receivables.find(r=>r.id===id);
@@ -2890,7 +2909,7 @@ function openContaModal(type, id=null) {
     S._editPayId=id;
     e('pay-modal-title').innerHTML=`${id?'Editar':'Nova'} Conta a Pagar <button class="btn sm" onclick="closePayModal()">✕</button>`;
     const sel=e('pay-cat');
-    sel.innerHTML=S.costCats.map(c=>`<option value="${c.slug}">${c.label}</option>`).join('');
+    sel.innerHTML=S.costCats.map(c=>`<option value="${esc(c.slug)}">${esc(c.label)}</option>`).join('');
     if(id){
       const item=S.payables.find(p=>p.id===id);
       if(item){
@@ -2986,7 +3005,7 @@ async function deleteConta(type, id) {
 function showToast(msg, duration=3000) {
   let t=document.getElementById('_toast');
   if(!t){ t=document.createElement('div'); t.id='_toast';
-    t.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--s1);border:1px solid var(--g);color:var(--g);padding:10px 18px;border-radius:10px;font-family:Syne,sans-serif;font-size:12px;font-weight:700;z-index:9999;box-shadow:var(--sh2);transition:opacity .3s';
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--s1);border:1px solid var(--ac);color:var(--ac);padding:10px 18px;border-radius:10px;font-family:Inter,sans-serif;font-size:12px;font-weight:700;z-index:9999;box-shadow:var(--sh2);transition:opacity .3s';
     document.body.appendChild(t);
   }
   t.textContent=msg; t.style.opacity='1';
@@ -3073,11 +3092,11 @@ function renderRecurringList() {
   const mn=m=>MONTHS_PT[m-1];
   const mkItem=item=>{
     const end=item.end_year&&item.end_month?`${mn(item.end_month)}/${item.end_year}`:'Sem encerramento';
-    const endBadge=item.end_year&&item.end_month?`<span style="background:rgba(245,166,35,.15);color:var(--am);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;margin-left:6px">Encerra ${end}</span>`:'';
+    const endBadge=item.end_year&&item.end_month?`<span style="background:rgba(245,166,35,.15);color:var(--am);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;margin-left:6px">Encerra ${end}</span>`:'';
     return `<div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
         <div style="flex:1;min-width:0">
-          <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:12px">${esc(item.description)}${item.client_name&&item.client_name!==item.description?` <span style="color:var(--mu);font-weight:400">(${esc(item.client_name)})</span>`:''}</span>
+          <span style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px">${esc(item.description)}${item.client_name&&item.client_name!==item.description?` <span style="color:var(--mu);font-weight:400">(${esc(item.client_name)})</span>`:''}</span>
           ${endBadge}
           <div style="font-size:11px;color:var(--mu);margin-top:3px">Desde ${mn(item.start_month)}/${item.start_year} · ${brl(item.amount)}${item.day_of_month?` · <span style="color:var(--pu);font-weight:600">Dia ${item.day_of_month}</span>`:''}</div>
         </div>
@@ -3089,20 +3108,20 @@ function renderRecurringList() {
       </div>
       <div id="rec-edit-form-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
         <div style="margin-bottom:8px">
-          <label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Nome / Descrição</label>
+          <label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Nome / Descrição</label>
           <input id="rec-edit-desc-${item.id}" type="text" value="${esc(item.description)}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
+          <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
             <input id="rec-edit-amt-${item.id}" type="number" step="0.01" value="${item.amount}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none"></div>
-          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Dia do mês</label>
+          <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Dia do mês</label>
             <input id="rec-edit-dom-${item.id}" type="number" min="1" max="31" value="${item.day_of_month||''}" placeholder="ex: 5" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none"></div>
-          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês</label>
+          <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês</label>
             <select id="rec-edit-em-${item.id}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
               <option value="">—</option>
               ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}" ${item.end_month===i+1?'selected':''}>${mn}</option>`).join('')}
             </select></div>
-          <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra ano</label>
+          <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Encerra ano</label>
             <select id="rec-edit-ey-${item.id}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
               <option value="">—</option>
               <option value="2026" ${item.end_year===2026?'selected':''}>2026</option>
@@ -3124,7 +3143,7 @@ function renderRecurringList() {
             <option value="2026">2026</option><option value="2027">2027</option>
           </select>
         </div>
-        <div style="font-size:10px;color:var(--mu);margin-bottom:8px">Os meses anteriores permanecem. A partir do mês selecionado, o item não será mais projetado.</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:8px">Os meses anteriores permanecem. A partir do mês selecionado, o item não será mais projetado.</div>
         <div style="display:flex;gap:6px">
           <button class="btn sm am" onclick="submitEndRecurring(${item.id})">✓ Confirmar encerramento</button>
           <button class="btn sm" onclick="e('rec-end-form-${item.id}').style.display='none'">Cancelar</button>
@@ -3136,7 +3155,7 @@ function renderRecurringList() {
   const curY=now.getFullYear(), curM=now.getMonth()+1;
   const nextM=curM===12?1:curM+1, nextY=curM===12?curY+1:curY;
 
-  const mkCatOpts=(cats,sel='')=>cats.map(c=>`<option value="${c.slug}" ${c.slug===sel?'selected':''}>${c.label}</option>`).join('');
+  const mkCatOpts=(cats,sel='')=>cats.map(c=>`<option value="${esc(c.slug)}" ${c.slug===sel?'selected':''}>${esc(c.label)}</option>`).join('');
 
   const addForm=(type,colorVar)=>{
     const cats=type==='revenue'?S.revCats:S.costCats;
@@ -3144,32 +3163,32 @@ function renderRecurringList() {
     return `<div id="rec-add-form-${type}" style="display:none;background:var(--s2);border:1.5px solid var(--bdr);border-radius:10px;padding:14px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:${colorVar};margin-bottom:10px">${type==='revenue'?'Nova Receita Recorrente':'Nova Despesa Recorrente'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div style="grid-column:1/-1"><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">${type==='revenue'?'Cliente / Descrição':'Descrição'}</label>
+        <div style="grid-column:1/-1"><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">${type==='revenue'?'Cliente / Descrição':'Descrição'}</label>
           <input id="rec-new-desc-${type}" type="text" placeholder="${type==='revenue'?'Ex: Cliente Fulano':'Ex: Assinatura Ferramenta'}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
-        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Valor (R$)</label>
           <input id="rec-new-amt-${type}" type="number" step="0.01" min="0" placeholder="0,00" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
-        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Dia do mês</label>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Dia do mês</label>
           <input id="rec-new-dom-${type}" type="number" min="1" max="31" placeholder="ex: 5" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;box-sizing:border-box"></div>
-        <div style="grid-column:1/-1"><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Categoria</label>
+        <div style="grid-column:1/-1"><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Categoria</label>
           <select id="rec-new-cat-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
             ${mkCatOpts(cats,defCat)}
           </select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Início mês</label>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Início mês</label>
           <select id="rec-new-sm-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
             ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}" ${i+1===nextM?'selected':''}>${mn}</option>`).join('')}
           </select></div>
-        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Início ano</label>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Início ano</label>
           <select id="rec-new-sy-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
             <option value="2026" ${nextY===2026?'selected':''}>2026</option><option value="2027" ${nextY===2027?'selected':''}>2027</option>
           </select></div>
-        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês <span style="color:var(--mu);font-weight:400">(opcional)</span></label>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês <span style="color:var(--mu);font-weight:400">(opcional)</span></label>
           <select id="rec-new-em-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
             <option value="">—</option>
             ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}">${mn}</option>`).join('')}
           </select></div>
-        <div><label style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">Encerra ano</label>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Encerra ano</label>
           <select id="rec-new-ey-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none">
             <option value="">—</option>
             <option value="2026">2026</option><option value="2027">2027</option>
@@ -3184,13 +3203,13 @@ function renderRecurringList() {
 
   el.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.05em">Receitas Recorrentes (${revItems.length})</div>
+      <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--g);">Receitas Recorrentes (${revItems.length})</div>
       <button class="btn sm grn" onclick="const f=e('rec-add-form-revenue');f.style.display=f.style.display==='none'?'block':'none'">+ Nova</button>
     </div>
     ${addForm('revenue','var(--g)')}
     ${revItems.length?revItems.map(mkItem).join(''):'<div style="color:var(--mu);font-size:12px;margin-bottom:14px">Nenhuma receita recorrente cadastrada.</div>'}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:8px">
-      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.05em">Despesas Recorrentes (${cosItems.length})</div>
+      <div style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--rd);">Despesas Recorrentes (${cosItems.length})</div>
       <button class="btn sm red" onclick="const f=e('rec-add-form-cost');f.style.display=f.style.display==='none'?'block':'none'">+ Nova</button>
     </div>
     ${addForm('cost','var(--rd)')}
@@ -3308,7 +3327,7 @@ function showApp() {
   e('app').style.display='block';
   if(S.user) e('user-name').textContent=S.user.name;
   // Restore button só para sócios
-  const isSocio=S.user&&(S.user.username==='hudson'||S.user.username==='diego');
+  const isSocio=S.user&&S.user.role==='admin';
   const restoreBtn=document.getElementById('restore-btn-topbar');
   if(restoreBtn) restoreBtn.style.display=isSocio?'inline-flex':'none';
   buildNav(); buildTabs(); renderDashboard();
