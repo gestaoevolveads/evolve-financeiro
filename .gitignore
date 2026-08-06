@@ -9,3 +9,4 @@ evolve.db
 *.db-wal
 .DS_Store
 *.command
+.dev_secret

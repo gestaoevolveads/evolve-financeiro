@@ -1,11 +1,28 @@
 from flask import Flask, request, jsonify, send_from_directory
-import sqlite3, bcrypt, jwt, datetime, os
+import sqlite3, bcrypt, jwt, datetime, os, secrets, time
 from functools import wraps
+from collections import defaultdict
 
 app = Flask(__name__, static_folder='static')
-SECRET   = os.environ.get('SECRET_KEY', 'evolve-financeiro-2026-#@!')
+
 _DATA    = os.environ.get('DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
 DB_PATH  = os.path.join(_DATA, 'evolve.db')
+
+# SECRET_KEY é obrigatório em produção (Railway define DATA_DIR).
+# Em dev local, gera um segredo aleatório e persiste em .dev_secret (gitignored).
+SECRET = os.environ.get('SECRET_KEY')
+if not SECRET:
+    if os.environ.get('DATA_DIR'):
+        raise RuntimeError('SECRET_KEY environment variable is required')
+    _dev = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.dev_secret')
+    if os.path.exists(_dev):
+        SECRET = open(_dev).read().strip()
+    else:
+        SECRET = secrets.token_urlsafe(48)
+        with open(_dev, 'w') as f: f.write(SECRET)
+        os.chmod(_dev, 0o600)
+
+ADMIN_USERS = ('hudson', 'diego')
 
 MONTHS_PT   = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
@@ -22,7 +39,35 @@ def db():
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
     c.execute('PRAGMA foreign_keys = ON')
+    c.execute('PRAGMA journal_mode = WAL')
+    c.execute('PRAGMA busy_timeout = 5000')
     return c
+
+# ── Security headers ──────────────────────────────────────────────────────────
+
+CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.sheetjs.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "img-src 'self' data: blob:; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "connect-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'"
+)
+
+@app.after_request
+def security_headers(resp):
+    resp.headers['Content-Security-Policy']   = CSP
+    resp.headers['X-Content-Type-Options']    = 'nosniff'
+    resp.headers['X-Frame-Options']           = 'DENY'
+    resp.headers['Referrer-Policy']           = 'strict-origin-when-cross-origin'
+    resp.headers['Permissions-Policy']        = 'geolocation=(), microphone=(), camera=()'
+    if request.is_secure:
+        resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return resp
 
 def init_db():
     with db() as c:
@@ -143,6 +188,7 @@ def init_db():
             "ALTER TABLE costs ADD COLUMN recurring_id INTEGER",
             "ALTER TABLE costs ADD COLUMN status TEXT DEFAULT 'realizado'",
             "ALTER TABLE recurring_items ADD COLUMN day_of_month INTEGER",
+            "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'",
         ]:
             try: c.execute(sql)
             except Exception: pass
@@ -150,35 +196,61 @@ def init_db():
         # Seed categories on first run
         if c.execute('SELECT COUNT(*) FROM categories').fetchone()[0] == 0:
             for tp, slug, label, color, order in [
-                ('revenue','servico','Serviço','#00e5a0',1),
-                ('revenue','consultoria','Consultoria','#4f9eff',2),
-                ('revenue','recorrente','Recorrente','#a78bfa',3),
-                ('revenue','pontual','Pontual','#f5a623',4),
-                ('revenue','outros','Outros','#6b7fa3',5),
-                ('cost','pro-labore','Pró-labore','#a78bfa',1),
-                ('cost','pessoal','Pessoal','#4f9eff',2),
-                ('cost','imposto','Imposto','#ff5757',3),
-                ('cost','ferramentas','Ferramentas','#f5a623',4),
-                ('cost','marketing','Marketing','#2dd4bf',5),
-                ('cost','operacional','Operacional','#6b7fa3',6),
-                ('cost','outros','Outros','#6b7fa3',7),
+                ('revenue','servico','Serviço','#6D5CE7',1),
+                ('revenue','consultoria','Consultoria','#A06AF6',2),
+                ('revenue','recorrente','Recorrente','#7E52A0',3),
+                ('revenue','pontual','Pontual','#C4B0F8',4),
+                ('revenue','outros','Outros','#9A96B8',5),
+                ('cost','pro-labore','Pró-labore','#5B4BD1',1),
+                ('cost','pessoal','Pessoal','#8B7BFF',2),
+                ('cost','imposto','Imposto','#29274C',3),
+                ('cost','ferramentas','Ferramentas','#A06AF6',4),
+                ('cost','marketing','Marketing','#C4B0F8',5),
+                ('cost','operacional','Operacional','#7E52A0',6),
+                ('cost','outros','Outros','#9A96B8',7),
             ]:
                 c.execute('INSERT OR IGNORE INTO categories (type,slug,label,color,sort_order) VALUES (?,?,?,?,?)',
                     (tp, slug, label, color, order))
         c.execute("INSERT OR IGNORE INTO settings (key,value) VALUES ('saldo_inicial','0')")
 
+        # Seed inicial: só cria usuários se o banco estiver vazio.
+        # NUNCA resetar senha de usuário existente — troca é feita via /api/auth/change-password.
         if c.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0:
-            for uname, pw, name in [('hudson','evolve2026','Hudson'),('diego','evolve2026','Diego'),('financeiro','evolve2026','Financeiro')]:
-                h = bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
-                c.execute('INSERT INTO users (username,password_hash,name) VALUES (?,?,?)', (uname,h,name))
-        else:
-            # Reset passwords to default (one-time migration)
-            marker = c.execute("SELECT detail FROM audit_log WHERE action='pw_migration_v1' LIMIT 1").fetchone()
-            if not marker:
-                for uname, pw in [('hudson','evolve2026'),('diego','evolve2026'),('financeiro','evolve2026')]:
-                    h = bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
-                    c.execute('UPDATE users SET password_hash=? WHERE username=?', (h, uname))
-                c.execute("INSERT INTO audit_log (ts,username,action,detail) VALUES (datetime('now'),'system','pw_migration_v1','senhas resetadas para evolve2026')")
+            seed_pw = os.environ.get('SEED_PASSWORD') or secrets.token_urlsafe(12)
+            for uname, name in [('hudson','Hudson'),('diego','Diego'),('financeiro','Financeiro')]:
+                h = bcrypt.hashpw(seed_pw.encode(), bcrypt.gensalt()).decode()
+                role = 'admin' if uname in ADMIN_USERS else 'user'
+                c.execute('INSERT INTO users (username,password_hash,name,role) VALUES (?,?,?,?)', (uname,h,name,role))
+            print(f'[init] Usuários criados. Senha inicial: {seed_pw}  <- troque no primeiro acesso', flush=True)
+
+        # Atribui role=admin aos sócios uma única vez (bancos já existentes)
+        done = c.execute("SELECT value FROM settings WHERE key='role_migration_v1'").fetchone()
+        if not done:
+            c.executemany('UPDATE users SET role=? WHERE username=?',
+                [('admin', u) for u in ADMIN_USERS])
+            c.execute("UPDATE users SET role='user' WHERE role IS NULL OR role=''")
+            c.execute("INSERT OR REPLACE INTO settings (key,value) VALUES ('role_migration_v1','1')")
+
+        # Paleta Evolve nas categorias (uma única vez).
+        # Só troca quem ainda está com a cor padrão ANTIGA — cor customizada é preservada.
+        if not c.execute("SELECT value FROM settings WHERE key='cat_palette_evolve_v1'").fetchone():
+            for tp, slug, old, new in [
+                ('revenue','servico',    '#00e5a0','#6D5CE7'),
+                ('revenue','consultoria','#4f9eff','#A06AF6'),
+                ('revenue','recorrente', '#a78bfa','#7E52A0'),
+                ('revenue','pontual',    '#f5a623','#C4B0F8'),
+                ('revenue','outros',     '#6b7fa3','#9A96B8'),
+                ('cost','pro-labore',    '#a78bfa','#5B4BD1'),
+                ('cost','pessoal',       '#4f9eff','#8B7BFF'),
+                ('cost','imposto',       '#ff5757','#29274C'),
+                ('cost','ferramentas',   '#f5a623','#A06AF6'),
+                ('cost','marketing',     '#2dd4bf','#C4B0F8'),
+                ('cost','operacional',   '#6b7fa3','#7E52A0'),
+                ('cost','outros',        '#6b7fa3','#9A96B8'),
+            ]:
+                c.execute('UPDATE categories SET color=? WHERE type=? AND slug=? AND lower(color)=lower(?)',
+                          (new, tp, slug, old))
+            c.execute("INSERT OR REPLACE INTO settings (key,value) VALUES ('cat_palette_evolve_v1','1')")
 
         for year, month in [(2026,m) for m in range(1,13)] + [(2027,1)]:
             c.execute('INSERT OR IGNORE INTO months (year,month) VALUES (?,?)', (year,month))
@@ -199,33 +271,75 @@ def auth(f):
         return f(*a, **kw)
     return wrap
 
+def user_role(user_id):
+    """Lê o role do banco — nunca confia no que veio no token."""
+    with db() as c:
+        r = c.execute('SELECT role FROM users WHERE id=?', (user_id,)).fetchone()
+    return (r['role'] if r and r['role'] else 'user')
+
+def require_role(role):
+    def deco(f):
+        @wraps(f)
+        @auth
+        def wrap(*a, **kw):
+            if user_role(request.user.get('user_id')) != role:
+                audit(request.user.get('username','?'), 'acesso_negado', f'{request.path} exige role={role}')
+                return jsonify({'error':'Permissão negada'}), 403
+            return f(*a, **kw)
+        return wrap
+    return deco
+
+# ── Rate limit (in-process, sem dependência externa) ──────────────────────────
+
+_hits = defaultdict(list)
+
+def rate_limit(key, limit, window):
+    """True se a requisição é permitida. Janela deslizante por chave."""
+    now = time.time()
+    bucket = [t for t in _hits[key] if now - t < window]
+    if len(_hits) > 5000: _hits.clear()   # guarda contra crescimento indefinido
+    if len(bucket) >= limit:
+        _hits[key] = bucket
+        return False
+    bucket.append(now)
+    _hits[key] = bucket
+    return True
+
+def client_ip():
+    fwd = request.headers.get('X-Forwarded-For','')
+    return fwd.split(',')[0].strip() if fwd else (request.remote_addr or '?')
+
 @app.post('/api/auth/login')
 def login():
     d = request.get_json() or {}
     uname = d.get('username','').strip().lower()
     pw    = d.get('password','')
+    if not rate_limit(f'login:{client_ip()}', 10, 60) or not rate_limit(f'login:u:{uname}', 10, 60):
+        audit(uname or '?', 'rate_limit', f'IP {client_ip()} — excesso de tentativas de login')
+        return jsonify({'error':'Muitas tentativas. Aguarde 1 minuto.'}), 429
     with db() as c:
         user = c.execute('SELECT * FROM users WHERE username=?',(uname,)).fetchone()
     if not user or not bcrypt.checkpw(pw.encode(), user['password_hash'].encode()):
         return jsonify({'error':'Usuário ou senha incorretos'}), 401
+    role = user['role'] if user['role'] else 'user'
     token = jwt.encode({
-        'user_id':user['id'], 'username':user['username'], 'name':user['name'],
+        'user_id':user['id'], 'username':user['username'], 'name':user['name'], 'role':role,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)
     }, SECRET, algorithm='HS256')
     audit(user['username'], 'login', 'Acesso ao sistema')
-    return jsonify({'token':token, 'name':user['name'], 'username':user['username']})
+    return jsonify({'token':token, 'name':user['name'], 'username':user['username'], 'role':role})
 
 @app.get('/api/auth/me')
 @auth
 def me():
-    return jsonify(request.user)
+    return jsonify({**request.user, 'role': user_role(request.user.get('user_id'))})
 
 @app.post('/api/auth/change-password')
 @auth
 def change_pw():
     d = request.get_json() or {}
-    if len(d.get('new','')) < 6:
-        return jsonify({'error':'Senha deve ter pelo menos 6 caracteres'}), 400
+    if len(d.get('new','')) < 12:
+        return jsonify({'error':'Senha deve ter pelo menos 12 caracteres'}), 400
     with db() as c:
         user = c.execute('SELECT * FROM users WHERE id=?',(request.user['user_id'],)).fetchone()
         if not bcrypt.checkpw(d.get('current','').encode(), user['password_hash'].encode()):
@@ -873,7 +987,7 @@ def backup():
     )
 
 @app.post('/api/restore')
-@auth
+@require_role('admin')
 def restore():
     payload = request.get_json() or {}
     if payload.get('version') != 1:
