@@ -375,6 +375,43 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .pj-zero{color:var(--mu);opacity:.45}
 .pj-money{text-align:right;font-weight:600;font-size:12.5px}
 .pj-big{text-align:right;font-family:var(--ff);font-weight:700;font-size:12.5px}
+.info-passo{display:flex;gap:12px;margin:14px 0}
+.info-n{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--ac-soft);
+  color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.info-t{font-size:12.5px;font-weight:600;margin-bottom:3px}
+.info-d{font-size:12px;color:var(--tx2);line-height:1.6}
+.info-tab{background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:6px;margin:12px 0}
+.info-l{display:flex;justify-content:space-between;gap:12px;padding:7px 10px;font-size:12px;
+  border-radius:7px;font-variant-numeric:tabular-nums}
+.info-l:nth-child(odd){background:var(--s1)}
+.info-s{font-size:10.5px;color:var(--mu);font-weight:400}
+.info-v{white-space:nowrap;font-weight:600}
+.info-nota{margin-top:16px;padding:12px 14px;background:var(--s2);border:1px solid var(--bdr);
+  border-radius:10px;font-size:11.5px;color:var(--tx2);line-height:1.6}
+.info-conta{margin:12px 0;padding:12px 14px;background:var(--s1);border:1px solid var(--bdr);
+  border-radius:10px;font-size:11.5px;color:var(--mu);text-align:center}
+.info-conta-n{margin-top:6px;font-size:12.5px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.info-conta-n b{font-size:15px;color:var(--ac)}
+.det-i{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
+  border-radius:50%;border:1px solid var(--bdr2,var(--bdr));color:var(--mu);font-size:9px;
+  font-weight:700;font-style:italic;cursor:pointer;margin-left:6px;vertical-align:1px;user-select:none}
+.det-i:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-soft)}
+.meta-box{border:1px solid var(--ac-ring);background:linear-gradient(180deg,var(--ac-soft),transparent);
+  border-radius:var(--r2);padding:15px 17px;margin-bottom:14px}
+.meta-t{font-size:12.5px;font-weight:600;margin-bottom:6px}
+.meta-b{font-size:12px;color:var(--tx2);line-height:1.6}
+.meta-b b{color:var(--tx)}
+.meta-ok{border:1px solid var(--bdr);background:var(--s1);border-radius:var(--r2);
+  padding:13px 16px;margin-bottom:14px;font-size:12px;color:var(--tx2)}
+.meta-caminhos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:12px 0 4px}
+.meta-c{background:var(--s1);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px}
+.meta-c-t{font-size:10.5px;color:var(--mu);letter-spacing:.02em}
+.meta-c-v{font-size:22px;font-weight:700;letter-spacing:-.025em;color:var(--ac);margin:3px 0 4px;
+  font-variant-numeric:tabular-nums}
+.meta-c-s{font-size:11px;color:var(--mu);line-height:1.5}
+.meta-alerta{margin-top:10px;padding:10px 12px;border-left:3px solid #9A7B1F;
+  background:rgba(224,168,0,.08);border-radius:0 8px 8px 0;font-size:11.5px;line-height:1.55}
+.meta-pe{margin-top:10px;font-size:11px;color:var(--mu);line-height:1.5}
 .pj-faixa{font-size:9.5px;padding:2px 6px;border-radius:5px;margin-left:6px;
   background:rgba(224,168,0,.14);color:#9A7B1F;border:1px solid rgba(224,168,0,.3);
   white-space:nowrap;cursor:help}
@@ -861,6 +898,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
+
+<div id="info-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharInfo()">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-title"><span id="info-titulo">Informação</span>
+      <button class="btn sm" onclick="fecharInfo()">Fechar</button></div>
+    <div id="info-body"></div>
+  </div>
+</div>
 
 <div id="nrr-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharNRR()">
   <div class="modal" style="max-width:560px">
@@ -1502,9 +1547,10 @@ function configFiscal(){
 // recursao infinita. Receita nao depende de custo, entao a volta e desnecessaria.
 function rbt12De(m, prevPorMes){
   const fim = m.year*12 + m.month;
-  const somaRev = x => (x.revenues||[])
-      .filter(r => mesEhFuturo(x) || !r.status || r.status==='realizado')
-      .reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
+  const somaRev = x => mesEhFuturo(x)
+      ? carteiraProjetada(x).receita
+      : (x.revenues||[]).filter(r => !r.status || r.status==='realizado')
+          .reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
   return (S.months||[]).reduce((s,x)=>{
     const k = x.year*12 + x.month;
     if(k > fim || k <= fim-12) return s;
@@ -1557,33 +1603,47 @@ function parcelaDoMes(m){
 const MESES_BASE_IMPREV = 6;
 function imprevistosLigado(){ return (S.settings||{}).imprevistos === '1'; }
 
+// Base historica: mediana do custo mensal e MAD (mediana dos desvios absolutos).
+// MAD e a medida robusta de dispersao — usa mediana no lugar de media, entao um
+// mes fora da curva nao a distorce, ao contrario do desvio padrao. Com 6 pontos
+// e um outlier, e a escolha certa.
 function baseImprevistos(){
   const hoje = new Date(), atual = hoje.getFullYear()*12 + (hoje.getMonth()+1);
   const fechados = (S.months||[])
     .filter(m => (m.year*12+m.month) < atual)
     .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
-    .map(m => ({ m, v: (m.costs||[])
-        .filter(c => (!c.status || c.status==='realizado') && c.category!=='imposto')
-        .reduce((s,c)=>s+(parseFloat(c.amount)||0),0) }))
+    .map(m => ({ m, itens: (m.costs||[])
+        .filter(c => (!c.status || c.status==='realizado') && c.category!=='imposto') }))
+    .map(x => ({ ...x, v: x.itens.reduce((s,c)=>s+(parseFloat(c.amount)||0),0) }))
     .filter(x => x.v > 0);
   const ult = fechados.slice(-MESES_BASE_IMPREV);
-  if(ult.length < 3) return null;                    // amostra curta demais
-  const vs = ult.map(x=>x.v).sort((a,b)=>a-b);
-  const meio = Math.floor(vs.length/2);
-  const mediana = vs.length%2 ? vs[meio] : (vs[meio-1]+vs[meio])/2;
-  return { mediana, meses: ult.length,
-           menor: vs[0], maior: vs[vs.length-1],
-           detalhe: ult.map(x=>({mes:x.m.month, ano:x.m.year, v:x.v})) };
+  if(ult.length < 3) return null;
+  const med = arr => { const v=arr.slice().sort((a,b)=>a-b), i=Math.floor(v.length/2);
+                       return v.length%2 ? v[i] : (v[i-1]+v[i])/2; };
+  const vs = ult.map(x=>x.v);
+  const mediana = med(vs);
+  const desvios = vs.map(v=>Math.abs(v-mediana));
+  const mad = med(desvios);
+  const pct = mediana ? mad/mediana : 0;   // dispersao relativa
+  return { mediana, mad, pct, meses: ult.length,
+           detalhe: ult.map(x=>({mes:x.m.month, ano:x.m.year, v:x.v,
+              desvio:Math.abs(x.v-mediana), nItens:x.itens.length,
+              maiores:x.itens.slice().sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0))
+                       .slice(0,3).map(c=>({n:c.name, v:parseFloat(c.amount)||0})) })) };
 }
 
-// custoCadastrado = o que ja existe no mes, sem imposto e sem a propria reserva
-function imprevistoDoMes(custoCadastrado){
+// A reserva e a dispersao aplicada sobre o custo JA PLANEJADO do mes, nao um
+// complemento ate um valor fixo. A versao anterior somava "mediana historica
+// menos o cadastrado" e zerava assim que a estrutura crescia — no cenario
+// otimista, com pro-labore maior, os imprevistos simplesmente sumiam. Uma
+// empresa maior nao tem menos imprevisto: tem mais.
+function imprevistoDoMes(custoPlanejado){
   if(!imprevistosLigado()) return null;
   const b = baseImprevistos();
-  if(!b) return null;
-  const valor = Math.max(0, b.mediana - (custoCadastrado||0));
+  if(!b || !(b.pct>0)) return null;
+  const valor = (custoPlanejado||0) * b.pct;
   if(valor < 1) return null;
-  return { valor, base: b };
+  return { valor, base: b, sobre: custoPlanejado };
 }
 
 // Fonte unica das premissas em uso pela Projecao. Tudo que projeta — a receita
@@ -1623,6 +1683,8 @@ function carteiraProjetada(m){
   return {
     nClientes: Math.round(nLanc * razao),
     novos:     tk ? pp.novoMRR/tk : 0,
+    saem:      Math.round(nLanc*razao) * pp.churnPct,
+    receita:   mrr,          // receita projetada do mes, no cenario em uso
     tk
   };
 }
@@ -1667,11 +1729,15 @@ function custosEfetivos(m, paraProjecao){
   const imp = imprevistoDoMes(semReserva);
   if(imp) lista = [...lista, {
     id:'imprev-'+m.id, name:'Imprevistos (reserva)', amount:imp.valor, payment_date:'',
-    category:'outros', status:'projetado', viaImprevisto:true, base:imp.base, mes_id:m.id }];
+    category:'outros', status:'projetado', viaImprevisto:true, base:imp.base,
+    sobreImprev:imp.sobre, mes_id:m.id }];
 
   // Imposto pela aliquota efetiva e parcela de imposto retroativo
   if(fiscal.ativo){
-    const rev = (m.revenues||[]).reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+    // sobre a receita PROJETADA do mes, nao sobre a lancada: o imposto e um
+    // percentual do faturamento, entao tem de crescer junto com o cenario.
+    // Antes ficava travado no mesmo valor em Pessimista, Base e Otimista.
+    const rev = carteiraProjetada(m).receita;
     const fx = impostoDoMes(m, rev);
     if(fx && fx.valor>0) lista = [...lista, {
       id:'fiscal-'+m.id, name:'Simples Nacional — DAS', amount:fx.valor, payment_date:'',
@@ -5539,9 +5605,15 @@ function setProjComo(aberto){
 // as regras de custo, para os dois nunca discordarem.
 function carteiraDaLinha(r, mc){
   const m = r.m;
-  if(r.isFuture){
+  // O mes corrente nao fechou, entao nao existe contagem real de entrada e
+  // saida — ele usa a premissa do cenario, igual aos meses a frente. Antes caia
+  // no ramo de mes fechado, nao achava transicao e mostrava travessao.
+  if(r.isFuture || r.isCurrent){
     const cp = carteiraProjetada(m);
-    return { clientes: cp.nClientes, entram: cp.novos, saem: cp.nClientes*premissasProjecao().churnPct,
+    const lanc = (m.revenues||[]).filter(x=>x.nonrecurring!=1
+        && (parseFloat(x.amount)||0)>0 && (x.client_name||'').trim());
+    return { clientes: r.isCurrent ? lanc.length : cp.nClientes,
+             entram: cp.novos, saem: cp.saem,
              ticket: cp.tk, projetado: true };
   }
   // Mes fechado conta so o realizado. Mes atual conta tambem o pendente: e a
@@ -5584,7 +5656,7 @@ function abrirDetalhe(mid, tipo){
                 : custosEfetivos(m, true).map(c=>({
                     nome:c.name, v:parseFloat(c.amount)||0, cat:c.category,
                     st:c.status, nr:c.nonrecurring==1, rec:!!c.recurring_id, regra:!!c.viaRegra,
-                    imprev:c.base||null, fiscal:c.fiscal||null, parc:!!c.viaParcela })))
+                    imprev:c.base||null, sobre:c.sobreImprev||0, fiscal:c.fiscal||null, parc:!!c.viaParcela })))
               .filter(x=>x.v!==0)
               .sort((a,b)=>b.v-a.v);
   const total = itens.reduce((s,x)=>s+x.v,0);
@@ -5613,21 +5685,14 @@ function abrirDetalhe(mid, tipo){
     <div class="rel-help" style="padding:10px 12px 0">Ordenado do maior para o menor. A barra mostra o peso de cada linha no total.</div>
     ${(()=>{ const im = itens.find(x=>x.imprev); if(!im) return '';
       const b = im.imprev;
-      const M = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
       return `<div class="det-expl">
-        <div class="det-expl-t">De onde vem a reserva de ${brl(im.v)}</div>
+        <div class="det-expl-t">Reserva de imprevistos: ${brl(im.v)}</div>
         <div class="det-expl-b">
-          Os últimos ${b.meses} meses fechados custaram, fora imposto:
-          ${b.detalhe.map(d=>`<span class="det-chip">${M[d.mes]} ${brl(d.v)}</span>`).join('')}
-          <div style="margin-top:8px">
-            Mediana <b>${brl(b.mediana)}</b> · já cadastrado neste mês <b>${brl(b.mediana-im.v)}</b> ·
-            reserva <b>${brl(im.v)}</b> para fechar a diferença.
-          </div>
-          <div style="margin-top:6px;color:var(--mu)">
-            Mediana e não média: a série é curta e um mês fora da curva puxaria a média sozinho.
-            A reserva não é uma despesa nova — é o reconhecimento de que nenhum mês fechado
-            gastou só o que estava planejado.
-          </div>
+          ${(b.pct*100).toFixed(1).replace('.',',')}% sobre os ${brl(im.sobre)} já planejados para o mês.
+          Esse percentual é o quanto o custo mensal costuma variar, medido nos
+          ${b.meses} últimos meses fechados.
+          <button class="btn sm" style="margin-top:8px"
+            onclick="abrirInfoImprevistos(${im.v},${im.sobre})">Ver a conta inteira</button>
         </div></div>`; })()}
     ${(()=>{ const fx = itens.find(x=>x.fiscal); if(!fx) return '';
       const f = fx.fiscal;
@@ -5843,6 +5908,128 @@ function abrirNRR(){
 }
 function fecharNRR(){ e('nrr-overlay').style.display='none'; }
 
+function fecharInfo(){ e('info-overlay').style.display='none'; }
+function abrirInfo(titulo, html){
+  e('info-titulo').textContent = titulo;
+  e('info-body').innerHTML = html;
+  e('info-overlay').style.display='flex';
+}
+
+// A caixa dos imprevistos: nao basta dizer o valor, tem de mostrar de onde ele
+// saiu, com os meses e os itens que formaram a base. Numero de reserva sem
+// origem vira suposicao, e suposicao ninguem usa para decidir.
+function abrirInfoImprevistos(valor, sobre){
+  const b = baseImprevistos();
+  if(!b) return;
+  const M = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const pc = v => (v*100).toFixed(1).replace('.',',')+'%';
+  abrirInfo('Como a reserva de imprevistos é calculada', `
+    <div class="rel-hint">Nenhum mês fechado da Evolve gastou <b>só</b> o que estava planejado.
+      A reserva não inventa despesa: ela reconhece que essa diferença sempre existe e reserva
+      espaço para ela.</div>
+
+    <div class="info-passo">
+      <div class="info-n">1</div>
+      <div><div class="info-t">O que entra na conta</div>
+        <div class="info-d">Os <b>${b.meses} últimos meses já fechados</b>, somando todas as despesas
+          <b>confirmadas</b>. Fica de fora: mês em aberto, item ainda pendente, e imposto —
+          o imposto tem cálculo próprio pela alíquota, então entraria duas vezes.</div></div>
+    </div>
+
+    <div class="info-tab">
+      ${b.detalhe.map(d=>`<div class="info-l">
+        <div><b>${M[d.mes]}</b> <span class="info-s">${d.nItens} itens · maiores: ${
+          d.maiores.map(x=>esc(x.n)).join(', ')}</span></div>
+        <div class="info-v">${brl(d.v)}<span class="info-s"> · ${d.desvio>=0?'±':''}${brl(d.desvio)} da mediana</span></div>
+      </div>`).join('')}
+    </div>
+
+    <div class="info-passo">
+      <div class="info-n">2</div>
+      <div><div class="info-t">A mediana, não a média</div>
+        <div class="info-d">Mediana desses meses: <b>${brl(b.mediana)}</b>.
+          Com ${b.meses} pontos e um mês bem fora da curva, a média seria puxada por ele sozinho.
+          A mediana é o valor do meio — não se move por causa de um mês atípico.</div></div>
+    </div>
+
+    <div class="info-passo">
+      <div class="info-n">3</div>
+      <div><div class="info-t">Quanto um mês costuma variar</div>
+        <div class="info-d">Para cada mês, a distância até a mediana. A mediana dessas distâncias
+          é <b>${brl(b.mad)}</b> — em estatística isso se chama <b>MAD</b>, desvio absoluto mediano.
+          É a medida de variação que não se deixa distorcer por um valor extremo, ao contrário
+          do desvio padrão. Sobre a mediana, dá <b>${pc(b.pct)}</b> de variação típica.</div></div>
+    </div>
+
+    <div class="info-passo">
+      <div class="info-n">4</div>
+      <div><div class="info-t">Aplicada ao mês projetado</div>
+        <div class="info-d">Esses ${pc(b.pct)} incidem sobre o que <b>já está planejado</b> para o mês:
+          <b>${brl(sobre)} × ${pc(b.pct)} = ${brl(valor)}</b>.</div></div>
+    </div>
+
+    <div class="info-nota">
+      <b>Por que proporcional e não um valor fixo.</b> A primeira versão somava "mediana histórica
+      menos o que já está cadastrado". Funcionava enquanto a estrutura era do tamanho da de antes —
+      mas no cenário otimista, com pró-labore maior, o planejado passava a mediana e a reserva
+      zerava. Uma agência maior não tem menos imprevisto; tem mais. Proporcional, a reserva
+      acompanha o tamanho da operação e o cenário escolhido.
+    </div>
+
+    <div class="rel-help" style="padding:12px 0 0">
+      A base se recalcula sozinha a cada mês que fecha. Quanto mais meses, mais estável fica —
+      hoje são ${b.meses}, o que ainda é pouco: leia como ordem de grandeza.
+      Desligue no botão <b>Imprevistos</b> se quiser ver a projeção só com o que está cadastrado.
+    </div>`);
+}
+
+// A troca de faixa do Simples e o tipo de coisa que aparece na guia sem aviso.
+function abrirInfoFaixa(faixa, aliq, rbt, mes){
+  const f = ANEXO_III.find(x=>x.faixa===faixa) || ANEXO_III[0];
+  const ant = ANEXO_III.find(x=>x.faixa===faixa-1);
+  const pc = v => (v*100).toFixed(2).replace('.',',')+'%';
+  abrirInfo(`Mudança de faixa do Simples em ${mes}`, `
+    <div class="rel-hint">O Simples Nacional cobra por faixa de faturamento. A faixa é definida
+      pela <b>receita dos últimos 12 meses</b> — o RBT12 — e não pelo faturamento do mês.</div>
+
+    <div class="info-passo">
+      <div class="info-n">→</div>
+      <div><div class="info-t">O que acontece em ${mes}</div>
+        <div class="info-d">O RBT12 chega a <b>${brl(rbt)}</b> e ultrapassa o teto da faixa
+          ${faixa-1} (${brl(ant?ant.ate:0)}). A partir dali a empresa passa para a
+          <b>faixa ${faixa}</b>, com alíquota nominal de ${pc(f.aliq)} e parcela a deduzir
+          de ${brl(f.ded)}.</div></div>
+    </div>
+
+    <div class="info-conta">
+      <div>alíquota efetiva = (RBT12 × nominal − dedução) ÷ RBT12</div>
+      <div class="info-conta-n">(${brl(rbt)} × ${pc(f.aliq)} − ${brl(f.ded)}) ÷ ${brl(rbt)} =
+        <b>${pc(aliq)}</b></div>
+    </div>
+
+    <div class="info-passo">
+      <div class="info-n">!</div>
+      <div><div class="info-t">Não é um salto de ${pc(f.aliq)}</div>
+        <div class="info-d">A parcela a deduzir existe justamente para suavizar a passagem.
+          A alíquota efetiva sai de ${ant?pc(aliquotaEfetiva(ant.ate)):'6,00%'} para
+          <b>${pc(aliq)}</b> e vai subindo conforme o faturamento avança dentro da faixa,
+          até ${pc(aliquotaEfetiva(f.ate))} no teto dela. Não existe degrau: quem fatura
+          um real a mais nunca paga desproporcionalmente mais.</div></div>
+    </div>
+
+    <div class="info-nota">
+      <b>O que fazer com isso.</b> Se a virada estiver perto do fim do ano, vale conversar com a
+      contabilidade sobre o calendário de faturamento — o RBT12 é móvel, então o mês em que a
+      receita é reconhecida altera quando a faixa vira. Não é planejamento agressivo, é só
+      não ser pego de surpresa.
+    </div>
+
+    <div class="rel-help" style="padding:12px 0 0">
+      Faixas do Anexo III da LC 123/2006. A Evolve entra no Anexo III pelo CNAE 6319-4/00,
+      sem sujeição ao Fator R, conforme a Continuwa.
+    </div>`);
+}
+
 function blocoCarteira(){
   const u = unitEconomics();
   const mc = u.mc;
@@ -5911,6 +6098,87 @@ function blocoCarteira(){
         Isso vale para quem está entrando — cortar fee de cliente atual reduz o LTV sem trazer ninguém.
       </div>
     </div>` : ''}
+  </div>`;
+}
+
+const META_MARGEM = 0.31;
+
+// O que precisa acontecer para o cenario exibido bater a meta de margem.
+// A conta separa o custo em duas naturezas, senao a resposta sai errada:
+//   - imposto e proporcional a receita (aliquota t)
+//   - o resto e estrutura, que nao cresce se so o fee subir
+// Entao, com F de custo estrutural:  (R − F − tR)/R = meta  →  R = F/(1 − t − meta)
+function diagnosticoMargem(futureRows){
+  const alvo = futureRows.filter(r=>r.projRev>0);
+  if(!alvo.length) return null;
+  const rev = alvo.reduce((s,r)=>s+r.projRev,0);
+  const cos = alvo.reduce((s,r)=>s+r.projCos,0);
+  const imp = alvo.reduce((s,r)=>s+(r.fiscal?r.fiscal.valor:0),0);
+  const margem = rev>0 ? (rev-cos)/rev : 0;
+  if(margem >= META_MARGEM) return {ok:true, margem};
+
+  const estrutura = cos - imp;
+  const t = rev>0 ? imp/rev : 0;
+  const denom = 1 - t - META_MARGEM;
+  if(denom <= 0) return {ok:false, margem, impossivel:true, t};
+
+  const revNec = estrutura/denom;
+  const fator  = rev>0 ? revNec/rev : 1;      // quanto o faturamento precisa subir
+  const ultima = alvo[alvo.length-1];
+  const cli    = ultima.cart ? ultima.cart.clientes : 0;
+  const tk     = ultima.cart ? ultima.cart.ticket : 0;
+  const tkNovo = tk*fator;
+
+  // Segundo caminho: nao mexer em quem ja e cliente. Ai a media so sobe pelos
+  // que entram, e cada novo precisa entrar mais caro.
+  const cliIni  = (alvo[0].cart ? alvo[0].cart.clientes : cli);
+  const entram  = alvo.reduce((s,r)=>s+(r.cart?r.cart.entram:0),0);
+  const feeNovo = entram>0 ? ((cliIni+entram)*tkNovo - cliIni*tk)/entram : null;
+
+  return {ok:false, margem, rev, cos, estrutura, t, revNec, fator,
+          tk, tkNovo, cli, cliIni, entram, feeNovo,
+          deCliente: cliIni+1, ateCliente: Math.round(cliIni+entram)};
+}
+
+function blocoMeta(futureRows){
+  const d = diagnosticoMargem(futureRows);
+  if(!d) return '';
+  const pc = v => (v*100).toFixed(1).replace('.',',')+'%';
+  if(d.ok) return `<div class="meta-ok">✓ Neste cenário a margem do período é <b>${pc(d.margem)}</b>,
+    acima da meta de ${pc(META_MARGEM)}. Nada precisa mudar no fee para chegar lá.</div>`;
+  if(d.impossivel) return `<div class="meta-box">Com imposto de ${pc(d.t)} sobre o faturamento,
+    a meta de ${pc(META_MARGEM)} não é alcançável só aumentando fee — precisa cortar estrutura.</div>`;
+  const alta = d.fator - 1;
+  return `<div class="meta-box">
+    <div class="meta-t">Para chegar aos ${pc(META_MARGEM)} de margem neste cenário</div>
+    <div class="meta-b">
+      A margem do período está em <b>${pc(d.margem)}</b>. O custo de estrutura soma
+      <b>${brl(d.estrutura)}</b> e o imposto leva ${pc(d.t)} do que entra — para sobrar
+      ${pc(META_MARGEM)}, o faturamento do período precisa ser <b>${brl(d.revNec)}</b>
+      em vez de ${brl(d.rev)}.
+      <div class="meta-caminhos">
+        <div class="meta-c">
+          <div class="meta-c-t">Reajustando todo mundo</div>
+          <div class="meta-c-v">+${pc(alta)}</div>
+          <div class="meta-c-s">o fee médio sai de ${brl(d.tk)} para <b>${brl(d.tkNovo)}</b>,
+            valendo para os ${d.cli} clientes da carteira</div>
+        </div>
+        ${d.feeNovo && d.entram>0.4 ? `<div class="meta-c">
+          <div class="meta-c-t">Sem mexer em quem já é cliente</div>
+          <div class="meta-c-v">${brl(d.feeNovo)}</div>
+          <div class="meta-c-s">é o fee de entrada necessário do cliente
+            <b>${d.deCliente}</b> ao <b>${d.ateCliente}</b> para a média chegar lá sozinha</div>
+        </div>`:''}
+      </div>
+      ${d.feeNovo && d.feeNovo > d.tkNovo*1.6 ? `<div class="meta-alerta">
+        O segundo caminho pede ${brl(d.feeNovo)} de entrada — ${((d.feeNovo/d.tk-1)*100).toFixed(0)}%
+        acima do fee de hoje. Com ${d.entram.toFixed(1).replace('.',',')} entradas no período,
+        são poucos clientes para puxar a média inteira. Um reajuste parcial na base
+        combinado com fee de entrada mais alto chega lá com menos violência no preço.</div>`:''}
+      <div class="meta-pe">Depois de bater os ${pc(META_MARGEM)}, cada real de fee acima disso
+        cai quase inteiro no resultado: a estrutura já está paga e só o imposto de ${pc(d.t)}
+        acompanha o crescimento.</div>
+    </div>
   </div>`;
 }
 
@@ -6412,7 +6680,11 @@ function renderProjecaoTab() {
             return `<tr style="${rowBg}">
               <td style="font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">
                 ${MONTHS_FULL[r.m.month-1]} ${r.m.year} ${badge}${
-                  r.mudouFaixa ? `<span class="pj-faixa" title="A receita dos últimos 12 meses cruza o limite da faixa ${r.mudouFaixa-1}. A alíquota efetiva sobe para ${(r.fiscal.aliq*100).toFixed(2).replace('.',',')}% e continua subindo com o faturamento.">⚠ faixa ${r.mudouFaixa}</span>` : ''}</td>
+                  r.mudouFaixa ? `<span class="pj-faixa" tabindex="0"
+                    title="Clique para entender a mudança de faixa"
+                    onclick="abrirInfoFaixa(${r.mudouFaixa},${r.fiscal.aliq},${r.fiscal.rbt},'${MONTHS_FULL[r.m.month-1]} ${r.m.year}')"
+                    onkeydown="if(event.key==='Enter')abrirInfoFaixa(${r.mudouFaixa},${r.fiscal.aliq},${r.fiscal.rbt},'${MONTHS_FULL[r.m.month-1]} ${r.m.year}')"
+                    >⚠ faixa ${r.mudouFaixa}</span>` : ''}</td>
               <td class="pj-cli pj-sep" style="font-weight:600;color:var(--tx)">${numCli(c.clientes)}</td>
               ${completo?`
               <td class="pj-in">${sinal(c.entram,'pj-in')}</td>
@@ -6439,6 +6711,8 @@ function renderProjecaoTab() {
       A saída vem do churn de receita, por isso pode ter casa decimal.
       Trabalho pontual marcado como <b>NR</b> fica fora dessa conta.</div>`:''}
   </div>
+
+  ${blocoMeta(futureRows)}
 
   <div style="font-size:11px;color:var(--mu);text-align:center;margin-bottom:8px">
     Meses passados: valores realizados. Mês atual e futuros: total registrado (confirmados + pendentes),
