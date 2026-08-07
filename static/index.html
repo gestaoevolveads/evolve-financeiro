@@ -532,6 +532,37 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .prev-res .op{color:var(--mu)}
 .prev-n2{color:var(--mu);font-size:11px;margin-left:auto}
 
+
+.ex-bloco{padding:14px 0;border-bottom:1px solid var(--bdr)}
+.ex-bloco.sem-borda{border-bottom:none;padding-bottom:2px}
+.ex-t{font-size:12.5px;font-weight:600;color:var(--tx);margin-bottom:9px}
+.ex-duo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.ex-duo > div{font-size:12px;line-height:1.6}
+.ex-card{background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r2);padding:13px 15px}
+.ex-card.hi{background:var(--ac-soft);border-color:var(--ac-ring)}
+.ex-h{font-size:12.5px;font-weight:600;color:var(--tx)}
+.ex-q{font-size:11.5px;color:var(--mu);font-style:italic;margin:2px 0 8px}
+.ex-card p{margin-bottom:7px}
+.ex-tag{display:inline-block;font-size:10px;font-weight:600;border-radius:999px;padding:1px 8px;margin-right:6px}
+.ex-tag.ok{background:color-mix(in srgb,var(--g) 14%,transparent);color:var(--g)}
+.ex-tag.no{background:var(--s3);color:var(--mu)}
+.ex-l{list-style:none;margin:6px 0 0}
+.ex-l li{padding:3px 0;font-size:12px;display:flex;align-items:baseline;gap:7px}
+.ex-pos{color:var(--g);font-weight:700} .ex-neg{color:var(--rd);font-weight:700}
+.ex-eq{color:var(--mu);font-size:11px;margin-left:auto}
+.ex-formula{display:flex;flex-wrap:wrap;gap:9px;align-items:center;background:var(--s2);
+  border-radius:var(--r3);padding:10px 13px;font-size:12px;color:var(--tx2);margin-bottom:9px}
+.ex-formula .op{color:var(--mu);font-weight:700}
+.ex-formula .fim{color:var(--ac);font-weight:600}
+.ex-conta{display:flex;flex-wrap:wrap;gap:11px;align-items:flex-start}
+.ex-conta > span{display:flex;flex-direction:column}
+.ex-conta b{font-size:14px;font-variant-numeric:tabular-nums}
+.ex-conta i{font-size:10.5px;color:var(--mu);font-style:normal;margin-top:1px}
+.ex-conta .op{align-self:center;color:var(--mu);font-weight:700;font-size:14px}
+.ex-conta .fim b{color:var(--ac)}
+.ex-n{font-size:11.5px;color:var(--mu);line-height:1.6}
+@media(max-width:760px){.ex-duo{grid-template-columns:1fr}}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -5013,22 +5044,79 @@ function renderProjecaoTab() {
   </div>
 
   <!-- como a projecao e montada: a duvida "de onde vem esse numero" -->
-  <details class="proj-como">
-    <summary>Como esta projeção é calculada</summary>
+  <details class="proj-como" ${S.projComoOpen?'open':''} ontoggle="S.projComoOpen=this.open">
+    <summary>Como ler esta tela</summary>
     <div class="proj-como-in">
-      <p><b>Entradas e saídas vêm só do que já está cadastrado.</b> A ferramenta não usa média,
-      tendência nem estimativa automática. Cada mês futuro soma exatamente os lançamentos
-      que existem nele — inclusive os gerados pelas recorrências.</p>
-      <div class="proj-como-g">
-        <div><span class="k">Entradas de um mês</span><span class="v">soma das receitas lançadas naquele mês</span></div>
-        <div><span class="k">Saídas de um mês</span><span class="v">soma das despesas lançadas naquele mês</span></div>
-        <div><span class="k">Resultado</span><span class="v">entradas − saídas</span></div>
-        <div><span class="k">Caixa acumulado</span><span class="v">saldo do mês anterior + resultado do mês</span></div>
-        <div><span class="k">Saldo hoje</span><span class="v">saldo inicial configurado + tudo que já foi realizado</span></div>
+
+      <div class="ex-bloco">
+        <div class="ex-t">Primeiro, o que é MRR</div>
+        <p>MRR é <b>o dinheiro que se repete todo mês</b>. Existem dois tipos de receita:</p>
+        <div class="ex-duo">
+          <div><span class="ex-tag ok">se repete</span>
+            <b>${brl(mcRegras.baseMRR)}</b> de ${mcRegras.baseCli} cliente${mcRegras.baseCli===1?'':'s'} que pagam
+            todo mês. Se você não vender nada, esse dinheiro entra de novo no mês que vem.</div>
+          <div><span class="ex-tag no">acontece uma vez</span>
+            Trabalho pontual, como um projeto fechado. Recebeu, acabou. <b>Não entra no MRR</b>,
+            porque contar com ele para o mês seguinte seria ilusão.</div>
+        </div>
+        <p class="ex-n">Seu MRR hoje é <b>${brl(mcRegras.baseMRR)}</b>. É o “salário” da empresa: o que entra
+          antes de qualquer venda nova.</p>
       </div>
-      <p class="proj-como-n">Consequência prática: um mês sem lançamento aparece zerado, e não com a média
-      dos anteriores. Para projetar algo que ainda não existe, cadastre como recorrente
-      ou teste em <b>Simular cenário</b>, que não altera esta projeção.</p>
+
+      <div class="ex-bloco">
+        <div class="ex-t">As duas linhas respondem perguntas diferentes</div>
+        <div class="ex-duo">
+          <div class="ex-card">
+            <div class="ex-h">Receita lançada</div>
+            <div class="ex-q">“quanto já está registrado?”</div>
+            <p>Soma o que está lançado em cada mês, em geral vindo das recorrências cadastradas.</p>
+            <p class="ex-n">Assume duas coisas que não acontecem: que <b>ninguém sai</b> e que <b>ninguém entra</b>.
+              Por isso ela é uma linha reta.</p>
+          </div>
+          <div class="ex-card hi">
+            <div class="ex-h">Receita prevista</div>
+            <div class="ex-q">“quanto provavelmente vai entrar?”</div>
+            <p>Parte do MRR de hoje e aplica o que o seu histórico mostra:</p>
+            <ul class="ex-l">
+              <li><span class="ex-neg">−</span> ${(mcRegras.churnPct*100).toFixed(1).replace('.',',')}% que sai por mês
+                <span class="ex-eq">≈ ${(mcRegras.churnPct*mcRegras.baseCli).toFixed(1).replace('.',',')} cliente</span></li>
+              <li><span class="ex-pos">+</span> ${brl(mcRegras.novoMRR)} que entra por mês
+                <span class="ex-eq">≈ ${(mcRegras.ticket? mcRegras.novoMRR/mcRegras.ticket:0).toFixed(1).replace('.',',')} cliente</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="ex-bloco">
+        <div class="ex-t">A conta, mês a mês</div>
+        <div class="ex-formula">
+          <span>MRR do mês anterior</span><span class="op">−</span><span>quem saiu</span>
+          <span class="op">+</span><span>quem entrou</span><span class="op">=</span><span class="fim">MRR do mês</span>
+        </div>
+        <div class="ex-conta">
+          ${(()=>{ const c=mcRegras.baseMRR*mcRegras.churnPct;
+            return `<span><b>${brl(mcRegras.baseMRR)}</b><i>o que você tem hoje</i></span>
+                    <span class="op">−</span><span><b>${brl(c)}</b><i>churn de ${(mcRegras.churnPct*100).toFixed(1).replace('.',',')}%</i></span>
+                    <span class="op">+</span><span><b>${brl(mcRegras.novoMRR)}</b><i>venda nova</i></span>
+                    <span class="op">=</span><span class="fim"><b>${brl(mcRegras.baseMRR-c+mcRegras.novoMRR)}</b><i>previsto no próximo mês</i></span>`; })()}
+        </div>
+        <p class="ex-n">O mês seguinte repete a conta partindo desse novo valor, e assim por diante.
+          Os cenários <b>Pessimista</b> e <b>Otimista</b> só mudam esses dois números: pioram ou melhoram
+          o churn e a venda nova.</p>
+      </div>
+
+      <div class="ex-bloco sem-borda">
+        <div class="ex-t">De onde saem os números</div>
+        <div class="proj-como-g">
+          <div><span class="k">Receita lançada</span><span class="v">soma das receitas registradas no mês — sem média nem estimativa</span></div>
+          <div><span class="k">Churn e venda nova</span><span class="v">calculados comparando sua carteira de clientes mês a mês, ao longo de ${mcRegras.transicoes} meses</span></div>
+          <div><span class="k">Despesa</span><span class="v">lançamentos do mês, com as regras de custo aplicadas nos meses futuros</span></div>
+          <div><span class="k">Caixa acumulado</span><span class="v">saldo do mês anterior + resultado do mês</span></div>
+        </div>
+        <p class="ex-n">Tudo se recalcula sozinho a cada mês fechado. Para testar “e se”, use
+          <b>Simular cenário</b> — ele não altera nada desta tela.</p>
+      </div>
+
     </div>
   </details>
 
