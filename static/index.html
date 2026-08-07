@@ -5668,6 +5668,12 @@ function abrirDetalhe(mid, tipo){
       <div class="det-bar" style="width:${Math.min(Math.abs(x.v)/maior*100,100)}%;background:${cor}"></div>
       <div class="det-n">${esc(x.nome)||'—'}
         ${x.regra?'<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">regra</span>':''}
+        ${x.imprev?`<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">reserva</span><span
+          class="det-i" title="Como este número é calculado" tabindex="0"
+          onclick="event.stopPropagation();abrirInfoImprevistos(${x.v},${x.sobre})"
+          onkeydown="if(event.key==='Enter')abrirInfoImprevistos(${x.v},${x.sobre})">i</span>`:''}
+        ${x.fiscal?`<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">${(x.fiscal.aliq*100).toFixed(2).replace('.',',')}%</span>`:''}
+        ${x.parc?'<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">parcelamento</span>':''}
         ${x.rec&&!x.regra?'<span class="det-tag" style="background:var(--ac-soft);color:var(--ac)">↻</span>':''}
         ${x.nr?'<span class="det-tag" style="background:var(--s2);color:var(--mu)">NR</span>':''}
         <span class="det-p">${catLabel(x.cat)}</span></div>
