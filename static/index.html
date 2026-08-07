@@ -98,6 +98,11 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
    a tabela dentro do card. */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .g2>*,.g3>*,.g4>*,.g5>*,.g6>*{min-width:0}
+/* Medido em 1280, 1440, 1920 e 2400px: lado a lado nao cabe em nenhum deles
+   sem cortar — a coluna de acoes e esticada pelos botoes das linhas calculadas.
+   Empilhado custa rolagem vertical, que e natural; lado a lado custava rolagem
+   horizontal dentro da tabela, que ninguem procura e que esconde informacao. */
+.g2-mes{grid-template-columns:1fr}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
@@ -2911,7 +2916,7 @@ function renderMonthTab(mid) {
 
   <div id="proj-panel-${mid}"></div>
 
-  <div class="g2">
+  <div class="g2 g2-mes">
     <!-- RECEITAS -->
     <div>
       <div class="card" style="padding:0;overflow:hidden">
@@ -5216,7 +5221,6 @@ function aplicarManual(){
   else                      aj = {...alvo, tipo:'pct', delta:-100,    rotulo:`${alvo.rotulo} zerado`};
   aj.desde = desde;
   aj.desdeClientes = desdeCli;
-  if(desdeCli) aj.rotulo += ` · a partir de ${desdeCli} clientes`;
   simPush([...(S.simAjustes||[]), aj]);
   e('man-valor').value='';
   drawSim();
