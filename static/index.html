@@ -4722,6 +4722,10 @@ function renderCashflowTab() {
         </tr></thead>
         <tbody>${tBody}</tbody>
       </table>
+      <div style="font-size:11px;color:var(--mu);margin-top:10px;line-height:1.6">
+        <b>Atenção:</b> meses sem nenhum lançamento usam aqui a média dos 3 últimos meses com dados.
+        Por isso esta aba pode mostrar número diferente da aba <b>Projeção</b>, que soma apenas o que está cadastrado.
+      </div>
     </div>
   </div>`;
 
@@ -4933,6 +4937,16 @@ function renderProjecaoTab() {
         return dig===0
           ? `Toda a receita lançada à frente (${brl(rec)}) vem de recorrências cadastradas.`
           : `Da receita lançada à frente, ${brl(rec)} vem de recorrências cadastradas e <b>${brl(dig)} foi digitado ou copiado</b> — esse pedaço é suposição, não contrato.`;
+      })()}
+      ${(()=>{ // linha reta e sinal de que nada foi cadastrado para mudar
+        const vals = futureRows.map(r=>Math.round(r.projRev));
+        const reta = vals.length>2 && new Set(vals).size===1;
+        if(!reta) return '';
+        const semFim = (S.recurring||[]).filter(r=>r.type==='revenue' && r.active!==0 && !r.end_year).length;
+        return `<b>A receita lançada é a mesma em todos os meses à frente</b> (${brl(vals[0])}).
+          Isso acontece porque as recorrências seguem sem data de encerramento${semFim?` — ${semFim} de receita`:''}
+          e nenhum cliente novo está cadastrado adiante. Não é erro de cálculo: é o retrato de “se nada mudar”.
+          A coluna <b>Prevista</b> existe justamente para corrigir isso. `;
       })()}
       Observado em ${mc.transicoes} transições de mês: churn ${(mc.churnPct*100).toFixed(1).replace('.',',')}% ·
       novo MRR ${brl(mc.novoMRR)} · entram ${mc.entramMes.toFixed(1).replace('.',',')} e saem ${mc.saemMes.toFixed(1).replace('.',',')} clientes por mês.
@@ -5197,9 +5211,8 @@ function renderProjecaoTab() {
   </div>
 
   <div style="font-size:11px;color:var(--mu);text-align:center;margin-bottom:8px">
-    Meses passados: valores realizados. Mês atual e futuros: total registrado (confirmados + pendentes).
-    <b>Atenção:</b> meses sem nenhum lançamento usam aqui a média dos 3 últimos meses com dados — por isso esta aba
-    pode divergir da aba Projeção, que só soma o que está cadastrado.
+    Meses passados: valores realizados. Mês atual e futuros: total registrado (confirmados + pendentes),
+    com as regras de custo aplicadas. <b>Sem médias e sem estimativas automáticas</b> — esta aba soma apenas o que está cadastrado.
   </div>`;
 
   requestAnimationFrame(() => {
