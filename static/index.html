@@ -458,7 +458,8 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 
 .proj-como{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);margin-bottom:14px}
-.proj-como summary{cursor:pointer;padding:11px 16px;font-size:12.5px;font-weight:500;color:var(--tx2);list-style:none;display:flex;align-items:center;gap:7px}
+.proj-como summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;color:var(--tx);list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pc-sub{font-size:11.5px;font-weight:400;color:var(--mu)}
 .proj-como summary::-webkit-details-marker{display:none}
 .proj-como summary::before{content:'›';color:var(--mu);transition:transform .2s;display:inline-block}
 .proj-como[open] summary::before{transform:rotate(90deg)}
@@ -4766,6 +4767,16 @@ async function saveSaldoInicial() {
 // ══════════════════════════════════════════════════════════════════════════════
 // PROJEÇÃO
 // ══════════════════════════════════════════════════════════════════════════════
+// A explicação nasce aberta: esconder atrás de um clique derrota o objetivo
+// de qualquer pessoa bater o olho e entender. Só fica fechada se a pessoa
+// fechar de propósito, e aí a escolha é lembrada.
+function projComoAberto(){
+  try { return localStorage.getItem('ef_proj_como') !== '0'; } catch(_) { return true; }
+}
+function setProjComo(aberto){
+  try { localStorage.setItem('ef_proj_como', aberto ? '1' : '0'); } catch(_){}
+}
+
 function renderProjecaoTab() {
   const el = e('tab-projecao'); if (!el) return;
   const horizon = S.projecaoHorizon ?? 0; // 0 = Ano 2026 (default)
@@ -5044,8 +5055,8 @@ function renderProjecaoTab() {
   </div>
 
   <!-- como a projecao e montada: a duvida "de onde vem esse numero" -->
-  <details class="proj-como" ${S.projComoOpen?'open':''} ontoggle="S.projComoOpen=this.open">
-    <summary>Como ler esta tela</summary>
+  <details class="proj-como" ${projComoAberto()?'open':''} ontoggle="setProjComo(this.open)">
+    <summary>Como ler esta tela<span class="pc-sub">o que é MRR · as duas linhas · a conta mês a mês</span></summary>
     <div class="proj-como-in">
 
       <div class="ex-bloco">
