@@ -4191,7 +4191,14 @@ function setPremissa(campo, valor){
   if(S.simUndo.length>50) S.simUndo.shift();
   S.simRedo = [];
   const num = () => parseFloat(String(valor).replace(',','.'))||0;
-  if(campo==='ticket')      p.ticket = parseAmt(valor);
+  if(campo==='ticket'){
+    // Mexer no ticket tem de mover o cenário. Segura a quantidade de clientes
+    // que entram e reescala o MRR novo: mesma entrada, cada cliente valendo
+    // mais. Antes o ticket só convertia a exibição e não mudava nada.
+    const cli = premEntram(p);
+    p.ticket  = parseAmt(valor);
+    p.novoMRR = cli * p.ticket;
+  }
   else if(campo==='desde')  p.desde  = parseInt(valor,10)||1;
   else if(campo==='entram') p.novoMRR  = num() * (p.ticket||0);      // clientes -> reais
   else if(campo==='saem')   p.churnPct = (p.observado.baseCli||1) ? num()/(p.observado.baseCli||1) : 0;
