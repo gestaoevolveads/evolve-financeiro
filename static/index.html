@@ -6016,11 +6016,19 @@ function abrirInfoFaixa(faixa, aliq, rbt, mes){
     <div class="info-passo">
       <div class="info-n">!</div>
       <div><div class="info-t">Não é um salto de ${pc(f.aliq)}</div>
-        <div class="info-d">A parcela a deduzir existe justamente para suavizar a passagem.
-          A alíquota efetiva sai de ${ant?pc(aliquotaEfetiva(ant.ate)):'6,00%'} para
-          <b>${pc(aliq)}</b> e vai subindo conforme o faturamento avança dentro da faixa,
-          até ${pc(aliquotaEfetiva(f.ate))} no teto dela. Não existe degrau: quem fatura
-          um real a mais nunca paga desproporcionalmente mais.</div></div>
+        <div class="info-d">${(()=>{
+          const antes = ant ? aliquotaEfetiva(ant.ate) : ANEXO_III[0].aliq;
+          const igual = Math.abs(aliq-antes) < 0.0005;
+          return igual
+            ? `Na virada a alíquota efetiva praticamente <b>não muda</b> — sai de ${pc(antes)}
+               para ${pc(aliq)}. A parcela a deduzir existe justamente para isso: cruzar o
+               limite não custa caro. O que muda é o ritmo daí em diante — dentro da faixa ${faixa}
+               ela sobe até ${pc(aliquotaEfetiva(f.ate))} conforme o faturamento avança.`
+            : `A parcela a deduzir suaviza a passagem: a alíquota efetiva sai de ${pc(antes)}
+               para <b>${pc(aliq)}</b>, e não para os ${pc(f.aliq)} da tabela. Dentro da faixa ${faixa}
+               ela continua subindo até ${pc(aliquotaEfetiva(f.ate))} no teto.`;
+        })()}
+        Não existe degrau: quem fatura um real a mais nunca paga desproporcionalmente mais.</div></div>
     </div>
 
     <div class="info-nota">
