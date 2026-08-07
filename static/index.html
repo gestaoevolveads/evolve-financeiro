@@ -245,6 +245,24 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
   .dist-row{grid-template-columns:minmax(66px,1fr) minmax(36px,1.1fr) 84px 40px;gap:7px;font-size:11px}
 }
 
+
+/* ══ RELATÓRIOS ══════════════════════════════════════════════════════════════ */
+.modal.rel-modal{max-width:1080px;width:96vw;max-height:92vh;overflow-y:auto}
+.rel-hint{font-size:11px;color:var(--mu);background:var(--s2);border-radius:var(--r3);padding:8px 11px;margin-bottom:14px}
+.rel-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+.rel-kpi{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px 14px}
+.rel-kpi-l{font-size:11px;color:var(--mu)}
+.rel-kpi-v{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:3px 0;font-variant-numeric:tabular-nums}
+.rel-kpi-s{font-size:11px;color:var(--mu)}
+.rel-sec{margin-bottom:18px}
+.rel-sec-h{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.rel-edit-tag{font-size:10px;font-weight:500;color:var(--ac);background:var(--ac-soft);border-radius:999px;padding:1px 8px}
+.rel-textarea{width:100%;background:var(--input-bg);border:1px solid var(--bdr);border-radius:var(--r2);
+  padding:10px 12px;color:var(--tx);font-family:var(--ff);font-size:12px;line-height:1.6;outline:none;resize:vertical}
+.rel-textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.rel-edit{border:1px solid var(--bdr) !important;background:var(--input-bg) !important}
+.etable tfoot .tot td{background:var(--s2);font-weight:600;border-bottom:none}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -403,6 +421,22 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-projecao" class="tab"></div>
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
+    <div id="tab-relatorios" class="tab"></div>
+
+<div id="weekly-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeWeekly()">
+  <div class="modal rel-modal">
+    <div class="modal-title">
+      <span id="weekly-title">Relatório semanal</span>
+      <span style="display:flex;gap:8px;align-items:center">
+        <button class="btn sm" onclick="closeWeekly()">Fechar</button>
+        <button class="btn sm filled-g" onclick="exportWeekly()">Salvar e exportar PDF</button>
+      </span>
+    </div>
+    <div class="rel-hint">Os números vêm do que já está cadastrado. Só os campos marcados como editáveis podem ser alterados aqui.</div>
+    <div id="weekly-body"></div>
+  </div>
+</div>
+
   </div>
 </div>
 
@@ -2356,6 +2390,7 @@ function buildNav() {
   html+=`<button class="mn" id="nav-projecao" onclick="goTab('projecao')">Projeção</button>`;
   html+=`<button class="mn" id="nav-search" onclick="goTab('search')">Busca</button>`;
   html+=`<button class="mn" id="nav-audit" onclick="goTab('audit')">Histórico</button>`;
+  html+=`<button class="mn" id="nav-relatorios" onclick="goTab('relatorios')">Relatórios</button>`;
   nav.innerHTML=html;
 }
 function buildTabs() {
@@ -2364,6 +2399,277 @@ function buildTabs() {
     if(!e(`tab-m${m.id}`)){ const d=document.createElement('div'); d.id=`tab-m${m.id}`; d.className='tab'; body.appendChild(d); }
   });
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RELATÓRIOS — motor de dados
+// A ferramenta monta tudo com o que já tem; a Carla só revisa os textos.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const ISO = d => d.toISOString().slice(0,10);
+function parseISO(s){ const [y,m,d]=String(s||'').split('-').map(Number); return new Date(y,(m||1)-1,d||1); }
+// segunda-feira da semana de uma data
+function weekStart(d){ const x=new Date(d); const wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); x.setHours(0,0,0,0); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+const dBR = s => { const k=dateKey(s); if(!k) return String(s||'—');
+  const y=Math.floor(k/10000), m=Math.floor(k/100)%100, dd=k%100;
+  return `${String(dd).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`; };
+const daysBetween = (a,b) => Math.round((b-a)/86400000);
+
+// Monta os dados da semana a partir de contas a pagar/receber já cadastradas
+function buildWeekly(startISO){
+  const ini = parseISO(startISO), fim = addDays(ini,6);
+  const kIni = ini.getFullYear()*10000+(ini.getMonth()+1)*100+ini.getDate();
+  const kFim = fim.getFullYear()*10000+(fim.getMonth()+1)*100+fim.getDate();
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+  const inWeek = it => { const k=dateKey(it.due_date); return k!==null && k>=kIni && k<=kFim; };
+  const pagar   = (S.payables||[]).filter(inWeek).sort((a,b)=>dateKey(a.due_date)-dateKey(b.due_date));
+  const receber = (S.receivables||[]).filter(inWeek).sort((a,b)=>dateKey(a.due_date)-dateKey(b.due_date));
+
+  // Inadimplente = a receber, ainda pendente, vencida antes desta semana
+  const inad = (S.receivables||[]).filter(r=>{
+    if((r.status||'pendente')!=='pendente') return false;
+    const k=dateKey(r.due_date); return k!==null && k<kIni;
+  }).map(r=>({...r, atraso: Math.max(0, daysBetween(parseISO(isoOf(r.due_date)), hoje))}))
+    .sort((a,b)=>b.atraso-a.atraso);
+
+  const soma = arr => arr.reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
+  return {
+    ini, fim, startISO,
+    pagar, receber, inad,
+    totalPagar: soma(pagar), totalReceber: soma(receber), totalInad: soma(inad),
+  };
+}
+// normaliza qualquer formato de data para ISO, para poder subtrair
+function isoOf(s){
+  const k=dateKey(s); if(k===null) return ISO(new Date());
+  return `${Math.floor(k/10000)}-${String(Math.floor(k/100)%100).padStart(2,'0')}-${String(k%100).padStart(2,'0')}`;
+}
+
+// ── Aba Relatórios ────────────────────────────────────────────────────────────
+function renderRelatoriosTab(){
+  const el=e('tab-relatorios'); if(!el) return;
+  if(!S.relWeek) S.relWeek = ISO(weekStart(new Date()));
+  if(!S.relMonth){ const d=new Date(); S.relMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+  el.innerHTML = `
+  <div class="sh-title"><span>Relatórios</span></div>
+  <div class="g2">
+    <div class="card">
+      <div class="ct">Relatório semanal</div>
+      <p style="font-size:12px;color:var(--mu);margin-bottom:14px;line-height:1.6">
+        Contas a pagar, a receber e inadimplentes da semana. Montado com o que já está cadastrado em Contas.
+      </p>
+      <div class="mrow"><label>Semana (segunda-feira)</label>
+        <input type="date" id="rel-week" value="${S.relWeek}" onchange="S.relWeek=this.value">
+      </div>
+      <button class="btn filled-g" style="width:100%;justify-content:center;margin-top:6px" onclick="openWeekly()">Gerar relatório semanal</button>
+    </div>
+    <div class="card">
+      <div class="ct">Fechamento mensal</div>
+      <p style="font-size:12px;color:var(--mu);margin-bottom:14px;line-height:1.6">
+        Resumo executivo, receitas, despesas, comparativo com o mês anterior, evolução do ano e projeção.
+      </p>
+      <div class="mrow"><label>Mês de referência</label>
+        <input type="month" id="rel-month" value="${S.relMonth}" onchange="S.relMonth=this.value">
+      </div>
+      <button class="btn filled-g" style="width:100%;justify-content:center;margin-top:6px" onclick="openMonthly()">Gerar fechamento mensal</button>
+    </div>
+  </div>`;
+}
+
+// garante que contas a pagar/receber estao em memoria (a aba Contas pode nem ter sido aberta)
+async function ensureContasLoaded(force){
+  // S.receivables/payables nascem como [] (truthy), entao checar existencia
+  // fazia a carga ser pulada e o relatorio sair zerado. Usa flag explicita.
+  if(S.contasLoaded && !force) return;
+  const [recv,pay] = await Promise.all([api('GET','/api/receivables'), api('GET','/api/payables')]);
+  S.receivables=recv; S.payables=pay; S.contasLoaded=true;
+}
+
+// ── Tela de conferência: só os textos são editáveis; números vêm dos dados ────
+async function openWeekly(){
+  await ensureContasLoaded();
+  const w = buildWeekly(S.relWeek);
+  S.weeklyData = w;
+  const pfx = `semanal:${w.startISO}:`;
+  let txt = {};
+  try { txt = await api('GET', `/api/report-texts?prefix=${encodeURIComponent(pfx)}`) || {}; } catch(_){}
+  S.weeklyTxt = txt;
+
+  const linha = (cols) => `<tr>${cols.map(c=>`<td${c.r?' class="r"':''}>${c.v}</td>`).join('')}</tr>`;
+  const stat = it => (it.status && it.status!=='pendente')
+      ? `<span class="status-badge ${it.received_date?'s-recebido':'s-pago'}">${it.received_date?'Recebido':'Pago'}</span>` : '';
+
+  const vazio = c => `<tr><td colspan="${c}" style="color:var(--mu);text-align:center;padding:16px">Nada nesta semana</td></tr>`;
+
+  e('weekly-body').innerHTML = `
+    <div class="rel-kpis">
+      ${[['Saldo inicial', brl(saldoSemana(w)), 'Caixa no início da semana'],
+         ['A pagar',   brl(w.totalPagar),   'Total da semana'],
+         ['A receber', brl(w.totalReceber), 'Total da semana'],
+         ['Saldo líquido', brl(w.totalReceber-w.totalPagar), 'Receber − Pagar'],
+         ['Inadimplentes', brl(w.totalInad), 'Total em aberto']]
+        .map(([l,v,s])=>`<div class="rel-kpi"><div class="rel-kpi-l">${l}</div><div class="rel-kpi-v">${v}</div><div class="rel-kpi-s">${s}</div></div>`).join('')}
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Contas a pagar</div>
+      <table class="etable plain"><thead><tr>
+        <th class="flush">Vencimento</th><th class="flush">Fornecedor</th><th class="flush">Categoria</th><th class="r">Valor</th><th class="flush">Status</th>
+      </tr></thead><tbody>
+        ${w.pagar.length ? w.pagar.map(p=>linha([
+            {v:dBR(p.due_date)},{v:esc(p.description||'—')},{v:esc(catLabel(p.category))},
+            {v:brl(p.amount),r:1},{v:stat(p)}])).join('') : vazio(5)}
+      </tbody><tfoot><tr class="tot"><td colspan="3">Total a pagar</td><td class="r">${brl(w.totalPagar)}</td><td></td></tr></tfoot></table>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Contas a receber</div>
+      <table class="etable plain"><thead><tr>
+        <th class="flush">Vencimento</th><th class="flush">Cliente</th><th class="flush">Categoria</th><th class="r">Valor</th><th class="flush">Status</th>
+      </tr></thead><tbody>
+        ${w.receber.length ? w.receber.map(r=>linha([
+            {v:dBR(r.due_date)},{v:esc(r.client_name||r.description||'—')},{v:esc(catLabel(r.category))},
+            {v:brl(r.amount),r:1},{v:stat(r)}])).join('') : vazio(5)}
+      </tbody><tfoot><tr class="tot"><td colspan="3">Total a receber</td><td class="r">${brl(w.totalReceber)}</td><td></td></tr></tfoot></table>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Inadimplentes</div>
+      <table class="etable plain"><thead><tr>
+        <th class="flush">Vencimento</th><th class="flush">Nome</th><th class="r">Valor original</th><th class="r">Dias em atraso</th><th class="flush">Observação</th>
+      </tr></thead><tbody>
+        ${w.inad.length ? w.inad.map(r=>`<tr>
+            <td>${dBR(r.due_date)}</td><td>${esc(r.client_name||r.description||'—')}</td>
+            <td class="r">${brl(r.amount)}</td><td class="r" style="color:var(--rd)">${r.atraso}</td>
+            <td><input class="cell-input rel-edit" value="${esc(r.notes||'')}" placeholder="Observação…"
+                 onchange="saveInadNote(${r.id},this.value)"></td></tr>`).join('') : vazio(5)}
+      </tbody><tfoot><tr class="tot"><td colspan="2">Total inadimplente</td><td class="r">${brl(w.totalInad)}</td><td colspan="2"></td></tr></tfoot></table>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Observações <span class="rel-edit-tag">editável</span></div>
+      <textarea id="wk-obs" class="rel-textarea" rows="4" placeholder="Observações da semana (opcional)">${esc(txt[pfx+'obs']||'')}</textarea>
+    </div>`;
+
+  e('weekly-title').textContent = `Relatório semanal · ${dBR(ISO(w.ini))} a ${dBR(ISO(w.fim))}`;
+  e('weekly-overlay').style.display='flex';
+}
+function closeWeekly(){ e('weekly-overlay').style.display='none'; }
+
+// saldo no início da semana = saldo inicial configurado + realizado até a véspera
+function saldoSemana(w){
+  const base = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
+  const lim = w.ini;
+  let acc = base;
+  (S.months||[]).forEach(m=>{
+    (m.revenues||[]).forEach(r=>{ const k=dateKey(r.received_date,m.year); if(k!==null && k < lim.getFullYear()*10000+(lim.getMonth()+1)*100+lim.getDate()) acc+=parseFloat(r.amount)||0; });
+    (m.costs||[]).forEach(c=>{ const k=dateKey(c.payment_date,m.year); if(k!==null && k < lim.getFullYear()*10000+(lim.getMonth()+1)*100+lim.getDate()) acc-=parseFloat(c.amount)||0; });
+  });
+  return acc;
+}
+
+async function saveInadNote(id, value){
+  try { await api('PUT', `/api/receivables/${id}`, {notes:value});
+        const r=(S.receivables||[]).find(x=>x.id===id); if(r) r.notes=value; syncLabel(fmtSync(),'saved'); }
+  catch(err){ syncLabel('Erro','error'); alert('Não consegui salvar a observação: '+err.message); }
+}
+
+async function saveWeeklyTexts(){
+  const pfx = `semanal:${S.weeklyData.startISO}:`;
+  const payload = {}; payload[pfx+'obs'] = e('wk-obs').value;
+  try { await api('PUT','/api/report-texts', payload); syncLabel(fmtSync(),'saved'); return true; }
+  catch(err){ syncLabel('Erro','error'); alert('Não consegui salvar os textos: '+err.message); return false; }
+}
+
+// ── Exportação: layout do relatório que a Carla entrega ──────────────────────
+async function exportWeekly(){
+  if(!await saveWeeklyTexts()) return;
+  const w = S.weeklyData;
+  const obs = e('wk-obs').value;
+  const per = `${dBR(ISO(w.ini))} a ${dBR(ISO(w.fim))}`;
+  const money = v => brl(v).replace(' ',' ');
+
+  const rows = (arr, cols, empty) => arr.length
+    ? arr.map(x=>`<tr>${cols(x)}</tr>`).join('')
+    : `<tr><td colspan="5" class="vazio">${empty}</td></tr>`;
+  const stTxt = it => (it.status && it.status!=='pendente') ? (it.received_date?'Recebido':'Pago') : '';
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Relatório Semanal · ${per}</title>
+<style>
+  @page{size:A4;margin:12mm}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:${SYSFONT};font-size:10.5px;color:#1b1b1b;background:#fff;line-height:1.45}
+  .head{background:#1C2333;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start}
+  .head h1{font-size:20px;font-weight:700;letter-spacing:-.01em}
+  .head .sub{font-size:9.5px;color:#C8B98A;letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+  .head .cli{font-size:9.5px;color:#9aa3b5;margin-top:6px}
+  .head .r{text-align:right}
+  .head .r .t{font-size:9.5px;color:#C8B98A;letter-spacing:.12em;text-transform:uppercase}
+  .head .r .p{font-size:13px;font-weight:700;margin-top:3px}
+  .head .r .s{font-size:9px;color:#9aa3b5;margin-top:5px}
+  .kpis{display:flex;gap:8px;margin:14px 0}
+  .kpi{flex:1;border:1px solid #dcdce4;border-top:3px solid #6D5CE7;padding:8px 10px}
+  .kpi.k1{border-top-color:#8a8a99}.kpi.k2{border-top-color:#B23B33}
+  .kpi.k3{border-top-color:#2E6E52}.kpi.k4{border-top-color:#6D5CE7}.kpi.k5{border-top-color:#9A7B1F}
+  .kpi .l{font-size:8.5px;color:#6a6a7a}
+  .kpi .v{font-size:15px;font-weight:700;margin:2px 0;font-variant-numeric:tabular-nums}
+  .kpi .s{font-size:8px;color:#8a8a99}
+  .band{color:#fff;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;margin-top:12px}
+  .band.pagar{background:#B23B33}.band.receber{background:#2E6E52}.band.inad{background:#9A7B1F}.band.obs{background:#585866}
+  table{width:100%;border-collapse:collapse}
+  th{background:#1C2333;color:#fff;font-size:9px;font-weight:600;padding:6px 8px;text-align:left}
+  th.r,td.r{text-align:right}
+  td{padding:6px 8px;border-bottom:1px solid #e6e6ee;font-size:10px;vertical-align:top}
+  tr:nth-child(even) td{background:#f7f7fa}
+  .vazio{color:#9a9aa8;text-align:center;padding:14px;font-style:italic}
+  .tot{color:#fff;font-weight:700}
+  .tot.pagar{background:#B23B33}.tot.receber{background:#2E6E52}.tot.inad{background:#9A7B1F}
+  .tot td{border:none;color:#fff;font-size:10.5px}
+  .obsbox{border:1px solid #dcdce4;border-top:none;padding:10px;min-height:52px;background:#f7f7fa;white-space:pre-wrap;font-size:10px}
+  .foot{display:flex;justify-content:space-between;margin-top:16px;padding-top:8px;border-top:1px solid #dcdce4;font-size:8.5px;color:#8a8a99}
+  .atraso{color:#B23B33;font-weight:600}
+</style></head><body>
+<div class="head">
+  <div><h1>CARLA RIBEIRO</h1><div class="sub">Assistência Financeira</div><div class="cli">Evolve</div></div>
+  <div class="r"><div class="t">Relatório Semanal</div><div class="p">${per}</div>
+    <div class="s">Contas a Pagar · Receber · Inadimplentes</div></div>
+</div>
+
+<div class="kpis">
+  <div class="kpi k1"><div class="l">Saldo Inicial</div><div class="v">${money(saldoSemana(w))}</div><div class="s">Caixa no início</div></div>
+  <div class="kpi k2"><div class="l">A Pagar</div><div class="v">${money(w.totalPagar)}</div><div class="s">Total da semana</div></div>
+  <div class="kpi k3"><div class="l">A Receber</div><div class="v">${money(w.totalReceber)}</div><div class="s">Total da semana</div></div>
+  <div class="kpi k4"><div class="l">Saldo líquido</div><div class="v">${money(w.totalReceber-w.totalPagar)}</div><div class="s">Receber − Pagar</div></div>
+  <div class="kpi k5"><div class="l">Inadimp.</div><div class="v">${money(w.totalInad)}</div><div class="s">Total em aberto</div></div>
+</div>
+
+<div class="band pagar">Contas a Pagar</div>
+<table><thead><tr><th>Vencimento</th><th>Fornecedor</th><th>Categoria</th><th class="r">Valor</th><th>Status</th></tr></thead>
+<tbody>${rows(w.pagar, p=>`<td>${dBR(p.due_date)}</td><td>${esc(p.description||'—')}</td><td>${esc(catLabel(p.category))}</td><td class="r">${money(p.amount)}</td><td>${stTxt(p)}</td>`,'Nenhuma conta a pagar nesta semana')}</tbody>
+<tfoot><tr class="tot pagar"><td colspan="3" style="text-align:right">TOTAL A PAGAR</td><td class="r">${money(w.totalPagar)}</td><td></td></tr></tfoot></table>
+
+<div class="band receber">Contas a Receber</div>
+<table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Categoria</th><th class="r">Valor</th><th>Status</th></tr></thead>
+<tbody>${rows(w.receber, r=>`<td>${dBR(r.due_date)}</td><td>${esc(r.client_name||r.description||'—')}</td><td>${esc(catLabel(r.category))}</td><td class="r">${money(r.amount)}</td><td>${stTxt(r)}</td>`,'Nenhuma conta a receber nesta semana')}</tbody>
+<tfoot><tr class="tot receber"><td colspan="3" style="text-align:right">TOTAL A RECEBER</td><td class="r">${money(w.totalReceber)}</td><td></td></tr></tfoot></table>
+
+<div class="band inad">Inadimplentes</div>
+<table><thead><tr><th>Vencimento</th><th>Nome</th><th class="r">Valor Original</th><th class="r">Dias em Atraso</th><th>Observação</th></tr></thead>
+<tbody>${rows(w.inad, r=>`<td>${dBR(r.due_date)}</td><td>${esc(r.client_name||r.description||'—')}</td><td class="r">${money(r.amount)}</td><td class="r atraso">${r.atraso}</td><td>${esc(r.notes||'')}</td>`,'Nenhum inadimplente')}</tbody>
+<tfoot><tr class="tot inad"><td colspan="2" style="text-align:right">TOTAL INADIMPLENTE</td><td class="r">${money(w.totalInad)}</td><td colspan="2"></td></tr></tfoot></table>
+
+<div class="band obs">Observações</div>
+<div class="obsbox">${esc(obs)}</div>
+
+<div class="foot"><span>Carla Ribeiro · Assistência Financeira &nbsp;|&nbsp; Cliente: Evolve</span>
+<span>Relatório Semanal · ${per} · Documento confidencial</span></div>
+<script>window.onload=()=>{setTimeout(()=>window.print(),300)}<\/script>
+</body></html>`;
+
+  const win = window.open('','_blank');
+  if(!win){ alert('O navegador bloqueou a janela. Libere pop-ups para este site.'); return; }
+  win.document.write(html); win.document.close();
+}
+
+
 function goTab(id) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.mn').forEach(b=>b.classList.remove('active'));
@@ -2376,6 +2682,7 @@ function goTab(id) {
   else if(id==='projecao') renderProjecaoTab();
   else if(id==='search') renderSearchTab();
   else if(id==='audit') renderAuditTab();
+  else if(id==='relatorios') renderRelatoriosTab();
   else { const mid=parseInt(id.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -2887,7 +3194,7 @@ async function renderContasTab() {
   el.innerHTML='<div class="sh-title">Contas</div><div style="color:var(--mu);font-size:12px;padding:20px;text-align:center">Carregando…</div>';
   try{
     const [recv,pay]=await Promise.all([api('GET','/api/receivables'),api('GET','/api/payables')]);
-    S.receivables=recv; S.payables=pay;
+    S.receivables=recv; S.payables=pay; S.contasLoaded=true;
     drawContasTab();
   } catch(err){ el.innerHTML=`<div style="color:var(--rd);padding:20px">${err.message}</div>`; }
 }

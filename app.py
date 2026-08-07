@@ -189,6 +189,14 @@ def init_db():
             "ALTER TABLE costs ADD COLUMN status TEXT DEFAULT 'realizado'",
             "ALTER TABLE recurring_items ADD COLUMN day_of_month INTEGER",
             "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'",
+            # Relatórios da Carla: anotação por lançamento e marcação de item não recorrente
+            "ALTER TABLE revenues ADD COLUMN note TEXT DEFAULT ''",
+            "ALTER TABLE costs    ADD COLUMN note TEXT DEFAULT ''",
+            "ALTER TABLE revenues ADD COLUMN nonrecurring INTEGER DEFAULT 0",
+            "ALTER TABLE costs    ADD COLUMN nonrecurring INTEGER DEFAULT 0",
+            # Blocos de texto dos relatórios (resumo, conclusão, observações).
+            # key no formato 'mensal:2026-07:resumo' ou 'semanal:2026-08-03:obs'
+            "CREATE TABLE IF NOT EXISTS report_texts (key TEXT PRIMARY KEY, value TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))",
         ]:
             try: c.execute(sql)
             except Exception: pass
@@ -401,16 +409,43 @@ def add_revenue(mid):
     audit(request.user['username'], 'receita_adicionada', f"{mref} — {d.get('client_name','')}")
     return jsonify(dict(row))
 
+def partial_update(table, allowed, payload, row_id):
+    """Atualiza SÓ os campos presentes no payload.
+
+    Update fixo apagaria campos novos (note, nonrecurring) toda vez que uma
+    tela antiga salvasse sem envia-los.
+    """
+    sets, vals = [], []
+    for col, cast in allowed.items():
+        if col in payload:
+            sets.append(f'{col}=?')
+            vals.append(cast(payload[col]))
+    if not sets:
+        return False
+    vals.append(row_id)
+    with db() as c:
+        c.execute(f'UPDATE {table} SET {",".join(sets)} WHERE id=?', vals)
+        c.commit()
+    return True
+
+def _s(v):    return '' if v is None else str(v)
+def _f(v):
+    try: return float(v or 0)
+    except (TypeError, ValueError): return 0.0
+def _b(v):    return 1 if v else 0
+
+REVENUE_COLS = {'client_name':_s,'amount':_f,'received_date':_s,'category':_s,
+                'is_new_client':_b,'note':_s,'nonrecurring':_b}
+COST_COLS    = {'name':_s,'amount':_f,'payment_date':_s,'category':_s,
+                'note':_s,'nonrecurring':_b}
+
 @app.put('/api/revenues/<int:rid>')
 @auth
 def update_revenue(rid):
     d = request.get_json() or {}
-    with db() as c:
-        c.execute('UPDATE revenues SET client_name=?,amount=?,received_date=?,category=?,is_new_client=? WHERE id=?',
-            (d.get('client_name',''), d.get('amount',0), d.get('received_date',''),
-             d.get('category','servico'), 1 if d.get('is_new_client') else 0, rid))
-        c.commit()
-    audit(request.user['username'], 'receita_editada', f"ID {rid} — {d.get('client_name','')} R${d.get('amount',0):.2f}")
+    if not partial_update('revenues', REVENUE_COLS, d, rid):
+        return jsonify({'error':'Nada para atualizar'}), 400
+    audit(request.user['username'], 'receita_editada', f"ID {rid} — {d.get('client_name','')} R${_f(d.get('amount')):.2f}")
     return jsonify({'success':True})
 
 @app.delete('/api/revenues/<int:rid>')
@@ -445,12 +480,9 @@ def add_cost(mid):
 @auth
 def update_cost(cid):
     d = request.get_json() or {}
-    with db() as c:
-        c.execute('UPDATE costs SET name=?,amount=?,payment_date=?,category=? WHERE id=?',
-            (d.get('name',''), d.get('amount',0), d.get('payment_date',''),
-             d.get('category','operacional'), cid))
-        c.commit()
-    audit(request.user['username'], 'despesa_editada', f"ID {cid} — {d.get('name','')} R${d.get('amount',0):.2f}")
+    if not partial_update('costs', COST_COLS, d, cid):
+        return jsonify({'error':'Nada para atualizar'}), 400
+    audit(request.user['username'], 'despesa_editada', f"ID {cid} — {d.get('name','')} R${_f(d.get('amount')):.2f}")
     return jsonify({'success':True})
 
 @app.delete('/api/costs/<int:cid>')
@@ -948,6 +980,36 @@ def export_data():
         months = c.execute('SELECT * FROM months ORDER BY year,month').fetchall()
         data   = [month_full(c, m['id']) for m in months]
     return jsonify(data)
+
+# ── Textos dos relatórios ─────────────────────────────────────────────────────
+# Blocos de redação da Carla (resumo executivo, conclusão, observações).
+# key: 'mensal:2026-07:resumo' | 'semanal:2026-08-03:obs' | 'mensal:2026-07:cat:pro-labore'
+
+@app.get('/api/report-texts')
+@auth
+def get_report_texts():
+    prefix = request.args.get('prefix','')
+    with db() as c:
+        rows = c.execute('SELECT key,value FROM report_texts WHERE key LIKE ?', (prefix+'%',)).fetchall()
+    return jsonify({r['key']: r['value'] for r in rows})
+
+@app.put('/api/report-texts')
+@auth
+def put_report_texts():
+    d = request.get_json() or {}
+    if not isinstance(d, dict) or not d:
+        return jsonify({'error':'Payload inválido'}), 400
+    if len(d) > 200:
+        return jsonify({'error':'Muitos campos de uma vez'}), 400
+    with db() as c:
+        for k, v in d.items():
+            if not isinstance(k, str) or len(k) > 200:
+                continue
+            c.execute("INSERT INTO report_texts (key,value,updated_at) VALUES (?,?,datetime('now')) "
+                      "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=datetime('now')",
+                      (k, '' if v is None else str(v)[:20000]))
+        c.commit()
+    return jsonify({'success':True})
 
 # ── Backup / Restore ──────────────────────────────────────────────────────────
 
