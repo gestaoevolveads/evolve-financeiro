@@ -483,6 +483,18 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .sim-prem-n{font-size:11px;color:var(--mu);margin-top:9px;padding-top:9px;border-top:1px solid var(--bdr)}
 .sim-tag-b{font-size:9.5px;color:var(--mu);background:var(--s3);border-radius:999px;padding:1px 6px;margin-left:4px}
 
+
+.sim-manual{display:grid;gap:12px;margin-top:12px}
+.sim-card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden}
+.sim-card-h{font-size:12px;font-weight:600;color:var(--tx2);padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--bdr)}
+.sim-card-b{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:14px}
+.sim-card-b label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--mu)}
+.sim-card-b select,.sim-card-b input{background:var(--input-bg);border:1px solid var(--bdr);border-radius:var(--r3);
+  padding:8px 10px;color:var(--tx);font-family:var(--ff);font-size:12.5px;outline:none;min-width:120px}
+.sim-card-b select:focus,.sim-card-b input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.sim-card-b .btn{margin-left:auto}
+@media(max-width:760px){.sim-card-b .btn{margin-left:0;width:100%;justify-content:center}}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -3650,10 +3662,13 @@ function simular(ajustes, anoRef, horizonte){
     const efeitos = [];
     const anota = (txt,val)=>efeitos.push({txt,val});
 
-    // premissas de carteira: só valem daqui para frente
-    if(futuro){
-      mesesRodados++;
-      const liq = (prem.entram - prem.saem) * mesesRodados;   // saldo acumulado de clientes
+    // premissas de carteira: contam a partir do mês escolhido
+    const inicioPrem = (prem.desde || (mAtual+1));
+    const vigente = (m.year*12+m.month) >= (aAtual*12 + inicioPrem);
+    if(futuro) mesesRodados++;
+    if(vigente){
+      const nRod = (m.year*12+m.month) - (aAtual*12 + inicioPrem) + 1;
+      const liq = (prem.entram - prem.saem) * nRod;   // saldo acumulado de clientes
       if(liq && prem.ticket){
         const d = liq * prem.ticket;
         sRev += d;
@@ -3729,11 +3744,12 @@ function resolveConflitos(lista){
 
 // ── Histórico: desfazer e refazer (ajustes + premissas juntos) ───────────────
 function estadoSim(){ const p=premissasAtuais();
-  return JSON.stringify({aj:S.simAjustes||[], pr:{ticket:p.ticket, entram:p.entram, saem:p.saem}}); }
+  return JSON.stringify({aj:S.simAjustes||[], pr:{ticket:p.ticket, entram:p.entram, saem:p.saem, desde:p.desde}}); }
 function aplicaEstado(str){
   const e = JSON.parse(str);
   S.simAjustes = e.aj;
   const p = premissasAtuais(); p.ticket=e.pr.ticket; p.entram=e.pr.entram; p.saem=e.pr.saem;
+  if(e.pr.desde!==undefined) p.desde=e.pr.desde;
 }
 function simPush(novos){
   S.simUndo = S.simUndo || [];
@@ -3787,17 +3803,19 @@ function premissasObservadas(){
 function premissasAtuais(){
   if(!S.simPrem){
     const o = premissasObservadas();
-    S.simPrem = {ticket:o.ticket, entram:0, saem:0, observado:o};
+    S.simPrem = {ticket:o.ticket, entram:0, saem:0, desde:(new Date().getMonth()+2), observado:o};
   }
   return S.simPrem;
 }
 function setPremissa(campo, valor){
   const p = premissasAtuais();
   S.simUndo = S.simUndo||[];
-  S.simUndo.push(JSON.stringify({aj:S.simAjustes||[], pr:{ticket:p.ticket, entram:p.entram, saem:p.saem}}));
+  S.simUndo.push(estadoSim());
   if(S.simUndo.length>50) S.simUndo.shift();
   S.simRedo = [];
-  p[campo] = campo==='ticket' ? parseAmt(valor) : (parseFloat(String(valor).replace(',','.'))||0);
+  p[campo] = campo==='ticket' ? parseAmt(valor)
+           : campo==='desde' ? (parseInt(valor,10)||1)
+           : (parseFloat(String(valor).replace(',','.'))||0);
   drawSim();
 }
 function usarObservado(){
@@ -3999,16 +4017,7 @@ function addLancamentoNovo(){
   drawSim();
 }
 
-function addClientesManual(){
-  const qtd = parseInt(e('cli-qtd').value,10)||0;
-  const tk  = parseAmt(e('cli-ticket').value);
-  const desde = parseInt(e('cli-desde').value,10);
-  if(!qtd){ const err=e('sim-erro'); err.textContent='Informe quantos clientes por mês.'; err.style.display='block'; return; }
-  e('sim-erro').style.display='none';
-  simPush([...(S.simAjustes||[]), {tipo:'clientes', tipoAlvo:'driver', qtd, ticket:tk, desde,
-    rotulo:`+${qtd} cliente${qtd>1?'s':''}/mês${tk?` a ${brl(tk)}`:''}`}]);
-  drawSim();
-}
+
 
 function drawSim(){
   const prem = premissasAtuais();
@@ -4063,6 +4072,8 @@ function drawSim(){
           <label>Ticket médio<input value="${brl(prem.ticket).replace('R$ ','')}" onchange="setPremissa('ticket',this.value)"></label>
           <label>Entram por mês<input value="${String(prem.entram).replace('.',',')}" onchange="setPremissa('entram',this.value)"></label>
           <label>Saem por mês<input value="${String(prem.saem).replace('.',',')}" onchange="setPremissa('saem',this.value)"></label>
+          <label>A partir de<select onchange="setPremissa('desde',this.value)">
+            ${mesOpts(prem.desde||desdePadrao)}</select></label>
           <label>Horizonte<select onchange="S.simHorizonte=+this.value;drawSim()">
             ${[0,6,12,24,36].map(h=>`<option value="${h}" ${(S.simHorizonte||0)===h?'selected':''}>${h?h+' meses':'ano corrente'}</option>`).join('')}
           </select></label>
@@ -4087,37 +4098,38 @@ function drawSim(){
 
       ${S.simManual?`
       <div class="sim-manual">
-        <div class="sim-man-row">
-          <label>O que mexer
-            <select id="man-alvo">
-              <option value="">Escolha…</option>
-              <optgroup label="Alavancas">${o.driver.map(d=>`<option value="driver::${d.v}">${d.l}</option>`).join('')}</optgroup>
-              <optgroup label="Lançamentos">${o.item.map(i=>`<option value="item::${esc(i.v)}">${esc(i.l)}</option>`).join('')}</optgroup>
-              <optgroup label="Categorias">${o.categoria.map(c=>`<option value="categoria::${c.v}">${esc(c.l)}</option>`).join('')}</optgroup>
-            </select></label>
-          <label>Como
-            <select id="man-op">
-              <option value="mais_pct">Aumentar %</option><option value="menos_pct">Reduzir %</option>
-              <option value="mais_rs">Somar R$</option><option value="menos_rs">Subtrair R$</option>
-              <option value="definir">Definir valor</option><option value="zerar">Zerar</option>
-            </select></label>
-          <label>Valor<input id="man-valor" placeholder="10"></label>
-          <label>A partir de<select id="man-desde">${mesOpts(desdePadrao)}</select></label>
-          <button class="btn filled-g" onclick="aplicarManual()">Adicionar</button>
+        <div class="sim-card">
+          <div class="sim-card-h">Ajustar algo que já existe</div>
+          <div class="sim-card-b">
+            <label>O que mexer
+              <select id="man-alvo">
+                <option value="">Escolha…</option>
+                <optgroup label="Alavancas">${o.driver.map(d=>`<option value="driver::${d.v}">${d.l}</option>`).join('')}</optgroup>
+                <optgroup label="Lançamentos">${o.item.map(i=>`<option value="item::${esc(i.v)}">${esc(i.l)}</option>`).join('')}</optgroup>
+                <optgroup label="Categorias">${o.categoria.map(c=>`<option value="categoria::${c.v}">${esc(c.l)}</option>`).join('')}</optgroup>
+              </select></label>
+            <label>Como
+              <select id="man-op">
+                <option value="mais_pct">Aumentar %</option><option value="menos_pct">Reduzir %</option>
+                <option value="mais_rs">Somar R$</option><option value="menos_rs">Subtrair R$</option>
+                <option value="definir">Definir valor</option><option value="zerar">Zerar</option>
+              </select></label>
+            <label>Valor<input id="man-valor" placeholder="10" style="width:96px"></label>
+            <label>A partir de<select id="man-desde">${mesOpts(desdePadrao)}</select></label>
+            <button class="btn filled-g" onclick="aplicarManual()">Aplicar ajuste</button>
+          </div>
         </div>
-        <div class="sim-man-row">
-          <label>Descrição<input id="nov-nome" placeholder="Ex.: Contador"></label>
-          <label>Tipo<select id="nov-tipo"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></label>
-          <label>Valor<input id="nov-valor" placeholder="450,00"></label>
-          <label>Repetir<select id="nov-rec"><option value="todos">Todo mês</option><option value="uma">Só uma vez</option></select></label>
-          <label>A partir de<select id="nov-desde">${mesOpts(desdePadrao)}</select></label>
-          <button class="btn filled-g" onclick="addLancamentoNovo()">Criar lançamento</button>
-        </div>
-        <div class="sim-man-row">
-          <label>Novos clientes por mês<input id="cli-qtd" placeholder="1" style="width:70px"></label>
-          <label>Ticket<input id="cli-ticket" placeholder="1.997,00"></label>
-          <label>A partir de<select id="cli-desde">${mesOpts(desdePadrao)}</select></label>
-          <button class="btn" onclick="addClientesManual()">Adicionar entrada de clientes</button>
+
+        <div class="sim-card">
+          <div class="sim-card-h">Criar um lançamento que não existe</div>
+          <div class="sim-card-b">
+            <label>Descrição<input id="nov-nome" placeholder="Ex.: Contador" style="width:170px"></label>
+            <label>Tipo<select id="nov-tipo"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></label>
+            <label>Valor<input id="nov-valor" placeholder="450,00" style="width:110px"></label>
+            <label>Repetir<select id="nov-rec"><option value="todos">Todo mês</option><option value="uma">Só uma vez</option></select></label>
+            <label>A partir de<select id="nov-desde">${mesOpts(desdePadrao)}</select></label>
+            <button class="btn filled-g" onclick="addLancamentoNovo()">Criar lançamento</button>
+          </div>
         </div>
       </div>`:''}
 
