@@ -269,6 +269,38 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 /* Detalhamento da Projecao: muitas colunas em pouca largura. Os grupos dao a
    hierarquia — dinheiro em destaque, carteira em tom secundario — para a tabela
    nao virar um paredao de numeros todos com o mesmo peso. */
+/* Detalhamento de um mes: lista simples, valor a direita, barra fina atras de
+   cada linha dando a proporcao — da para ver quem pesa sem ler numero por numero */
+.det-l{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:baseline;
+  padding:9px 12px;border-radius:8px;position:relative;overflow:hidden}
+.det-l+.det-l{margin-top:2px}
+.det-bar{position:absolute;left:0;top:0;bottom:0;border-radius:8px;opacity:.1}
+.det-n{position:relative;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.det-v{position:relative;font-variant-numeric:tabular-nums;font-weight:600;font-size:13px}
+.det-p{position:relative;font-size:11px;color:var(--mu);margin-left:6px;font-weight:400}
+.det-tag{font-size:9.5px;padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:1px}
+.det-tot{display:flex;justify-content:space-between;align-items:baseline;
+  padding:12px 12px 0;margin-top:8px;border-top:1px solid var(--bdr);font-weight:700}
+.det-grp{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);
+  margin:14px 0 6px;padding:0 12px}
+.clicavel{cursor:pointer}
+.clicavel:hover{text-decoration:underline;text-decoration-color:var(--mu);text-underline-offset:3px}
+/* Carteira no dashboard: duas faixas. Em cima os fatos observados, embaixo o
+   que se deriva deles. A separacao existe para nao dar a numero calculado o
+   mesmo peso de numero medido. */
+.uc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+  background:var(--bdr);border-radius:var(--r2);overflow:hidden}
+.uc-c{background:var(--s1);padding:13px 15px}
+.uc-c.dv{background:var(--s2)}
+.uc-l{font-size:10.5px;color:var(--mu);letter-spacing:.01em}
+.uc-v{font-size:20px;font-weight:700;letter-spacing:-.025em;margin:4px 0 2px;
+  font-variant-numeric:tabular-nums}
+.uc-s{font-size:11px;color:var(--mu);line-height:1.35}
+.uc-hd{display:flex;align-items:baseline;gap:8px;margin:16px 0 8px}
+.uc-hd .t{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.uc-hd .d{flex:1;height:1px;background:var(--bdr)}
+.uc-cac{background:linear-gradient(180deg,var(--ac-soft),transparent);
+  border:1px solid var(--ac-ring);border-radius:var(--r2);padding:15px 17px;margin-top:12px}
 .pj-wrap{overflow-x:auto}
 .pj-tab{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .pj-tab th,.pj-tab td{padding:9px 10px;white-space:nowrap}
@@ -755,6 +787,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
 
+<div id="det-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharDetalhe()">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-title"><span id="det-titulo">Detalhamento</span>
+      <button class="btn sm" onclick="fecharDetalhe()">Fechar</button></div>
+    <div id="det-body"></div>
+  </div>
+</div>
+
 <div id="rules-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeRulesModal()">
   <div class="modal rel-modal">
     <div class="modal-title"><span>Regras de custo</span>
@@ -1234,7 +1274,7 @@ async function doLogin() {
     S.token=d.token; S.user={name:d.name,username:d.username,role:d.role||'user'};
     localStorage.setItem('ef_token',S.token);
     await loadData();
-    showApp();
+    await showApp();
   } catch(err){ e('login-err').textContent=err.message; btn.textContent='Entrar'; btn.disabled=false; }
 }
 function doLogout(){ S.token=null; localStorage.removeItem('ef_token'); clearInterval(S.polling); location.reload(); }
@@ -2491,9 +2531,9 @@ function updateSummary(mid) {
   // com dois nomes, que ja confundiu antes
   const temPendente = sc.revProj!==sc.rev || sc.cosProj!==sc.cos;
   el.innerHTML=`
-    <div class="sum-item"><div class="sum-lbl">Receita realizada</div><div class="sum-val">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes ${deltaMesAnterior(mid,'rev')}</div></div>
+    <div class="sum-item clicavel" onclick="abrirDetalhe(${mid},'rev')" title="Ver uma a uma"><div class="sum-lbl">Receita realizada</div><div class="sum-val">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes ${deltaMesAnterior(mid,'rev')}</div></div>
     <div class="sum-item"><div class="sum-lbl">Ticket médio</div><div class="sum-val">${brl(sc.avgTicket)}</div><div class="sum-sub">por cliente</div></div>
-    <div class="sum-item"><div class="sum-lbl">Despesas realizadas</div><div class="sum-val">${brl(sc.cos)}</div></div>
+    <div class="sum-item clicavel" onclick="abrirDetalhe(${mid},'cos')" title="Ver uma a uma"><div class="sum-lbl">Despesas realizadas</div><div class="sum-val">${brl(sc.cos)}</div></div>
     <div class="sum-item"><div class="sum-lbl">Saldo realizado</div><div class="sum-val" style="color:${balCol}">${brl(sc.bal)}</div></div>
     ${temPendente?`<div class="sum-item"><div class="sum-lbl">Saldo projetado</div>
       <div class="sum-val" style="color:${sc.balProj>=0?'var(--pu)':'var(--rd)'}">${brl(sc.balProj)}</div>
@@ -2629,6 +2669,9 @@ function renderDashboard() {
     <div class="ct">Metas 2026</div>
     ${goalsHtml}
   </div>
+
+  <!-- CARTEIRA E UNIT ECONOMICS -->
+  ${blocoCarteira()}
 
   <!-- CHART -->
   <div class="card" style="margin-bottom:14px">
@@ -4227,13 +4270,23 @@ function metricasCarteira(){
   const ultimo = serie.length ? serie[serie.length-1] : null;
   const baseMRR = ultimo ? Object.values(ultimo.c).reduce((s,v)=>s+v,0) : 0;
   const baseCli = ultimo ? Object.keys(ultimo.c).length : 0;
+  const tkBase  = baseCli ? baseMRR/baseCli : 0;
+
+  // A projecao nao promete fracao de cliente. O historico entra 1,17 por mes;
+  // assumir 1 e a leitura conservadora, e o mes que trouxer o segundo cliente
+  // aparece como ganho e nao como cumprimento de meta. O churn fica como esta,
+  // em percentual da receita, para nao mexer no que ja estava calibrado.
+  const entramInt  = Math.floor(somaNEnt/n);
+  const novoMRRProj = entramInt * tkBase;
 
   return {
     pontes, baseMRR, baseCli,
     churnPct:  somaAb ? somaChn/somaAb : 0,          // churn de receita, ao mês
     churnLogo: somaNAb ? somaNSai/somaNAb : 0,       // churn de logo, ao mês
-    novoMRR:   somaNovo/n,                            // novo MRR médio por mês
-    entramMes: somaNEnt/n,                            // clientes novos por mês
+    novoMRR:   novoMRRProj,                           // premissa usada na projeção
+    novoMRRObs: somaNovo/n,                           // o que o histórico mostrou
+    entramProj: entramInt,                            // clientes novos assumidos
+    entramMes: somaNEnt/n,                            // clientes novos por mês (histórico)
     saemMes:   somaNSai/n,                            // clientes perdidos por mês
     nrr: somaAb ? (somaAb - somaChn - somaCon + somaExp)/somaAb : 1,
     ticket: baseCli ? baseMRR/baseCli : 0,
@@ -5056,8 +5109,12 @@ function carteiraDaLinha(r, mc){
     return { clientes: cp.nClientes, entram: cp.novos, saem: cp.nClientes*mc.churnPct,
              ticket: cp.tk, projetado: true };
   }
+  // Mes fechado conta so o realizado. Mes atual conta tambem o pendente: e a
+  // carteira que ja esta lancada ali, o mesmo numero que a coluna Receita usa.
+  // Sem isso agosto aparecia com zero cliente, porque nada foi confirmado ainda.
   const recs = (m.revenues||[]).filter(x=>x.nonrecurring!=1 && (parseFloat(x.amount)||0)>0
-      && (x.client_name||'').trim() && (x.status||'realizado')==='realizado');
+      && (x.client_name||'').trim()
+      && (r.isCurrent || (x.status||'realizado')==='realizado'));
   const ponte = (mc.pontes||[]).find(p=>p.ano===m.year && p.mes===m.month);
   const rev = recs.reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
   return { clientes: recs.length,
@@ -5076,6 +5133,170 @@ function densidadeProjCompleta(){
 function setDensidadeProj(v){
   try { localStorage.setItem('ef_proj_dens', v ? '1' : '0'); } catch(_){}
   renderProjecaoTab();
+}
+
+// Detalhamento de um mes: abre a lista item a item por tras de um numero
+// agregado. Ver "Despesa R$ 7.868,75" sem poder abrir obriga a sair da tela
+// para conferir de onde veio.
+function abrirDetalhe(mid, tipo){
+  const m = S.map[mid]; if(!m) return;
+  const futuro = mesEhFuturo(m) || (m.year===new Date().getFullYear() && m.month===new Date().getMonth()+1);
+  const receita = tipo==='rev';
+  const itens = (receita ? (m.revenues||[]).map(r=>({
+                    nome:r.client_name, v:parseFloat(r.amount)||0, cat:r.category,
+                    st:r.status, nr:r.nonrecurring==1, rec:!!r.recurring_id, regra:false }))
+                : custosEfetivos(m, true).map(c=>({
+                    nome:c.name, v:parseFloat(c.amount)||0, cat:c.category,
+                    st:c.status, nr:c.nonrecurring==1, rec:!!c.recurring_id, regra:!!c.viaRegra })))
+              .filter(x=>x.v!==0)
+              .sort((a,b)=>b.v-a.v);
+  const total = itens.reduce((s,x)=>s+x.v,0);
+  const maior = itens.length ? Math.abs(itens[0].v) : 1;
+  const cor = receita ? 'var(--g)' : 'var(--rd)';
+  const realizados = itens.filter(x=>!x.st || x.st==='realizado');
+  const pendentes  = itens.filter(x=>x.st==='projetado');
+  const linha = x => `<div class="det-l">
+      <div class="det-bar" style="width:${Math.min(Math.abs(x.v)/maior*100,100)}%;background:${cor}"></div>
+      <div class="det-n">${esc(x.nome)||'—'}
+        ${x.regra?'<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">regra</span>':''}
+        ${x.rec&&!x.regra?'<span class="det-tag" style="background:var(--ac-soft);color:var(--ac)">↻</span>':''}
+        ${x.nr?'<span class="det-tag" style="background:var(--s2);color:var(--mu)">NR</span>':''}
+        <span class="det-p">${catLabel(x.cat)}</span></div>
+      <div class="det-v">${brl(x.v)}<span class="det-p">${total?((x.v/total)*100).toFixed(0):0}%</span></div>
+    </div>`;
+  const bloco = (rot, arr) => arr.length ? `<div class="det-grp">${rot} · ${brl(arr.reduce((s,x)=>s+x.v,0))}</div>${arr.map(linha).join('')}` : '';
+  e('det-titulo').textContent =
+    `${receita?'Receitas':'Despesas'} de ${MONTHS_FULL[m.month-1]} ${m.year}`;
+  e('det-body').innerHTML = itens.length ? `
+    ${(pendentes.length && realizados.length)
+        ? bloco('Confirmados', realizados) + bloco(futuro?'Pendentes e projetados':'Pendentes', pendentes)
+        : itens.map(linha).join('')}
+    <div class="det-tot"><span>${itens.length} ${itens.length===1?'item':'itens'}</span>
+      <span style="color:${cor};font-variant-numeric:tabular-nums">${brl(total)}</span></div>
+    <div class="rel-help" style="padding:10px 12px 0">Ordenado do maior para o menor. A barra mostra o peso de cada linha no total.</div>`
+    : '<div class="rel-help" style="padding:16px 12px">Nenhum lançamento neste mês.</div>';
+  e('det-overlay').style.display='flex';
+}
+function fecharDetalhe(){ e('det-overlay').style.display='none'; }
+
+// Unit economics da carteira. O metodo e o padrao de assinatura: vida media
+// vem do inverso do churn, LTV usa margem de CONTRIBUICAO (nao receita bruta,
+// que infla o numero), e o teto de CAC sai da relacao LTV:CAC de 3:1, que e a
+// referencia usada para negocio recorrente saudavel.
+function unitEconomics(){
+  const mc = metricasCarteira();
+  const ticket = mc.ticket;
+
+  // custo variavel por cliente: o que cresce quando entra mais um. Vem das
+  // regras marcadas como por_cliente — o resto da estrutura e fixo.
+  const varPorCliente = regrasVigentes(mc.baseCli)
+      .filter(r=>r.tipo==='por_cliente')
+      .reduce((s,r)=>s+r.valor,0);
+  const margemContrib = ticket ? (ticket - varPorCliente)/ticket : 0;
+  const contribMes    = ticket - varPorCliente;
+
+  // vida media: 1/churn. Uso o churn de logo (clientes) porque a pergunta e
+  // "quantos meses um cliente fica", nao "quanto da receita evapora".
+  const churnLogo = mc.churnLogo || 0;
+  const vidaMeses = churnLogo > 0 ? 1/churnLogo : null;
+
+  const ltv = vidaMeses ? contribMes * vidaMeses : null;
+  const cacTeto = ltv ? ltv/3 : null;          // regra LTV:CAC = 3:1
+
+  // o que ja se gasta hoje para trazer um cliente: comissao sobre o 1o fee
+  const cacAtual = regrasVigentes(mc.baseCli)
+      .filter(r=>r.tipo==='pct_primeiro')
+      .reduce((s,r)=>s + (r.valor/100)*ticket, 0);
+  const folga = (cacTeto!=null) ? cacTeto - cacAtual : null;
+
+  // tempo de casa observado, por cliente, em meses com receita recorrente
+  const meses = {};
+  (S.months||[]).forEach(m=>{
+    (m.revenues||[]).forEach(r=>{
+      if(r.nonrecurring==1) return;
+      if(!((parseFloat(r.amount)||0)>0)) return;
+      const n=(r.client_name||'').trim(); if(!n) return;
+      if((r.status||'realizado')!=='realizado') return;
+      const k=semAcento(n);
+      (meses[k]=meses[k]||{nome:n,n:0,total:0});
+      meses[k].n++; meses[k].total += parseFloat(r.amount)||0;
+    });
+  });
+  const lista = Object.values(meses);
+  const tempoObs = lista.length ? lista.reduce((s,x)=>s+x.n,0)/lista.length : 0;
+  const maior = lista.slice().sort((a,b)=>b.total-a.total)[0] || null;
+
+  return { mc, ticket, varPorCliente, margemContrib, contribMes,
+           churnLogo, vidaMeses, ltv, cacTeto, cacAtual, folga,
+           tempoObs, maiorCliente: maior, nClientesHist: lista.length };
+}
+
+function blocoCarteira(){
+  const u = unitEconomics();
+  const mc = u.mc;
+  if(!mc.baseCli) return '';
+  const n1 = v => v.toFixed(1).replace('.',',');
+  const nn = v => (Math.abs(v-Math.round(v))<0.05 ? String(Math.round(v)) : n1(v));
+  const aCada = mc.saemMes>0 ? 1/mc.saemMes : null;
+
+  const card = (l,v,sub,destaque) => `<div class="uc-c${destaque?' dv':''}">
+    <div class="uc-l">${l}</div><div class="uc-v">${v}</div><div class="uc-s">${sub}</div></div>`;
+
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">Carteira de clientes</div>
+
+    <div class="uc-hd"><span class="t">Observado no histórico</span><span class="d"></span>
+      <span style="font-size:11px;color:var(--mu)">${mc.transicoes} meses comparados</span></div>
+    <div class="uc-grid">
+      ${card('Clientes hoje', mc.baseCli,
+             `${brl(mc.baseMRR)} de receita recorrente`)}
+      ${card('Ticket médio', brl(u.ticket), 'por cliente, por mês')}
+      ${card('Churn', n1(mc.churnPct*100)+'%',
+             `${n1(mc.saemMes)} cliente por mês${aCada?` · 1 saída a cada ${nn(aCada)} meses`:''}`)}
+      ${card('Entradas', n1(mc.entramMes),
+             `clientes por mês · a projeção assume ${mc.entramProj}`)}
+      ${card('Tempo de casa', n1(u.tempoObs)+' meses',
+             `média dos ${u.nClientesHist} clientes já atendidos`)}
+      ${u.maiorCliente ? card('Maior cliente', brl(u.maiorCliente.total),
+             `${esc(u.maiorCliente.nome)} · ${u.maiorCliente.n} ${u.maiorCliente.n===1?'mês':'meses'}`) : ''}
+    </div>
+
+    <div class="uc-hd"><span class="t">Quanto vale um cliente</span><span class="d"></span></div>
+    <div class="uc-grid">
+      ${card('Vida esperada', u.vidaMeses? n1(u.vidaMeses)+' meses' : '—',
+             u.vidaMeses? `1 ÷ churn de ${n1(mc.churnLogo*100)}% ao mês` : 'sem saída registrada', true)}
+      ${card('Margem de contribuição', n1(u.margemContrib*100)+'%',
+             u.varPorCliente? `${brl(u.contribMes)}/mês · já tirando ${brl(u.varPorCliente)} de custo por cliente`
+                            : `${brl(u.contribMes)}/mês · nenhum custo por cliente cadastrado`, true)}
+      ${card('LTV', u.ltv? brl(u.ltv) : '—',
+             u.ltv? `${brl(u.contribMes)} × ${n1(u.vidaMeses)} meses` : 'precisa de churn observado', true)}
+    </div>
+
+    ${u.cacTeto ? `
+    <div class="uc-cac">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="uc-l">Quanto pode custar trazer um cliente novo</div>
+          <div class="uc-v" style="color:var(--ac);font-size:26px">${brl(u.cacTeto)}</div>
+          <div class="uc-s">teto pela relação LTV:CAC de 3 para 1 — ${brl(u.ltv)} ÷ 3</div>
+        </div>
+        <div style="text-align:right">
+          <div class="uc-s">já gasto hoje em comissão</div>
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">${brl(u.cacAtual)}</div>
+          <div class="uc-s" style="margin-top:6px">sobra para desconto na entrada</div>
+          <div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;
+                      color:${u.folga>=0?'var(--g)':'var(--rd)'}">${u.folga>=0?'':'−'}${brl(Math.abs(u.folga))}</div>
+        </div>
+      </div>
+      <div class="rel-help" style="padding:10px 0 0">
+        Você pode abrir mão de até <b>${brl(Math.max(u.folga,0))}</b> do fee de um cliente
+        <b>novo</b> — desconto de entrada, mês grátis, o que for — e ainda assim ele se paga
+        ${n1(u.vidaMeses)} vezes ao longo da relação. Isso vale para quem está entrando;
+        cortar fee de cliente atual reduz o LTV sem trazer ninguém.
+      </div>
+    </div>` : ''}
+  </div>`;
 }
 
 function renderProjecaoTab() {
@@ -5543,10 +5764,12 @@ function renderProjecaoTab() {
               <td class="pj-in">${sinal(c.entram,'pj-in')}</td>
               <td class="pj-out">${sinal(c.saem,'pj-out')}</td>
               <td class="pj-mu">${c.ticket? brl(c.ticket) : '—'}</td>`:''}
-              <td class="pj-money pj-sep">${brl(r.projRev)}${
+              <td class="pj-money pj-sep clicavel" title="Ver as receitas deste mês, uma a uma"
+                  onclick="abrirDetalhe(${r.m.id},'rev')">${brl(r.projRev)}${
                 r.lancadoRev!=null && Math.abs(r.lancadoRev-r.projRev)>=1
                   ? `<span class="lanc-ref" title="Contratado neste mês, antes de churn e venda nova">${brl(r.lancadoRev)} lançado</span>` : ''}</td>
-              <td class="pj-money">${brl(r.projCos)}</td>
+              <td class="pj-money clicavel" title="Ver as despesas deste mês, uma a uma"
+                  onclick="abrirDetalhe(${r.m.id},'cos')">${brl(r.projCos)}</td>
               <td class="pj-big" style="color:${balColor}">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
               <td class="pj-mu" style="color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
               <td class="pj-big" style="color:${cashColor}">${brl(r.cumCashEnd)}</td>
@@ -6269,7 +6492,7 @@ async function deleteRecurring(id) {
 // ══════════════════════════════════════════════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════════════════════════════════════════════
-function showApp() {
+async function showApp() {
   e('login-screen').style.display='none';
   e('app').style.display='block';
   if(S.user){
@@ -6282,7 +6505,11 @@ function showApp() {
     const mo=localStorage.getItem('ef_meses_open');
     if(mo!==null) S.mesesOpen = mo==='1';
   }catch(_){}
-  buildNav(); buildTabs(); carregarRegras();
+  buildNav(); buildTabs();
+  // As regras precisam estar carregadas ANTES do primeiro render: sem elas o
+  // dashboard calculava margem de contribuicao de 100% e comissao de R$ 0,00,
+  // e a projecao mostrava o custo lancado no lugar do custo pela regra.
+  await carregarRegras();
   // Restaurar só para sócios — o botão nasce dentro da sidebar, então vem depois do buildNav
   const isSocio=S.user&&S.user.role==='admin';
   const restoreBtn=document.getElementById('restore-btn-topbar');
@@ -6297,7 +6524,7 @@ async function boot() {
     const me=await api('GET','/api/auth/me');
     S.user=me;
     await loadData();
-    showApp();
+    await showApp();
   } catch(err){ localStorage.removeItem('ef_token'); S.token=null; }
 }
 boot();
