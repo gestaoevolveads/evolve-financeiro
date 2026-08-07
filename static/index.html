@@ -5227,7 +5227,17 @@ function unitEconomics(){
   const tempoObs = lista.length ? lista.reduce((s,x)=>s+x.n,0)/lista.length : 0;
   const maior = lista.slice().sort((a,b)=>b.total-a.total)[0] || null;
 
-  return { mc, ticket, varPorCliente, margemContrib, contribMes,
+  // "Clientes hoje" tem de bater com o que a Projecao mostra no mes atual: a
+  // carteira lancada. mc.baseCli e o ultimo mes FECHADO, que serve para o
+  // calculo de churn mas nao para responder quantos clientes existem agora.
+  const h = new Date();
+  const mAtual = (S.months||[]).find(m=>m.year===h.getFullYear() && m.month===h.getMonth()+1);
+  const agora = mAtual ? (mAtual.revenues||[]).filter(r=>r.nonrecurring!=1
+      && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim()) : [];
+  const clientesAgora = agora.length || mc.baseCli;
+  const mrrAgora = agora.reduce((s,r)=>s+(parseFloat(r.amount)||0),0) || mc.baseMRR;
+
+  return { mc, ticket, varPorCliente, margemContrib, contribMes, clientesAgora, mrrAgora,
            churnLogo, vidaMeses, ltv, cacTeto, cacAtual, folga,
            tempoObs, maiorCliente: maior, nClientesHist: lista.length };
 }
@@ -5250,8 +5260,8 @@ function blocoCarteira(){
     <div class="uc-hd"><span class="t">Observado no histórico</span><span class="d"></span>
       <span style="font-size:11px;color:var(--mu)">${mc.transicoes} meses comparados</span></div>
     <div class="uc-grid">
-      ${card('Clientes hoje', mc.baseCli,
-             `${brl(mc.baseMRR)} de receita recorrente`)}
+      ${card('Clientes hoje', u.clientesAgora,
+             `${brl(u.mrrAgora)} de receita recorrente lançada`)}
       ${card('Ticket médio', brl(u.ticket), 'por cliente, por mês')}
       ${card('Churn', n1(mc.churnPct*100)+'%',
              `${n1(mc.saemMes)} cliente por mês${aCada?` · 1 saída a cada ${nn(aCada)} meses`:''}`)}
@@ -5292,9 +5302,11 @@ function blocoCarteira(){
       </div>
       <div class="rel-help" style="padding:10px 0 0">
         Você pode abrir mão de até <b>${brl(Math.max(u.folga,0))}</b> do fee de um cliente
-        <b>novo</b> — desconto de entrada, mês grátis, o que for — e ainda assim ele se paga
-        ${n1(u.vidaMeses)} vezes ao longo da relação. Isso vale para quem está entrando;
-        cortar fee de cliente atual reduz o LTV sem trazer ninguém.
+        <b>novo</b> — desconto de entrada, mês grátis, o que for. Somado à comissão, o custo de
+        trazer esse cliente chega a ${brl(u.cacTeto)}, e ele devolve ${brl(u.ltv)} ao longo dos
+        ${n1(u.vidaMeses)} meses que fica: <b>R$ 3 de volta para cada R$ 1 investido</b>,
+        com o custo pago em ${n1(u.cacTeto/u.contribMes)} meses.
+        Isso vale para quem está entrando — cortar fee de cliente atual reduz o LTV sem trazer ninguém.
       </div>
     </div>` : ''}
   </div>`;
