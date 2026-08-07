@@ -3777,13 +3777,21 @@ function premissasObservadas(){
   const comDados = (S.months||[]).filter(m=>calcMonth(m).rev>0)
     .sort((a,b)=>(a.year-b.year)||(a.month-b.month));
 
-  // ticket medio atual = media dos ultimos 3 meses com receita
-  const tickets = comDados.slice(-3).map(m=>calcMonth(m).avgTicket).filter(v=>v>0);
+  // Trabalho pontual nao e cliente de carteira. Sem separar, o fim de um
+  // projeto conta como churn e a carteira mostra uma queda que nao houve.
+  // O marcador e o mesmo NR que ja alimenta o Cenario A do fechamento.
+  const recorrente = r => !(r.nonrecurring==1)
+      && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim();
+
+  // ticket medio da carteira recorrente, media dos 3 ultimos meses
+  const tickets = comDados.slice(-3).map(m=>{
+    const revs=(m.revenues||[]).filter(recorrente);
+    return revs.length ? revs.reduce((s,r)=>s+(parseFloat(r.amount)||0),0)/revs.length : 0;
+  }).filter(v=>v>0);
   const ticket = tickets.length ? tickets.reduce((a,b)=>a+b,0)/tickets.length : 0;
 
-  // entrada e saida observadas: compara a carteira de nomes mes a mes
-  const carteira = m => new Set((m.revenues||[])
-      .filter(r=>(parseFloat(r.amount)||0)>0 && (r.client_name||'').trim())
+  // entrada e saida observadas: compara a carteira recorrente mes a mes
+  const carteira = m => new Set((m.revenues||[]).filter(recorrente)
       .map(r=>semAcento(r.client_name)));
   let entradas=0, saidas=0, pares=0;
   for(let i=1;i<comDados.length;i++){
@@ -3793,11 +3801,13 @@ function premissasObservadas(){
     [...a].forEach(x=>{ if(!b.has(x)) saidas++; });
     pares++;
   }
+  const pontuais = (S.months||[]).reduce((n,m)=>
+    n + (m.revenues||[]).filter(r=>r.nonrecurring==1).length, 0);
   return {
     ticket: Math.round(ticket*100)/100,
     entram: pares ? Math.round((entradas/pares)*10)/10 : 0,
     saem:   pares ? Math.round((saidas/pares)*10)/10   : 0,
-    meses: comDados.length, pares
+    meses: comDados.length, pares, pontuais
   };
 }
 function premissasAtuais(){
@@ -4064,7 +4074,7 @@ function drawSim(){
       <div class="sim-prem">
         <div class="sim-prem-h">
           <span>Premissas da carteira</span>
-          <span class="sim-prem-obs">observado nos seus dados: ticket ${brl(prem.observado.ticket)} ·
+          <span class="sim-prem-obs">observado na carteira recorrente: ticket ${brl(prem.observado.ticket)} ·
             entram ${prem.observado.entram}/mês · saem ${prem.observado.saem}/mês
             <button class="sim-limpar" onclick="usarObservado()">usar o observado</button></span>
         </div>
@@ -4078,7 +4088,12 @@ function drawSim(){
             ${[0,6,12,24,36].map(h=>`<option value="${h}" ${(S.simHorizonte||0)===h?'selected':''}>${h?h+' meses':'ano corrente'}</option>`).join('')}
           </select></label>
         </div>
-        ${r.temSintetico?`<div class="sim-prem-n">Além do último mês cadastrado a base é a média dos 3 últimos meses com dados. Esses meses aparecem marcados.</div>`:''}
+        <div class="sim-prem-n">
+          ${prem.observado.pontuais
+            ? `${prem.observado.pontuais} lançamento(s) marcado(s) como <b>NR</b> ficam fora da conta de carteira — trabalho pontual não é cliente que entra ou sai.`
+            : `Nenhum lançamento está marcado como <b>NR</b>. Se algum for trabalho pontual, marque na aba do mês: hoje o fim dele conta como cliente perdido.`}
+          ${r.temSintetico?` Além do último mês cadastrado a base é a média dos 3 últimos meses com dados, marcados na tabela.`:''}
+        </div>
       </div>
 
       <div class="sim-modos">
