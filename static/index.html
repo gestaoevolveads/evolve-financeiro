@@ -4323,24 +4323,22 @@ function metricasCarteira(){
 // Com 6 transições e base pequena, usar o pior e o melhor mês observado daria
 // 0% e 32% — extremos que não servem como cenário. Multiplicador é honesto e
 // o usuário vê e edita o que está sendo aplicado.
-// "0,9 cliente/mes" nao se le. Traduz a taxa para um par de inteiros pequeno:
-// 1,5/mes vira "3 clientes a cada 2 meses", que e como a conversa acontece.
+// "0,9 cliente/mes" nao se le. A leitura util e sempre sobre UM cliente: a
+// cada quanto tempo sai um, a cada quanto tempo entra um. Par de inteiros do
+// tipo "7 a cada 10 meses" era exato mas nao ajudava a imaginar a coisa.
+// Abaixo de um mes o numero em meses vira fracao ruim, entao passa a dias:
+// "a cada 25 dias" e exato, enquanto "a cada 4 semanas" se confunde com um mes.
 function cadencia(taxa, verbo){
   if(!taxa || taxa<=0) return '';
-  let melhor=null;
-  for(let m=1; m<=12; m++){
-    const n = Math.round(taxa*m);
-    if(n<1) continue;
-    const err = Math.abs(n/m - taxa)/taxa;
-    if(!melhor || err < melhor.err - 1e-9) melhor = {n, m, err};
-    if(err < 1e-9) break;
+  const meses = 1/taxa;
+  if(meses >= 0.95){
+    const x = Math.round(meses*10)/10;
+    if(Math.abs(x-1) < 0.05) return `${verbo} 1 cliente a cada mês`;
+    const txt = (Math.abs(x-Math.round(x))<0.05 ? String(Math.round(x)) : x.toFixed(1).replace('.',','));
+    return `${verbo} 1 cliente a cada ${txt} ${x<2 ? 'mês' : 'meses'}`;
   }
-  if(!melhor) return '';
-  const {n,m,err} = melhor;
-  const aprox = err > 0.005 ? '≈ ' : '';
-  const cli = `${n} cliente${n>1?'s':''}`;
-  const mes = m===1 ? 'mês' : `${m} meses`;
-  return `${aprox}${verbo} ${cli} a cada ${mes}`;
+  const dias = Math.max(1, Math.round(meses*30.44));
+  return `${verbo} 1 cliente a cada ${dias} ${dias===1?'dia':'dias'}`;
 }
 
 // O cenario Base usa a contagem de saidas do historico (clientes por mes), nao
@@ -4657,9 +4655,9 @@ function drawSim(){
         <div class="sim-prem-g">
           <label>Ticket médio<input value="${brl(prem.ticket).replace('R$ ','')}" onchange="setPremissa('ticket',this.value)"></label>
           <label>Entram por mês (clientes)<input value="${premEntram(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('entram',this.value)">
-            <span class="prev-eq">${cadencia(premEntram(prem),'entram')}</span></label>
+            <span class="prev-eq">${cadencia(premEntram(prem),'entra')}</span></label>
           <label>Saem por mês (clientes)<input value="${premSaem(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('saem',this.value)">
-            <span class="prev-eq">${cadencia(premSaem(prem),'saem')}</span></label>
+            <span class="prev-eq">${cadencia(premSaem(prem),'sai')}</span></label>
           <label>A partir de<select onchange="setPremissa('desde',this.value)">
             ${mesOpts(prem.desde||desdePadrao)}</select></label>
           <label>Horizonte<select onchange="S.simHorizonte=+this.value;drawSim()">
@@ -5386,9 +5384,9 @@ function blocoCarteira(){
              `${brl(u.mrrAgora)} de receita recorrente lançada`)}
       ${card('Ticket médio', brl(u.ticket), 'por cliente, por mês')}
       ${card('Churn', n1(mc.churnPct*100)+'%',
-             `${n1(mc.saemMes)} cliente por mês · ${cadencia(mc.saemMes,'saem')}`)}
+             `${n1(mc.saemMes)} cliente por mês · ${cadencia(mc.saemMes,'sai')}`)}
       ${card('Entradas', n1(mc.entramMes),
-             `${cadencia(mc.entramMes,'entram')} · a projeção assume ${mc.entramProj}/mês`)}
+             `${cadencia(mc.entramMes,'entra')} · a projeção assume ${mc.entramProj}/mês`)}
       <div class="uc-c clicavel" onclick="abrirTempoCasa()" title="Ver cliente a cliente e corrigir quem entrou antes de 2026">
         <div class="uc-l">Tempo de casa</div><div class="uc-v">${n1(u.tempoObs)} meses</div>
         <div class="uc-s">média dos ${u.nClientesHist} já atendidos · conta só o que já passou</div></div>
@@ -5601,11 +5599,11 @@ function renderProjecaoTab() {
       <label>Churn ao mês
         <input value="${(churnUso*100).toFixed(1).replace('.',',')}" onchange="S.projChurn=parseFloat(this.value.replace(',','.'))/${cen.churn};renderProjecaoTab()">
         <span class="prev-eq">≈ ${cliEquiv.toFixed(1).replace('.',',')} cliente${cliEquiv>=2?'s':''}/mês</span>
-        <span class="prev-eq">${cadencia(cliEquiv,'saem')}</span></label>
+        <span class="prev-eq">${cadencia(cliEquiv,'sai')}</span></label>
       <label>Novo MRR por mês
         <input value="${brl(novoUso).replace('R$ ','')}" onchange="S.projNovo=parseAmt(this.value)/${cen.novo};renderProjecaoTab()">
         <span class="prev-eq">≈ ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} cliente${(novoUso/(mc.ticket||1))>=2?'s':''}/mês</span>
-        <span class="prev-eq">${cadencia(mc.ticket? novoUso/mc.ticket:0,'entram')}</span></label>
+        <span class="prev-eq">${cadencia(mc.ticket? novoUso/mc.ticket:0,'entra')}</span></label>
       <label>NRR observado<input value="${(mc.nrr*100).toFixed(1).replace('.',',')}%" disabled>
         <span class="prev-eq">abaixo de 100% a base encolhe sozinha</span></label>
       <button class="sim-limpar" onclick="S.projChurn=null;S.projNovo=null;S.projCenario='base';renderProjecaoTab()">voltar ao padrão</button>
