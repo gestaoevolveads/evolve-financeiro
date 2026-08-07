@@ -1147,4 +1147,56 @@ def restore():
                     (mid,r.get('name',''),r.get('amount',0),r.get('payment_date',''),
                      r.get('category','operacional'),r.get('sort_order',999)))
         # Goals
-        for g in payload.get('goals',
+        for g in payload.get('goals', []):
+            c.execute('INSERT OR IGNORE INTO goals (name,target_value,metric,year,month) VALUES (?,?,?,?,?)',
+                (g['name'],g['target_value'],g.get('metric','receita_mensal'),g.get('year',2026),g.get('month',0)))
+        # Categories (optional — skip if not in backup)
+        for cat in payload.get('categories', []):
+            c.execute('INSERT OR IGNORE INTO categories (type,slug,label,color,sort_order) VALUES (?,?,?,?,?)',
+                (cat['type'],cat['slug'],cat['label'],cat.get('color','#6b7fa3'),cat.get('sort_order',99)))
+        # Receivables
+        c.execute('DELETE FROM receivables')
+        for r in payload.get('receivables', []):
+            c.execute('INSERT INTO receivables (description,client_name,amount,due_date,received_date,status,category,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)',
+                (r.get('description',''),r.get('client_name',''),r.get('amount',0),r.get('due_date',''),
+                 r.get('received_date',''),r.get('status','pendente'),r.get('category','servico'),
+                 r.get('notes',''),r.get('created_at','')))
+        # Payables
+        c.execute('DELETE FROM payables')
+        for p in payload.get('payables', []):
+            c.execute('INSERT INTO payables (description,amount,due_date,paid_date,status,category,notes,created_at) VALUES (?,?,?,?,?,?,?,?)',
+                (p.get('description',''),p.get('amount',0),p.get('due_date',''),p.get('paid_date',''),
+                 p.get('status','pendente'),p.get('category','operacional'),p.get('notes',''),p.get('created_at','')))
+        # Settings
+        for key, value in payload.get('settings', {}).items():
+            c.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', (key, str(value)))
+        # Recurring items
+        for r in payload.get('recurring', []):
+            c.execute('INSERT OR IGNORE INTO recurring_items (id,type,description,client_name,amount,category,start_year,start_month,end_year,end_month,active,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                (r.get('id'), r.get('type','revenue'), r.get('description',''), r.get('client_name',''),
+                 r.get('amount',0), r.get('category','servico'),
+                 r.get('start_year',2026), r.get('start_month',1),
+                 r.get('end_year'), r.get('end_month'), r.get('active',1), r.get('created_at','')))
+        c.commit()
+    audit(request.user['username'], 'restore', 'Backup restaurado')
+    return jsonify({'success': True})
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+
+@app.get('/')
+def index():
+    return send_from_directory('static','index.html')
+
+# ── Start ─────────────────────────────────────────────────────────────────────
+
+if __name__ == '__main__':
+    init_db()
+    print('\n' + '='*52)
+    print('  EVOLVE FINANCEIRO 2026')
+    print('='*52)
+    print('  Usuários:  hudson     / evolve2026')
+    print('             diego      / evolve2026')
+    print('             financeiro / evolve2026')
+    print('  Acesse:    http://localhost:5050')
+    print('='*52 + '\n')
+    app.run(host='0.0.0.0', port=5050, debug=False)
