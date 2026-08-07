@@ -1607,47 +1607,61 @@ function parcelaDoMes(m){
 const MESES_BASE_IMPREV = 6;
 function imprevistosLigado(){ return (S.settings||{}).imprevistos === '1'; }
 
-// Base historica: mediana do custo mensal e MAD (mediana dos desvios absolutos).
-// MAD e a medida robusta de dispersao — usa mediana no lugar de media, entao um
-// mes fora da curva nao a distorce, ao contrario do desvio padrao. Com 6 pontos
-// e um outlier, e a escolha certa.
+// Mede o que de fato NAO se repete: as despesas marcadas como NR nos meses
+// fechados. E a medida direta do que a reserva quer cobrir.
+//
+// A versao anterior media a dispersao do custo TOTAL, porque nenhuma despesa
+// estava marcada e nao havia como separar. Aquilo capturava o efeito por
+// tabela, misturado com a variacao de linhas planejadas — o pro-labore, escrito
+// diferente a cada mes, entrava como se fosse imprevisto. Com as marcacoes
+// feitas, a conta passa a ser o que sempre deveria ter sido.
+//
+// Mediana e nao media: junho e julho tiveram distribuicao de lucro e rateio de
+// projeto, valores altos que a media transformaria em regra.
 function baseImprevistos(){
   const hoje = new Date(), atual = hoje.getFullYear()*12 + (hoje.getMonth()+1);
   const fechados = (S.months||[])
     .filter(m => (m.year*12+m.month) < atual)
     .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
-    .map(m => ({ m, itens: (m.costs||[])
-        .filter(c => (!c.status || c.status==='realizado') && c.category!=='imposto') }))
-    .map(x => ({ ...x, v: x.itens.reduce((s,c)=>s+(parseFloat(c.amount)||0),0) }))
-    .filter(x => x.v > 0);
+    .map(m => {
+      const itens = (m.costs||[]).filter(c => c.nonrecurring==1
+          && (!c.status || c.status==='realizado') && c.category!=='imposto');
+      const cli = (m.revenues||[]).filter(r => r.nonrecurring!=1
+          && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim()
+          && (!r.status || r.status==='realizado')).length;
+      return { m, cli, itens, v: itens.reduce((s,c)=>s+(parseFloat(c.amount)||0),0) };
+    })
+    .filter(x => x.itens.length > 0);
+  if(fechados.length < 3) return null;
   const ult = fechados.slice(-MESES_BASE_IMPREV);
-  if(ult.length < 3) return null;
   const med = arr => { const v=arr.slice().sort((a,b)=>a-b), i=Math.floor(v.length/2);
                        return v.length%2 ? v[i] : (v[i-1]+v[i])/2; };
   const vs = ult.map(x=>x.v);
   const mediana = med(vs);
-  const desvios = vs.map(v=>Math.abs(v-mediana));
-  const mad = med(desvios);
-  const pct = mediana ? mad/mediana : 0;   // dispersao relativa
-  return { mediana, mad, pct, meses: ult.length,
-           detalhe: ult.map(x=>({mes:x.m.month, ano:x.m.year, v:x.v,
-              desvio:Math.abs(x.v-mediana), nItens:x.itens.length,
+  const cliRef = ult[ult.length-1].cli || 1;   // carteira do ultimo mes fechado
+  return { mediana, cliRef, meses: ult.length,
+           menor: Math.min(...vs), maior: Math.max(...vs),
+           media: vs.reduce((a,b)=>a+b,0)/vs.length,
+           detalhe: ult.map(x=>({mes:x.m.month, ano:x.m.year, v:x.v, cli:x.cli,
+              nItens:x.itens.length,
               maiores:x.itens.slice().sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0))
                        .slice(0,3).map(c=>({n:c.name, v:parseFloat(c.amount)||0})) })) };
 }
 
-// A reserva e a dispersao aplicada sobre o custo JA PLANEJADO do mes, nao um
-// complemento ate um valor fixo. A versao anterior somava "mediana historica
-// menos o cadastrado" e zerava assim que a estrutura crescia — no cenario
-// otimista, com pro-labore maior, os imprevistos simplesmente sumiam. Uma
-// empresa maior nao tem menos imprevisto: tem mais.
-function imprevistoDoMes(custoPlanejado){
+// Escala pelo tamanho da carteira: mais clientes significam mais reembolso,
+// mais criativo avulso, mais rateio de projeto. Um valor fixo nao acompanharia
+// o cenario, que foi justamente o defeito da versao anterior.
+// Desconta o que ja estiver lancado como NR no proprio mes, para nao contar
+// duas vezes o mesmo gasto.
+function imprevistoDoMes(nClientes, jaLancadoNR){
   if(!imprevistosLigado()) return null;
   const b = baseImprevistos();
-  if(!b || !(b.pct>0)) return null;
-  const valor = (custoPlanejado||0) * b.pct;
+  if(!b || !(b.mediana>0)) return null;
+  const fator = b.cliRef ? (nClientes||b.cliRef)/b.cliRef : 1;
+  const bruto = b.mediana * fator;
+  const valor = Math.max(0, bruto - (jaLancadoNR||0));
   if(valor < 1) return null;
-  return { valor, base: b, sobre: custoPlanejado };
+  return { valor, bruto, fator, nClientes, jaLancadoNR: jaLancadoNR||0, base: b };
 }
 
 // Fonte unica das premissas em uso pela Projecao. Tudo que projeta — a receita
@@ -1729,12 +1743,12 @@ function custosEfetivos(m, paraProjecao){
 
   // Reserva de imprevistos: completa ate a mediana historica. Vem antes do
   // imposto de proposito — imposto incide sobre receita, nao sobre custo.
-  const semReserva = lista.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
-  const imp = imprevistoDoMes(semReserva);
+  const nrNoMes = lista.filter(c=>c.nonrecurring==1).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const imp = imprevistoDoMes(carteiraProjetada(m).nClientes, nrNoMes);
   if(imp) lista = [...lista, {
     id:'imprev-'+m.id, name:'Imprevistos (reserva)', amount:imp.valor, payment_date:'',
     category:'outros', status:'projetado', viaImprevisto:true, base:imp.base,
-    sobreImprev:imp.sobre, mes_id:m.id }];
+    calcImprev:imp, mes_id:m.id }];
 
   // Imposto pela aliquota efetiva e parcela de imposto retroativo
   if(fiscal.ativo){
@@ -5674,8 +5688,8 @@ function abrirDetalhe(mid, tipo){
         ${x.regra?'<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">regra</span>':''}
         ${x.imprev?`<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">reserva</span><span
           class="det-i" title="Como este número é calculado" tabindex="0"
-          onclick="event.stopPropagation();abrirInfoImprevistos(${x.v},${x.sobre})"
-          onkeydown="if(event.key==='Enter')abrirInfoImprevistos(${x.v},${x.sobre})">i</span>`:''}
+          onclick="event.stopPropagation();abrirInfoImprevistos(${m.id})"
+          onkeydown="if(event.key==='Enter')abrirInfoImprevistos(${m.id})">i</span>`:''}
         ${x.fiscal?`<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">${(x.fiscal.aliq*100).toFixed(2).replace('.',',')}%</span>`:''}
         ${x.parc?'<span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">parcelamento</span>':''}
         ${x.rec&&!x.regra?'<span class="det-tag" style="background:var(--ac-soft);color:var(--ac)">↻</span>':''}
@@ -5698,11 +5712,10 @@ function abrirDetalhe(mid, tipo){
       return `<div class="det-expl">
         <div class="det-expl-t">Reserva de imprevistos: ${brl(im.v)}</div>
         <div class="det-expl-b">
-          ${(b.pct*100).toFixed(1).replace('.',',')}% sobre os ${brl(im.sobre)} já planejados para o mês.
-          Esse percentual é o quanto o custo mensal costuma variar, medido nos
-          ${b.meses} últimos meses fechados.
+          Mediana do que foi marcado como <b>NR</b> nos ${b.meses} últimos meses fechados,
+          ajustada para o tamanho da carteira deste mês.
           <button class="btn sm" style="margin-top:8px"
-            onclick="abrirInfoImprevistos(${im.v},${im.sobre})">Ver a conta inteira</button>
+            onclick="abrirInfoImprevistos(${m.id})">Ver a conta inteira</button>
         </div></div>`; })()}
     ${(()=>{ const fx = itens.find(x=>x.fiscal); if(!fx) return '';
       const f = fx.fiscal;
@@ -5863,8 +5876,9 @@ async function toggleImprevistos(){
 function botaoImprevistos(){
   const on = imprevistosLigado();
   const b = baseImprevistos();
-  const dica = b ? `Completa até a mediana de ${brl(b.mediana)} dos últimos ${b.meses} meses fechados`
-                 : 'Precisa de pelo menos 3 meses fechados';
+  const dica = b
+    ? `Mediana de ${brl(b.mediana)} do que foi marcado como NR nos ${b.meses} últimos meses fechados, ajustada à carteira do mês`
+    : 'Precisa de pelo menos 3 meses fechados com despesas marcadas como NR (Não Recorrente)';
   return `<button class="pj-imp ${on?'on':''}" onclick="toggleImprevistos()" title="${esc(dica)}"
     ${b?'':'disabled'}>${on?'✓ ':''}Imprevistos</button>`;
 }
@@ -5928,68 +5942,73 @@ function abrirInfo(titulo, html){
 // A caixa dos imprevistos: nao basta dizer o valor, tem de mostrar de onde ele
 // saiu, com os meses e os itens que formaram a base. Numero de reserva sem
 // origem vira suposicao, e suposicao ninguem usa para decidir.
-function abrirInfoImprevistos(valor, sobre){
-  const b = baseImprevistos();
-  if(!b) return;
+function abrirInfoImprevistos(mesId){
+  const m = S.map[mesId]; if(!m) return;
+  const linha = custosEfetivos(m, true).find(c=>c.viaImprevisto);
+  if(!linha || !linha.calcImprev) return;
+  const c = linha.calcImprev, b = c.base;
   const M = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const pc = v => (v*100).toFixed(1).replace('.',',')+'%';
+  const n1 = v => v.toFixed(2).replace('.',',');
   abrirInfo('Como a reserva de imprevistos é calculada', `
-    <div class="rel-hint">Nenhum mês fechado da Evolve gastou <b>só</b> o que estava planejado.
-      A reserva não inventa despesa: ela reconhece que essa diferença sempre existe e reserva
-      espaço para ela.</div>
+    <div class="rel-hint">Toda despesa marcada como <b>NR</b> — Não Recorrente — é um gasto que
+      aconteceu e não se repete: reembolso, conserto, criativo avulso, rateio de projeto.
+      A reserva olha o histórico dessas e pergunta: <b>quanto costuma aparecer por mês?</b></div>
 
     <div class="info-passo">
       <div class="info-n">1</div>
       <div><div class="info-t">O que entra na conta</div>
-        <div class="info-d">Os <b>${b.meses} últimos meses já fechados</b>, somando todas as despesas
-          <b>confirmadas</b>. Fica de fora: mês em aberto, item ainda pendente, e imposto —
-          o imposto tem cálculo próprio pela alíquota, então entraria duas vezes.</div></div>
+        <div class="info-d">Só o que está marcado <b>NR</b> nos meses já fechados, confirmado.
+          Fica de fora tudo que é estrutura — pró-labore, Adriano, ferramentas — e também o
+          imposto, que tem cálculo próprio pela alíquota.</div></div>
     </div>
 
     <div class="info-tab">
       ${b.detalhe.map(d=>`<div class="info-l">
-        <div><b>${M[d.mes]}</b> <span class="info-s">${d.nItens} itens · maiores: ${
-          d.maiores.map(x=>esc(x.n)).join(', ')}</span></div>
-        <div class="info-v">${brl(d.v)}<span class="info-s"> · ${d.desvio>=0?'±':''}${brl(d.desvio)} da mediana</span></div>
+        <div><b>${M[d.mes]}</b> <span class="info-s">${d.nItens} ${d.nItens===1?'item':'itens'} · ${d.cli} clientes<br>
+          ${d.maiores.map(x=>esc(x.n)+' '+brl(x.v)).join(' · ')}</span></div>
+        <div class="info-v">${brl(d.v)}</div>
       </div>`).join('')}
     </div>
 
     <div class="info-passo">
       <div class="info-n">2</div>
       <div><div class="info-t">A mediana, não a média</div>
-        <div class="info-d">Mediana desses meses: <b>${brl(b.mediana)}</b>.
-          Com ${b.meses} pontos e um mês bem fora da curva, a média seria puxada por ele sozinho.
-          A mediana é o valor do meio — não se move por causa de um mês atípico.</div></div>
+        <div class="info-d">Mediana desses ${b.meses} meses: <b>${brl(b.mediana)}</b>.
+          A média seria ${brl(b.media)} — puxada pelos meses de ${brl(b.maior)}, que tiveram
+          distribuição de lucro e rateio de projeto. Isso acontece, mas não todo mês.
+          A mediana é o valor do meio e não se move por causa deles.</div></div>
     </div>
 
     <div class="info-passo">
       <div class="info-n">3</div>
-      <div><div class="info-t">Quanto um mês costuma variar</div>
-        <div class="info-d">Para cada mês, a distância até a mediana. A mediana dessas distâncias
-          é <b>${brl(b.mad)}</b> — em estatística isso se chama <b>MAD</b>, desvio absoluto mediano.
-          É a medida de variação que não se deixa distorcer por um valor extremo, ao contrário
-          do desvio padrão. Sobre a mediana, dá <b>${pc(b.pct)}</b> de variação típica.</div></div>
+      <div><div class="info-t">Ajustada ao tamanho da carteira</div>
+        <div class="info-d">Esses ${brl(b.mediana)} valiam para uma carteira de <b>${b.cliRef} clientes</b>,
+          a do último mês fechado. Este mês projeta <b>${c.nClientes} clientes</b> — mais clientes
+          significam mais reembolso, mais criativo avulso, mais projeto para ratear.
+          <div class="info-conta" style="margin:8px 0 0">
+            <div class="info-conta-n">${brl(b.mediana)} × ${c.nClientes} ÷ ${b.cliRef} =
+              <b>${brl(c.bruto)}</b></div></div></div></div>
     </div>
 
-    <div class="info-passo">
+    ${c.jaLancadoNR>0 ? `<div class="info-passo">
       <div class="info-n">4</div>
-      <div><div class="info-t">Aplicada ao mês projetado</div>
-        <div class="info-d">Esses ${pc(b.pct)} incidem sobre o que <b>já está planejado</b> para o mês:
-          <b>${brl(sobre)} × ${pc(b.pct)} = ${brl(valor)}</b>.</div></div>
-    </div>
+      <div><div class="info-t">Menos o que já está lançado</div>
+        <div class="info-d">Este mês já tem <b>${brl(c.jaLancadoNR)}</b> marcado como NR.
+          A reserva desconta esse valor, senão o mesmo gasto entraria duas vezes:
+          ${brl(c.bruto)} − ${brl(c.jaLancadoNR)} = <b>${brl(c.valor)}</b>.</div></div>
+    </div>` : ''}
 
     <div class="info-nota">
-      <b>Por que proporcional e não um valor fixo.</b> A primeira versão somava "mediana histórica
-      menos o que já está cadastrado". Funcionava enquanto a estrutura era do tamanho da de antes —
-      mas no cenário otimista, com pró-labore maior, o planejado passava a mediana e a reserva
-      zerava. Uma agência maior não tem menos imprevisto; tem mais. Proporcional, a reserva
-      acompanha o tamanho da operação e o cenário escolhido.
+      <b>Por que não um valor fixo.</b> Uma reserva travada em reais não acompanharia o cenário:
+      no otimista a agência dobraria de tamanho e continuaria reservando o mesmo. Proporcional à
+      carteira, ela cresce junto — que é como o gasto imprevisto se comporta de verdade.
     </div>
 
     <div class="rel-help" style="padding:12px 0 0">
-      A base se recalcula sozinha a cada mês que fecha. Quanto mais meses, mais estável fica —
-      hoje são ${b.meses}, o que ainda é pouco: leia como ordem de grandeza.
-      Desligue no botão <b>Imprevistos</b> se quiser ver a projeção só com o que está cadastrado.
+      A base se refaz sozinha a cada mês fechado e a cada NR novo que você marcar.
+      Hoje são ${b.meses} meses, com valores entre ${brl(b.menor)} e ${brl(b.maior)} —
+      dispersão alta, então leia como ordem de grandeza. Desligue no botão <b>Imprevistos</b>
+      para ver a projeção só com o que está cadastrado.
     </div>`);
 }
 
