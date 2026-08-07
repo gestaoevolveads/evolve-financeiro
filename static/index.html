@@ -460,6 +460,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .proj-como{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);margin-bottom:14px}
 .proj-como summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;color:var(--tx);list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pc-sub{font-size:11.5px;font-weight:400;color:var(--mu)}
+.lanc-ref{display:block;font-size:10.5px;color:var(--mu);font-weight:400;margin-top:1px}
 .proj-como summary::-webkit-details-marker{display:none}
 .proj-como summary::before{content:'›';color:var(--mu);transition:transform .2s;display:inline-block}
 .proj-como[open] summary::before{transform:rotate(90deg)}
@@ -4813,6 +4814,8 @@ function renderProjecaoTab() {
     const isFuture = !isPast && !isCurrent;
     const projRev = (isFuture || isCurrent) ? sc.revProj : sc.rev;
     const projCos = (isFuture || isCurrent) ? sc.cosProj : sc.cos;
+    // Serie unica: mes fechado usa o realizado, mes futuro usa o previsto.
+    // Ao fechar o mes, o valor vira realizado sozinho e a previsao anda adiante.
     const projBal = projRev - projCos;
     const margin = projRev > 0 ? (projBal / projRev * 100) : 0;
     const cumCash = cc; cc += projBal;
@@ -4850,14 +4853,7 @@ function renderProjecaoTab() {
       nCli = nCli - (nCli*mcRegras.churnPct) + novos;
     });
   }
-  // calcMonth já entrega o custo com as regras aplicadas; nada a recalcular aqui.
-  const totalProjRev = futureRows.reduce((s,r) => s + r.projRev, 0);
-  const totalProjCos = futureRows.reduce((s,r) => s + r.projCos, 0);
-  const totalProjBal = totalProjRev - totalProjCos;
-  const avgMargin = totalProjRev > 0 ? (totalProjBal / totalProjRev * 100) : 0;
-  const negativoMonths = futureRows.filter(r => r.projBal < 0);
-  const endCash = rows.length ? rows[rows.length-1].cumCashEnd : saldoInicial;
-
+  // calcMonth já entrega o custo com as regras aplicadas.
   // ── Prevista: a receita lançada é uma linha reta que assume que ninguém sai e
   // ninguém entra. O previsto aplica as duas forças, a partir da base real.
   const mc = metricasCarteira();
@@ -4867,12 +4863,42 @@ function renderProjecaoTab() {
   const churnUso = (S.projChurn!=null ? S.projChurn/100 : mc.churnPct) * cen.churn;
   const novoUso  = (S.projNovo!=null  ? S.projNovo      : mc.novoMRR)  * cen.novo;
 
-  let mrr = mc.baseMRR;
+  // A previsao PARTE do contratado, nao o ignora: assim um contrato novo que
+  // voce cadastra entra na hora, e o churn continua sendo aplicado sobre ele.
   const prevPorMes = {};
-  futureRows.forEach(r=>{
-    mrr = mrr - (mrr*churnUso) + novoUso;
+  let mrr = null;
+  futureRows.forEach((r,i)=>{
+    const lancadoDoMes = r.projRev;
+    // primeiro mes futuro: parte do que esta contratado nele.
+    // demais: rola o valor anterior, mas nunca abaixo do que ja esta contratado
+    // com clientes novos cadastrados adiante.
+    const base = (i===0) ? lancadoDoMes : Math.max(mrr, 0);
+    mrr = base - (base*churnUso) + novoUso;
     prevPorMes[r.m.year*100+r.m.month] = mrr;
   });
+  // A série passa a ser uma só: mês fechado mantém o realizado, mês futuro
+  // recebe o previsto. O lançado fica guardado como referência secundária.
+  futureRows.forEach(r=>{
+    const k = r.m.year*100+r.m.month;
+    if(prevPorMes[k]==null) return;
+    r.lancadoRev = r.projRev;
+    r.projRev    = prevPorMes[k];
+    r.projBal    = r.projRev - r.projCos;
+    r.margin     = r.projRev>0 ? (r.projBal/r.projRev*100) : 0;
+  });
+  // caixa acumulado refeito sobre a série nova
+  {
+    let acc = saldoInicial;
+    rows.forEach(r=>{ acc += (r.projRev - r.projCos); r.cumCashEnd = acc; });
+  }
+
+  const totalProjRev = futureRows.reduce((s,r) => s + r.projRev, 0);
+  const totalProjCos = futureRows.reduce((s,r) => s + r.projCos, 0);
+  const totalProjBal = totalProjRev - totalProjCos;
+  const avgMargin = totalProjRev > 0 ? (totalProjBal / totalProjRev * 100) : 0;
+  const negativoMonths = futureRows.filter(r => r.projBal < 0);
+  const endCash = rows.length ? rows[rows.length-1].cumCashEnd : saldoInicial;
+
   const totalPrev = futureRows.reduce((s,r)=>s+(prevPorMes[r.m.year*100+r.m.month]||0),0);
   const difPrev = totalPrev - totalProjRev;
   // custo do cenário previsto: mesmas regras, carteira projetada
@@ -4890,9 +4916,9 @@ function renderProjecaoTab() {
   <div class="prev-box">
     <div class="prev-h">
       <div>
-        <div class="prev-t">Receita lançada × Receita prevista</div>
-        <div class="prev-s"><b>Lançada</b> é a soma do que está registrado em cada mês — em geral vindo das recorrências cadastradas.
-          <b>Prevista</b> parte da carteira real de ${brl(mc.baseMRR)} e aplica entrada de clientes e churn.</div>
+        <div class="prev-t">Como a receita futura é prevista</div>
+        <div class="prev-s">Mês fechado mostra o que aconteceu. Mês à frente parte do que está contratado nele
+          e aplica churn e venda nova — os números da tabela, do resultado e do caixa já são esses.</div>
       </div>
       <div class="prev-cen">
         ${Object.entries(CENARIOS).map(([k,c])=>
@@ -4900,19 +4926,17 @@ function renderProjecaoTab() {
       </div>
     </div>
     <div class="prev-g">
-      <div class="prev-c"><div class="prev-l">Receita lançada no período</div><div class="prev-v">${brl(totalProjRev)}</div>
-        <div class="prev-n">o que está registrado nos meses</div></div>
-      <div class="prev-c hi"><div class="prev-l">Receita prevista no período</div><div class="prev-v">${brl(totalPrev)}</div>
-        <div class="prev-n">com churn e venda nova</div></div>
-      <div class="prev-c"><div class="prev-l">Diferença na receita</div>
+      <div class="prev-c"><div class="prev-l">Se nada mudar</div><div class="prev-v">${brl(totalProjRev)}</div>
+        <div class="prev-n">só o que está contratado</div></div>
+      <div class="prev-c hi"><div class="prev-l">Previsto no período</div><div class="prev-v">${brl(totalPrev)}</div>
+        <div class="prev-n">é este que a tela usa</div></div>
+      <div class="prev-c"><div class="prev-l">Efeito do churn e da venda</div>
         <div class="prev-v ${difPrev>=0?'up':'down'}">${difPrev>=0?'+':'−'} ${brl(Math.abs(difPrev))}</div>
         <div class="prev-n">${difPrev>=0?'o lançado ignora venda nova':'o lançado ignora quem sai'}</div></div>
     </div>
     ${comRegra?`<div class="prev-res">
-      <span>Resultado com a receita lançada <b>${brl(totalProjRev-totalProjCos)}</b></span>
-      <span class="op">·</span>
-      <span>Resultado com a receita prevista <b>${brl(totalPrev-totalPrevCos)}</b></span>
-      <span class="prev-n2">as regras de custo escalam junto com a carteira nos dois</span>
+      <span>Resultado do período <b>${brl(totalProjRev-totalProjCos)}</b></span>
+      <span class="prev-n2">calculado sobre a receita prevista, com as regras de custo aplicadas</span>
     </div>`:''}
     <div class="prev-prem">
       <label>Churn ao mês
@@ -5058,7 +5082,7 @@ function renderProjecaoTab() {
       <div class="proj-hero-s">${periodoLabel}</div>
     </div>
     <div class="proj-sec">
-      <div class="mc"><div class="ml">Receita lançada</div><div class="mv">${brl(totalProjRev)}</div>
+      <div class="mc"><div class="ml">Receita prevista</div><div class="mv">${brl(totalProjRev)}</div>
         <div class="mv-sub">${futureRows.length} ${futureRows.length===1?'mês':'meses'}</div></div>
       <div class="mc"><div class="ml">Despesa do período</div><div class="mv">${brl(totalProjCos)}</div>
         <div class="mv-sub">${brl(futureRows.length?totalProjCos/futureRows.length:0)}/mês${comRegra?" · com as regras":""}</div></div>
@@ -5089,19 +5113,19 @@ function renderProjecaoTab() {
       </div>
 
       <div class="ex-bloco">
-        <div class="ex-t">As duas linhas respondem perguntas diferentes</div>
+        <div class="ex-t">Uma coluna só, que muda de natureza no meio</div>
         <div class="ex-duo">
           <div class="ex-card">
-            <div class="ex-h">Receita lançada</div>
-            <div class="ex-q">“quanto já está registrado?”</div>
-            <p>Soma o que está lançado em cada mês, em geral vindo das recorrências cadastradas.</p>
-            <p class="ex-n">Assume duas coisas que não acontecem: que <b>ninguém sai</b> e que <b>ninguém entra</b>.
-              Por isso ela é uma linha reta.</p>
+            <div class="ex-h">Mês já fechado</div>
+            <div class="ex-q">“o que aconteceu de fato”</div>
+            <p>Mostra o realizado, exatamente como foi registrado. Não muda mais.</p>
+            <p class="ex-n">Quando o mês corrente fechar, ele entra aqui sozinho e a previsão anda um mês adiante.</p>
           </div>
           <div class="ex-card hi">
-            <div class="ex-h">Receita prevista</div>
-            <div class="ex-q">“quanto provavelmente vai entrar?”</div>
-            <p>Parte do MRR de hoje e aplica o que o seu histórico mostra:</p>
+            <div class="ex-h">Mês à frente</div>
+            <div class="ex-q">“o que provavelmente vai acontecer”</div>
+            <p>Parte do que está <b>contratado naquele mês</b> — inclusive clientes novos que você cadastrar —
+               e aplica o que o seu histórico mostra:</p>
             <ul class="ex-l">
               <li><span class="ex-neg">−</span> ${(mcRegras.churnPct*100).toFixed(1).replace('.',',')}% que sai por mês
                 <span class="ex-eq">≈ ${(mcRegras.churnPct*mcRegras.baseCli).toFixed(1).replace('.',',')} cliente</span></li>
@@ -5115,8 +5139,8 @@ function renderProjecaoTab() {
       <div class="ex-bloco">
         <div class="ex-t">A conta, mês a mês</div>
         <div class="ex-formula">
-          <span>MRR do mês anterior</span><span class="op">−</span><span>quem saiu</span>
-          <span class="op">+</span><span>quem entrou</span><span class="op">=</span><span class="fim">MRR do mês</span>
+          <span>contratado no mês</span><span class="op">−</span><span>quem sai</span>
+          <span class="op">+</span><span>quem entra</span><span class="op">=</span><span class="fim">previsto do mês</span>
         </div>
         <div class="ex-conta">
           ${(()=>{ const c=mcRegras.baseMRR*mcRegras.churnPct;
@@ -5133,10 +5157,10 @@ function renderProjecaoTab() {
       <div class="ex-bloco sem-borda">
         <div class="ex-t">De onde saem os números</div>
         <div class="proj-como-g">
-          <div><span class="k">Receita lançada</span><span class="v">soma das receitas registradas no mês — sem média nem estimativa</span></div>
+          <div><span class="k">Receita</span><span class="v">mês fechado: o realizado. Mês à frente: o contratado ajustado por churn e venda nova</span></div>
           <div><span class="k">Churn e venda nova</span><span class="v">calculados comparando sua carteira de clientes mês a mês, ao longo de ${mcRegras.transicoes} meses</span></div>
           <div><span class="k">Despesa</span><span class="v">lançamentos do mês, com as regras de custo aplicadas nos meses futuros</span></div>
-          <div><span class="k">Caixa acumulado</span><span class="v">saldo do mês anterior + resultado do mês</span></div>
+          <div><span class="k">Resultado, margem e caixa</span><span class="v">calculados sobre essa mesma receita — não existe um número na tabela e outro no cálculo</span></div>
         </div>
         <p class="ex-n">Tudo se recalcula sozinho a cada mês fechado. Para testar “e se”, use
           <b>Simular cenário</b> — ele não altera nada desta tela.</p>
@@ -5177,8 +5201,7 @@ function renderProjecaoTab() {
         <thead><tr>
           <th style="min-width:110px">Mês</th>
           <th style="min-width:70px">Status</th>
-          <th class="r" style="min-width:110px">Lançada</th>
-          <th class="r" style="min-width:110px">Prevista</th>
+          <th class="r" style="min-width:130px">Receita</th>
           <th class="r" style="min-width:110px">Despesa</th>
           <th class="r" style="min-width:110px">Resultado</th>
           <th class="r" style="min-width:55px">Margem</th>
@@ -5197,8 +5220,9 @@ function renderProjecaoTab() {
             return `<tr style="${rowBg}">
               <td style="font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]} ${r.m.year}</td>
               <td>${badge}</td>
-              <td class="r" style="font-weight:600">${brl(r.projRev)}</td>
-              <td class="r" style="color:var(--ac)">${prevPorMes[r.m.year*100+r.m.month]!=null?brl(prevPorMes[r.m.year*100+r.m.month]):'—'}</td>
+              <td class="r" style="font-weight:600">${brl(r.projRev)}${
+                r.lancadoRev!=null && Math.abs(r.lancadoRev-r.projRev)>=1
+                  ? `<span class="lanc-ref" title="Contratado neste mês, antes de churn e venda nova">${brl(r.lancadoRev)} lançado</span>` : ''}</td>
               <td class="r" style="font-weight:600">${brl(r.projCos)}</td>
               <td class="r" style="color:${balColor};font-family:var(--ff);font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
               <td class="r" style="font-size:11px;color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
