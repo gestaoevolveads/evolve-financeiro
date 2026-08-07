@@ -3784,13 +3784,18 @@ function simular(ajustes, anoRef, horizonte){
   let mrrOf = null, mrrSim = null;   // roll-forward de MRR, igual ao da aba Projeção
 
   const linhas = serie.map(({m, sintetico})=>{
-    const revs = (m.revenues||[]).map(r=>({cat:r.category, nome:(r.client_name||''), v:parseFloat(r.amount)||0}));
-    // custosEfetivos aplica as regras de custo nos meses futuros. Ler m.costs
-    // cru aqui fazia o simulador ignorar as regras que a Projeção já aplica.
-    const cos  = custosEfetivos(m).map(c=>({cat:c.category, nome:(c.name||''),        v:parseFloat(c.amount)||0}));
+    const futuro = (m.year*12+m.month) >= (aAtual*12+mAtual);
+    // Mesmas duas regras da aba Projeção, senão a comparação mente:
+    // 1) custosEfetivos aplica as regras de custo nos meses futuros;
+    // 2) em mês passado conta só o que foi realizado — um item ainda marcado
+    //    como projetado lá atrás não virou dinheiro e não entra no caixa.
+    const feito = x => futuro || !x.status || x.status==='realizado';
+    const revs = (m.revenues||[]).filter(feito)
+      .map(r=>({cat:r.category, nome:(r.client_name||''), v:parseFloat(r.amount)||0}));
+    const cos  = custosEfetivos(m).filter(feito)
+      .map(c=>({cat:c.category, nome:(c.name||''),        v:parseFloat(c.amount)||0}));
     const ofRev = revs.reduce((s,x)=>s+x.v,0), ofCos = cos.reduce((s,x)=>s+x.v,0);
     const nCli  = revs.filter(x=>x.v>0).length;
-    const futuro = (m.year*12+m.month) >= (aAtual*12+mAtual);
 
     let sRev = ofRev, sCos = ofCos;
     let ofRevAj = 0;   // efeito do observado na linha oficial
