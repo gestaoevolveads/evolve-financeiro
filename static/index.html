@@ -5124,8 +5124,9 @@ function carteiraDaLinha(r, mc){
            projetado: false };
 }
 // 0,4 nao existe em cliente: numero fracionario so faz sentido como media
-const numCli = v => v==null ? '—' : (Number.isInteger(v) ? String(v)
-                   : v.toFixed(1).replace('.',','));
+const numCli = v => v==null ? '—'
+  : (Math.abs(v-Math.round(v))<0.05 ? String(Math.round(v))
+                                    : v.toFixed(1).replace('.',','));
 
 function densidadeProjCompleta(){
   try { return localStorage.getItem('ef_proj_dens') !== '0'; } catch(_) { return true; }
@@ -5257,7 +5258,7 @@ function blocoCarteira(){
       ${card('Entradas', n1(mc.entramMes),
              `clientes por mês · a projeção assume ${mc.entramProj}`)}
       ${card('Tempo de casa', n1(u.tempoObs)+' meses',
-             `média dos ${u.nClientesHist} clientes já atendidos`)}
+             `média dos ${u.nClientesHist} já atendidos · conta só o que já passou`)}
       ${u.maiorCliente ? card('Maior cliente', brl(u.maiorCliente.total),
              `${esc(u.maiorCliente.nome)} · ${u.maiorCliente.n} ${u.maiorCliente.n===1?'mês':'meses'}`) : ''}
     </div>
@@ -5779,8 +5780,10 @@ function renderProjecaoTab() {
       </table>
     </div>
     ${completo?`<div class="rel-help" style="padding:10px 18px;border-top:1px solid var(--bdr)">
-      <b>Carteira</b>: clientes recorrentes do mês. Em mês fechado, entram e saem são a contagem real;
-      em mês projetado são a média do histórico, e por isso aparecem com casa decimal.
+      <b>Carteira</b>: clientes recorrentes do mês. Em mês fechado, entram e saem são a contagem real.
+      Em mês projetado, a entrada é arredondada para baixo — o histórico traz
+      ${mcRegras.entramMes.toFixed(1).replace('.',',')} por mês e a projeção assume ${mcRegras.entramProj}.
+      A saída vem do churn de receita, por isso pode ter casa decimal.
       Trabalho pontual marcado como <b>NR</b> fica fora dessa conta.</div>`:''}
   </div>
 
