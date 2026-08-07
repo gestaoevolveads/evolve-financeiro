@@ -138,20 +138,39 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 /* ══ TABLES ═══════════════════════════════════════════════════════════════════ */
 .etable-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bdr);background:var(--s1)}
-.etable{width:100%;border-collapse:collapse;font-size:12px}
-.etable th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
-.etable td{padding:10px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.etable{width:100%;border-collapse:collapse;font-size:12px;--td-x:12px;--ink:9.5px}
+.etable th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px calc(var(--td-x) + var(--ink));text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.etable th.r{text-align:right}
+/* colunas sem controle dentro (texto puro) usam só o padding da célula */
+.etable th.flush,.etable.plain th{padding-left:var(--td-x);padding-right:var(--td-x)}
+.etable td{padding:8px var(--td-x);border-bottom:1px solid var(--bdr);vertical-align:middle}
+.etable td.r{text-align:right}
 .etable tr:last-child td{border-bottom:none}
 .etable tr:hover td{background:rgba(255,255,255,.015)}
 [data-theme="light"] .etable tr:hover td{background:rgba(0,0,0,.02)}
-.etable tr.new-client td:first-child{position:relative}
-.etable tr.new-client td:first-child::before{content:'★';color:var(--ac);font-size:11px;position:absolute;left:4px;top:50%;transform:translateY(-50%)}
+.etable tr.new-client td:nth-child(2){position:relative}
+.etable tr.new-client td:nth-child(2)::before{content:'★';color:var(--ac);font-size:11px;position:absolute;left:1px;top:50%;transform:translateY(-50%)}
 
-.cell-input{width:100%;background:transparent;border:1.5px solid transparent;border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;transition:.15s}
+/* ── Seleção de linhas ─────────────────────────────────────────────────────── */
+.etable th.sel-col,.etable td.sel-col{width:34px;padding-left:12px;padding-right:0;text-align:center}
+.row-sel,.sel-all{width:15px;height:15px;accent-color:var(--ac);cursor:pointer;margin:0;vertical-align:middle}
+.etable tr.is-sel td,[data-theme="light"] .etable tr.is-sel td,.etable tr.is-sel:hover td,[data-theme="light"] .etable tr.is-sel:hover td{background:var(--ac-soft)}
+/* barra de seleção: aparece só quando há seleção, no rodapé do próprio card */
+.sel-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:9px 14px;border-top:1px solid var(--bdr);background:var(--ac-soft);
+  font-size:12px;color:var(--ac)}
+.sel-bar[hidden]{display:none}
+.sel-bar-l{display:flex;align-items:center;gap:7px;font-weight:500}
+.sel-bar-r{display:flex;align-items:center;gap:12px}
+.sel-bar-sum{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums;color:var(--ac)}
+.sel-bar-clear{background:transparent;border:none;color:var(--mu);font-size:12px;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.sel-bar-clear:hover{color:var(--tx)}
+
+.cell-input{width:100%;background:transparent;border:1.5px solid transparent;border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:12px;outline:none;transition:.15s;text-overflow:ellipsis}
 .cell-input:focus{background:var(--input-bg);border-color:var(--ac);box-shadow:0 0 0 2px var(--ac-ring)}
 .cell-input.amount{text-align:right;font-family:'Inter',sans-serif;font-weight:600}
-.cell-input.date{text-align:center}
-.cell-select{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none;cursor:pointer;transition:.15s}
+.cell-input.date{text-align:left}
+.cell-select{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:11px;outline:none;cursor:pointer;transition:.15s}
 .cell-select:focus{border-color:var(--ac)}
 .cell-select option{background:var(--s1)}
 
@@ -190,8 +209,9 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 /* ══ DASHBOARD TABLE ══════════════════════════════════════════════════════════ */
 .dt{width:100%;border-collapse:collapse;font-size:12px}
-.dt th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
-.dt td{padding:9px 10px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.dt th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px 12px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.dt th.r{text-align:right}
+.dt td{padding:9px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle}
 .dt tr:last-child td{border-bottom:none}
 .dt tr:hover td{background:var(--s2)}
 .dt td.r{text-align:right}
@@ -1599,6 +1619,70 @@ function renderDistBar(dist, isCost=false, id='') {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// SELEÇÃO DE LINHAS — soma o que está marcado
+// O estado vive fora do DOM porque a aba se re-renderiza sozinha (polling 30s);
+// se ficasse só no checkbox, a seleção sumiria sozinha na cara do usuário.
+// ══════════════════════════════════════════════════════════════════════════════
+const SEL = { revenue:new Set(), cost:new Set() };
+
+function selItems(type, mid){
+  const m=S.map[mid]; if(!m) return [];
+  return (type==='revenue'? m.revenues : m.costs)||[];
+}
+function toggleSel(type, id, checked, mid){
+  checked ? SEL[type].add(id) : SEL[type].delete(id);
+  const tr=document.querySelector(`.row-sel[data-type="${type}"][data-id="${id}"]`)?.closest('tr');
+  if(tr) tr.classList.toggle('is-sel', checked);
+  updateSelBar(type, mid);
+}
+function toggleSelAll(type, mid, checked){
+  selItems(type,mid).forEach(i=>checked? SEL[type].add(i.id) : SEL[type].delete(i.id));
+  document.querySelectorAll(`.row-sel[data-type="${type}"]`).forEach(cb=>{
+    cb.checked=checked; cb.closest('tr')?.classList.toggle('is-sel', checked);
+  });
+  updateSelBar(type, mid);
+}
+function clearSel(type, mid){ toggleSelAll(type, mid, false);
+  const all=e(`sel-all-${type}-${mid}`); if(all){ all.checked=false; all.indeterminate=false; }
+}
+function updateSelBar(type, mid){
+  const items=selItems(type,mid);
+  const ids=new Set(items.map(i=>i.id));
+  [...SEL[type]].forEach(id=>{ if(!ids.has(id) && !document.querySelector(`.row-sel[data-type="${type}"][data-id="${id}"]`)) SEL[type].delete(id); });
+  const chosen=items.filter(i=>SEL[type].has(i.id));
+  const sum=chosen.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const bar=e(`sel-bar-${type}-${mid}`); if(!bar) return;
+  bar.hidden = chosen.length===0;
+  const c=e(`sel-count-${type}-${mid}`); if(c) c.textContent=chosen.length;
+  const w=e(`sel-word-${type}-${mid}`); if(w) w.textContent=chosen.length===1?'selecionado':'selecionados';
+  const s=e(`sel-sum-${type}-${mid}`); if(s) s.textContent=brl(sum);
+  const all=e(`sel-all-${type}-${mid}`);
+  if(all){ all.checked = chosen.length>0 && chosen.length===items.length;
+           all.indeterminate = chosen.length>0 && chosen.length<items.length; }
+}
+// devolve o estado aos checkboxes depois de cada re-render
+function restoreSel(mid){
+  ['revenue','cost'].forEach(type=>{
+    document.querySelectorAll(`.row-sel[data-type="${type}"]`).forEach(cb=>{
+      const on=SEL[type].has(+cb.dataset.id);
+      cb.checked=on; cb.closest('tr')?.classList.toggle('is-sel', on);
+    });
+    updateSelBar(type, mid);
+  });
+}
+function selBarHTML(type, mid){
+  return `<div class="sel-bar" id="sel-bar-${type}-${mid}" hidden>
+    <div class="sel-bar-l"><strong id="sel-count-${type}-${mid}">0</strong> <span id="sel-word-${type}-${mid}">selecionados</span></div>
+    <div class="sel-bar-r">
+      <span class="sel-bar-sum" id="sel-sum-${type}-${mid}">R$ 0,00</span>
+      <button class="sel-bar-clear" onclick="clearSel('${type}',${mid})">Limpar</button>
+    </div>
+  </div>`;
+}
+const selTh = (type,mid) => `<th class="sel-col"><input type="checkbox" class="sel-all" id="sel-all-${type}-${mid}" onchange="toggleSelAll('${type}',${mid},this.checked)" title="Selecionar todos"></th>`;
+const selTd = (type,mid,id) => `<td class="sel-col"><input type="checkbox" class="row-sel" data-type="${type}" data-id="${id}" onchange="toggleSel('${type}',${id},this.checked,${mid})"></td>`;
+
+// ══════════════════════════════════════════════════════════════════════════════
 // RENDER MONTH TAB
 // ══════════════════════════════════════════════════════════════════════════════
 function renderMonthTab(mid) {
@@ -1618,7 +1702,8 @@ function renderMonthTab(mid) {
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
     if(isProj){
       return `<tr style="${rowStyle}">
-        <td style="padding-left:8px">
+        ${selTd('revenue',mid,r.id)}
+        <td>
           <span style="font-size:12px;color:var(--tx2)">${esc(r.client_name)||'—'}</span>
           <span class="status-badge s-pendente" style="margin-left:6px;background:var(--ac-soft);color:var(--ac)">Projetado</span>
         </td>
@@ -1630,7 +1715,8 @@ function renderMonthTab(mid) {
       </tr>`;
     }
     return `<tr class="${r.is_new_client?'new-client':''}">
-      <td style="padding-left:${r.is_new_client?'20px':'8px'}">
+      ${selTd('revenue',mid,r.id)}
+      <td>
         <div style="display:flex;align-items:center;gap:3px">
           ${hasRec?'<span style="color:var(--ac);font-size:11px;flex-shrink:0" title="Recorrente">↻</span>':''}
           <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)" style="flex:1;min-width:0">
@@ -1660,6 +1746,7 @@ function renderMonthTab(mid) {
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
     if(isProj){
       return `<tr style="${rowStyle}">
+        ${selTd('cost',mid,c.id)}
         <td>
           <span style="font-size:12px;color:var(--tx2)">${esc(c.name)||'—'}</span>
           <span class="status-badge s-pendente" style="margin-left:6px;background:var(--ac-soft);color:var(--ac)">Projetado</span>
@@ -1672,6 +1759,7 @@ function renderMonthTab(mid) {
       </tr>`;
     }
     return `<tr>
+      ${selTd('cost',mid,c.id)}
       <td>
         <div style="display:flex;align-items:center;gap:3px">
           ${hasRec?'<span style="color:var(--ac);font-size:11px;flex-shrink:0" title="Recorrente">↻</span>':''}
@@ -1744,8 +1832,9 @@ function renderMonthTab(mid) {
         <div class="etable-wrap" style="border:none;border-radius:0">
           <table class="etable">
             <thead><tr>
+              ${selTh('revenue',mid)}
               <th style="min-width:130px">Cliente</th>
-              <th style="min-width:95px;text-align:right">R$</th>
+              <th class="r" style="min-width:95px">R$</th>
               <th style="min-width:70px">Data</th>
               <th style="min-width:105px">Categoria</th>
               <th style="min-width:80px"></th>
@@ -1755,6 +1844,7 @@ function renderMonthTab(mid) {
           </table>
         </div>
         <div class="add-row" onclick="addRevenue(${mid})"><span class="icon">+</span>Adicionar receita</div>
+        ${selBarHTML('revenue',mid)}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--bdr);background:var(--s2)">
           <span style="font-size:11px;color:var(--mu);font-weight:600">Total receitas</span>
           <span id="rev-total-${mid}" style="font-weight:600;font-size:14px">${brl(sc.rev)}</span>
@@ -1772,8 +1862,9 @@ function renderMonthTab(mid) {
         <div class="etable-wrap" style="border:none;border-radius:0">
           <table class="etable">
             <thead><tr>
+              ${selTh('cost',mid)}
               <th style="min-width:130px">Item</th>
-              <th style="min-width:90px;text-align:right">R$</th>
+              <th class="r" style="min-width:90px">R$</th>
               <th style="min-width:70px">Data</th>
               <th style="min-width:105px">Categoria</th>
               <th style="min-width:36px"></th>
@@ -1783,6 +1874,7 @@ function renderMonthTab(mid) {
           </table>
         </div>
         <div class="add-row" onclick="addCost(${mid})"><span class="icon">+</span>Adicionar despesa</div>
+        ${selBarHTML('cost',mid)}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--bdr);background:var(--s2)">
           <span style="font-size:11px;color:var(--mu);font-weight:600">Total despesas</span>
           <span id="cost-total-${mid}" style="font-weight:600;font-size:14px">${brl(sc.cos)}</span>
@@ -1792,6 +1884,7 @@ function renderMonthTab(mid) {
     </div>
   </div>`;
   updateSummary(mid);
+  restoreSel(mid);
 }
 
 function rerenderCurrentMonth(mid) {
@@ -1890,12 +1983,12 @@ function renderDashboard() {
     const hasData=m.rev>0||m.cos>0;
     return `<tr ${!hasData?'style="opacity:.35"':''}>
       <td style="font-family:'Inter',sans-serif;font-weight:700">${MONTHS_FULL[m.month-1]}</td>
-      <td class="r" style="color:var(--g)">${m.rev>0?brl(m.rev):'—'}</td>
-      <td class="r" style="color:var(--bl)">${m.avgTicket>0?brl(m.avgTicket):'—'}</td>
-      <td class="r" style="color:var(--rd)">${m.cos>0?brl(m.cos):'—'}</td>
-      <td class="r" style="color:${m.bal>=0?'var(--g)':'var(--rd)'}">${hasData?brl(m.bal):'—'}</td>
+      <td class="r">${m.rev>0?brl(m.rev):'—'}</td>
+      <td class="r">${m.avgTicket>0?brl(m.avgTicket):'—'}</td>
+      <td class="r">${m.cos>0?brl(m.cos):'—'}</td>
+      <td class="r" style="color:${m.bal>=0?'var(--tx)':'var(--rd)'}">${hasData?brl(m.bal):'—'}</td>
       <td class="r">${hasData?marginPill(m.margin):'—'}</td>
-      <td class="r" style="color:var(--bl)">${m.clients||'—'}</td>
+      <td class="r">${m.clients||'—'}</td>
       <td class="r">${m.newClients||'—'}</td>
       <td><button class="btn sm" onclick="goTab('m${m.id}')">→</button></td>
     </tr>`;
@@ -2364,38 +2457,38 @@ function renderCashflowTab() {
 
   // Table HTML
   let tBody=`<tr style="background:var(--s2)">
-    <td style="font-weight:600;color:var(--mu);padding:9px 10px" colspan="4">Saldo anterior (abertura)</td>
-    <td class="r" style="padding:9px 10px;font-family:'Inter',sans-serif;font-weight:700;color:${saldoInicial>=0?'var(--g)':'var(--rd)'}">${brl(saldoInicial)}</td>
+    <td style="font-weight:600;color:var(--mu)" colspan="4">Saldo anterior (abertura)</td>
+    <td class="r" style="font-family:'Inter',sans-serif;font-weight:700;color:${saldoInicial>=0?'var(--tx)':'var(--rd)'}">${brl(saldoInicial)}</td>
   </tr>`;
 
   rows.forEach(r=>{
     const isProj=!!r.isProj;
     const op=isProj?'style="opacity:.6"':'';
-    const saldoColor=r.saldo!=null?(r.saldo>=0?'var(--g)':'var(--rd)'):'var(--mu)';
-    const resColor=r.mc.bal>=0?'var(--g)':'var(--rd)';
+    const saldoColor=r.saldo!=null?(r.saldo>=0?'var(--tx)':'var(--rd)'):'var(--mu)';
+    const resColor=r.mc.bal>=0?'var(--tx)':'var(--rd)';
     tBody+=`<tr ${op}>
-      <td style="padding:9px 10px;font-weight:${isProj?400:600};color:${isProj?'var(--mu)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]}${isProj?' <span style="font-size:11px;color:var(--mu);font-style:italic">(proj.)</span>':''}</td>
-      <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':'var(--g)'}">${r.hasData||r.isProj?brl(r.mc.rev):'—'}</td>
-      <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':'var(--rd)'}">${r.hasData||r.isProj?brl(r.mc.cos):'—'}</td>
-      <td class="r" style="padding:9px 10px;color:${isProj?'var(--mu)':resColor}">${r.hasData||r.isProj?brl(r.mc.bal):'—'}</td>
-      <td class="r" style="padding:9px 10px;font-family:'Inter',sans-serif;font-weight:700;color:${r.saldo!=null?saldoColor:'var(--mu)'}">${r.saldo!=null?brl(r.saldo):'—'}</td>
+      <td style="font-weight:${isProj?400:600};color:${isProj?'var(--mu)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]}${isProj?' <span style="font-size:11px;color:var(--mu);font-style:italic">(proj.)</span>':''}</td>
+      <td class="r" style="color:${isProj?'var(--mu)':'var(--tx)'}">${r.hasData||r.isProj?brl(r.mc.rev):'—'}</td>
+      <td class="r" style="color:${isProj?'var(--mu)':'var(--tx)'}">${r.hasData||r.isProj?brl(r.mc.cos):'—'}</td>
+      <td class="r" style="color:${isProj?'var(--mu)':resColor}">${r.hasData||r.isProj?brl(r.mc.bal):'—'}</td>
+      <td class="r" style="font-family:'Inter',sans-serif;font-weight:700;color:${r.saldo!=null?saldoColor:'var(--mu)'}">${r.saldo!=null?brl(r.saldo):'—'}</td>
     </tr>`;
   });
 
   tBody+=`<tr class="tot">
-    <td style="padding:9px 10px">Total histórico (${withData.length} meses)</td>
-    <td class="r" style="padding:9px 10px;color:var(--g)">${brl(totalEntradas)}</td>
-    <td class="r" style="padding:9px 10px;color:var(--rd)">${brl(totalSaidas)}</td>
-    <td class="r" style="padding:9px 10px;color:${totalRes>=0?'var(--g)':'var(--rd)'}">${brl(totalRes)}</td>
+    <td>Total histórico (${withData.length} meses)</td>
+    <td class="r">${brl(totalEntradas)}</td>
+    <td class="r">${brl(totalSaidas)}</td>
+    <td class="r" style="color:${totalRes>=0?'var(--tx)':'var(--rd)'}">${brl(totalRes)}</td>
     <td></td>
   </tr>`;
 
   const lastProjRow=rows.filter(r=>r.isProj).pop();
   if(lastProjRow){
     tBody+=`<tr style="background:rgba(167,139,250,.05)">
-      <td style="padding:9px 10px;font-style:italic;color:var(--mu)">Saldo projetado Dez/26</td>
+      <td style="font-style:italic;color:var(--mu)">Saldo projetado Dez/26</td>
       <td colspan="3"></td>
-      <td class="r" style="padding:9px 10px;font-family:'Inter',sans-serif;font-weight:700;color:${lastProjRow.saldo>=0?'var(--pu)':'var(--rd)'}">≈ ${brl(lastProjRow.saldo)}</td>
+      <td class="r" style="font-family:'Inter',sans-serif;font-weight:700;color:${lastProjRow.saldo>=0?'var(--pu)':'var(--rd)'}">≈ ${brl(lastProjRow.saldo)}</td>
     </tr>`;
   }
 
@@ -2651,7 +2744,7 @@ function renderProjecaoTab() {
       <div class="ct" style="margin-bottom:0">Detalhamento mês a mês</div>
     </div>
     <div style="overflow-x:auto">
-      <table class="etable">
+      <table class="etable plain">
         <thead><tr>
           <th style="min-width:110px">Mês</th>
           <th style="min-width:70px">Status</th>
@@ -2668,17 +2761,17 @@ function renderProjecaoTab() {
               : r.isCurrent
                 ? `<span class="status-badge" style="background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring)">Atual</span>`
                 : `<span class="status-badge" style="background:rgba(167,139,250,.12);color:var(--pu);border:1px solid rgba(167,139,250,.3)">Projetado</span>`;
-            const balColor = r.projBal >= 0 ? 'var(--g)' : 'var(--rd)';
+            const balColor = r.projBal >= 0 ? 'var(--tx)' : 'var(--rd)';
             const cashColor = r.cumCashEnd >= 0 ? 'var(--tx)' : 'var(--rd)';
             const rowBg = r.isCurrent ? 'background:rgba(79,158,255,.04)' : r.isFuture ? 'opacity:.82' : '';
             return `<tr style="${rowBg}">
-              <td style="padding:10px 12px;font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]} ${r.m.year}</td>
-              <td style="padding:10px 12px">${badge}</td>
-              <td class="r" style="padding:10px 12px;color:var(--g);font-family:'Inter',sans-serif;font-weight:700">${brl(r.projRev)}</td>
-              <td class="r" style="padding:10px 12px;color:var(--rd);font-family:'Inter',sans-serif;font-weight:700">${brl(r.projCos)}</td>
-              <td class="r" style="padding:10px 12px;color:${balColor};font-family:'Inter',sans-serif;font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
-              <td class="r" style="padding:10px 12px;font-size:11px;color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
-              <td class="r" style="padding:10px 12px;color:${cashColor};font-family:'Inter',sans-serif;font-weight:700">${brl(r.cumCashEnd)}</td>
+              <td style="font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]} ${r.m.year}</td>
+              <td>${badge}</td>
+              <td class="r" style="font-weight:600">${brl(r.projRev)}</td>
+              <td class="r" style="color:var(--rd);font-family:'Inter',sans-serif;font-weight:700">${brl(r.projCos)}</td>
+              <td class="r" style="color:${balColor};font-family:'Inter',sans-serif;font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
+              <td class="r" style="font-size:11px;color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
+              <td class="r" style="color:${cashColor};font-family:'Inter',sans-serif;font-weight:700">${brl(r.cumCashEnd)}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -2771,12 +2864,12 @@ function drawContasTab() {
   const mkRow=(item,isOverdue)=>{
     const ovd=isOverdue||(item.due_date&&item.due_date<today);
     return `<tr>
-      <td style="padding:9px 8px;color:${ovd?'var(--rd)':'var(--tx2)'};font-weight:${ovd?'600':'400'}">${fmtDate(item.due_date)}${ovd?' ⚠':''}</td>
-      <td style="padding:9px 8px;font-weight:600">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:11px;color:var(--mu);font-weight:400">${esc(item.client_name)}</span>`:''}</td>
-      <td class="r" style="padding:9px 8px;color:${isRecv?'var(--g)':'var(--rd)'};font-family:'Inter',sans-serif;font-weight:700">${brl(item.amount)}</td>
-      <td style="padding:9px 8px">${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
-      <td style="padding:9px 8px"><span class="status-badge ${ovd?'s-vencido':'s-pendente'}">${ovd?'Vencida':'Pendente'}</span></td>
-      <td style="padding:9px 8px">
+      <td style="color:${ovd?'var(--rd)':'var(--tx2)'};font-weight:${ovd?'600':'400'}">${fmtDate(item.due_date)}${ovd?' ⚠':''}</td>
+      <td style="font-weight:600">${esc(item.description)}${isRecv&&item.client_name?`<br><span style="font-size:11px;color:var(--mu);font-weight:400">${esc(item.client_name)}</span>`:''}</td>
+      <td class="r" style="color:${isRecv?'var(--g)':'var(--rd)'};font-family:'Inter',sans-serif;font-weight:700">${brl(item.amount)}</td>
+      <td>${catDot(item.category)} <span style="font-size:11px">${catLabel(item.category)}</span></td>
+      <td><span class="status-badge ${ovd?'s-vencido':'s-pendente'}">${ovd?'Vencida':'Pendente'}</span></td>
+      <td>
         <div style="display:flex;gap:4px">
           <button class="btn sm grn" onclick="markConta('${sub}',${item.id})">✓ ${isRecv?'Recebido':'Pago'}</button>
           <button class="btn sm blu" onclick="openContaModal('${sub}',${item.id})">✎</button>
@@ -2898,14 +2991,14 @@ function buildRecurringContasSection(isRecv) {
     const endLabel = r.end_year&&r.end_month ? `até ${MONTHS_PT[r.end_month-1]}/${r.end_year}` : 'sem encerramento';
     const color = isRecv ? 'var(--g)' : 'var(--rd)';
     return `<tr>
-      <td style="padding:9px 8px">
+      <td>
         <span style="background:rgba(167,139,250,.15);color:var(--pu);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">${domLabel}</span>
       </td>
-      <td style="padding:9px 8px;font-weight:600">${esc(r.description)}${isRecv&&r.client_name&&r.client_name!==r.description?`<br><span style="font-size:11px;color:var(--mu);font-weight:400">${esc(r.client_name)}</span>`:''}</td>
-      <td class="r" style="padding:9px 8px;color:${color};font-family:'Inter',sans-serif;font-weight:700">${brl(r.amount)}</td>
-      <td style="padding:9px 8px"><span style="font-size:11px;color:var(--mu)">${catLabel(r.category)}</span></td>
-      <td style="padding:9px 8px"><span style="font-size:11px;color:var(--mu)">${endLabel}</span></td>
-      <td style="padding:9px 8px">
+      <td style="font-weight:600">${esc(r.description)}${isRecv&&r.client_name&&r.client_name!==r.description?`<br><span style="font-size:11px;color:var(--mu);font-weight:400">${esc(r.client_name)}</span>`:''}</td>
+      <td class="r" style="color:${color};font-family:'Inter',sans-serif;font-weight:700">${brl(r.amount)}</td>
+      <td><span style="font-size:11px;color:var(--mu)">${catLabel(r.category)}</span></td>
+      <td><span style="font-size:11px;color:var(--mu)">${endLabel}</span></td>
+      <td>
         <button class="btn sm" onclick="openRecurringModal()" title="Gerenciar recorrentes">✎ Editar</button>
       </td>
     </tr>`;
