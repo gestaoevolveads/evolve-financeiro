@@ -5033,11 +5033,11 @@ function renderProjecaoTab() {
       <div class="proj-hero-s">${periodoLabel}</div>
     </div>
     <div class="proj-sec">
-      <div class="mc"><div class="ml">Receita projetada</div><div class="mv">${brl(totalProjRev)}</div>
+      <div class="mc"><div class="ml">Receita lançada</div><div class="mv">${brl(totalProjRev)}</div>
         <div class="mv-sub">${futureRows.length} ${futureRows.length===1?'mês':'meses'}</div></div>
-      <div class="mc"><div class="ml">Despesa projetada</div><div class="mv">${brl(totalProjCos)}</div>
-        <div class="mv-sub">${brl(futureRows.length?totalProjCos/futureRows.length:0)}/mês</div></div>
-      <div class="mc"><div class="ml">Resultado projetado</div>
+      <div class="mc"><div class="ml">Despesa do período</div><div class="mv">${brl(totalProjCos)}</div>
+        <div class="mv-sub">${brl(futureRows.length?totalProjCos/futureRows.length:0)}/mês${comRegra?" · com as regras":""}</div></div>
+      <div class="mc"><div class="ml">Resultado do período</div>
         <div class="mv ${totalProjBal>=0?'':'r'}">${brl(totalProjBal)}</div>
         <div class="mv-sub">margem ${avgMargin.toFixed(1).replace('.',',')}%</div></div>
     </div>
