@@ -140,6 +140,16 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .btn.am{}
 .btn.sm{font-size:12px;padding:5px 10px;border-radius:var(--r3)}
 .btn.filled-g{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}.btn.filled-g:hover{background:var(--ac2);border-color:var(--ac2)}
+/* Os tres botoes da linha tinham alturas e modelos de caixa diferentes — um
+   inline-block, outro flex, outro com width forcado por style — e por isso
+   apareciam desencontrados e quebravam para a segunda linha. Agora dividem a
+   mesma altura e o mesmo eixo. */
+.row-acts{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.new-btn,.nr-btn,.rec-btn{height:24px;display:inline-flex;align-items:center;justify-content:center;
+  box-sizing:border-box;flex-shrink:0;margin:0}
+.rec-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);
+  width:24px;color:var(--pu);cursor:pointer;font-size:11px;line-height:1}
+.rec-btn:hover{border-color:var(--pu);background:rgba(167,139,250,.1)}
 .del-btn{background:transparent;border:none;color:var(--mu);cursor:pointer;font-size:14px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:.1s;line-height:1;flex-shrink:0}
 .del-btn:hover{color:var(--rd);background:rgba(255,87,87,.12)}
 .add-row{display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;color:var(--mu);font-size:11px;transition:.15s;border-top:1px solid var(--bdr);border-radius:0 0 10px 10px}
@@ -190,10 +200,10 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .tag-regra{font-size:10px;color:var(--ac);background:var(--ac-soft);border:1px solid var(--ac-ring);
   border-radius:999px;padding:1px 7px;margin-left:6px;font-weight:500}
 .nr-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);font-size:10px;font-weight:600;
-  color:var(--mu);cursor:pointer;padding:3px 6px;line-height:1.2;margin-left:3px}
+  color:var(--mu);cursor:pointer;padding:0 7px}
 .nr-btn.active{border-color:var(--am);color:var(--am);background:color-mix(in srgb,var(--am) 10%,transparent)}
 .nr-btn:hover:not(.active){border-color:var(--bdr2);color:var(--tx2)}
-.new-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);font-size:11px;font-weight:500;color:var(--mu);cursor:pointer;padding:3px 8px;white-space:nowrap}
+.new-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);font-size:11px;font-weight:500;color:var(--mu);cursor:pointer;padding:0 9px;white-space:nowrap}
 .new-btn.active{border-color:var(--ac-ring);color:var(--ac);background:var(--ac-soft)}
 .new-btn:hover:not(.active){border-color:var(--bdr2);color:var(--tx2)}
 
@@ -281,6 +291,51 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .det-tag{font-size:9.5px;padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:1px}
 .det-tot{display:flex;justify-content:space-between;align-items:baseline;
   padding:12px 12px 0;margin-top:8px;border-top:1px solid var(--bdr);font-weight:700}
+/* Projetado x Realizado */
+.pxr{margin-bottom:14px;padding:16px 18px 18px}
+.pxr-top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:16px}
+.pxr-t{font-size:13px;font-weight:600}
+.pxr-s{font-size:11px;color:var(--mu);margin-top:2px}
+.pxr-saldo{text-align:right}
+.pxr-saldo-l{font-size:10.5px;color:var(--mu)}
+.pxr-saldo-v{font-size:22px;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin:1px 0}
+.pxr-saldo-s{font-size:11px;color:var(--mu);font-variant-numeric:tabular-nums}
+.pxr-g{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.pxr-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.pxr-rot{font-size:11.5px;color:var(--mu)}
+.pxr-num{font-size:13px;font-variant-numeric:tabular-nums}
+.pxr-de{font-size:11px;color:var(--mu);margin-left:3px}
+.pxr-track{height:6px;background:var(--s2);border-radius:99px;overflow:hidden}
+.pxr-fill{height:100%;border-radius:99px;transition:width .45s cubic-bezier(.4,0,.2,1)}
+.pxr-pe{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:10.5px;color:var(--mu)}
+.pxr-falta:hover{color:var(--ac);text-decoration:underline;text-underline-offset:2px}
+.pxr-ok{color:var(--g)}
+.pxr-bar{margin-top:18px;padding-top:14px;border-top:1px solid var(--bdr)}
+.pxr-bar-t{height:4px;background:var(--s2);border-radius:99px;overflow:hidden}
+.pxr-bar-f{height:100%;background:linear-gradient(90deg,var(--g),var(--ac));border-radius:99px;
+  transition:width .5s cubic-bezier(.4,0,.2,1)}
+.pxr-bar-p{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:10.5px;color:var(--mu);
+  font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){.pxr-fill,.pxr-bar-f{transition:none}}
+@media(max-width:700px){.pxr-g{grid-template-columns:1fr}}
+.nrr-q{font-size:14px;line-height:1.5;margin:14px 0;padding:14px 16px;background:var(--ac-soft);
+  border-left:3px solid var(--ac);border-radius:0 10px 10px 0}
+.nrr-conta{background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:6px 4px;margin-bottom:12px}
+.nrr-l{display:flex;justify-content:space-between;gap:14px;padding:8px 12px;font-size:12.5px;
+  font-variant-numeric:tabular-nums}
+.nrr-l span{color:var(--tx2)}
+.nrr-l.up b{color:var(--g)} .nrr-l.down b{color:var(--rd)}
+.nrr-l.tot{border-top:1px solid var(--bdr);margin-top:4px;padding-top:10px;font-weight:600}
+.nrr-l.tot span{color:var(--tx)}
+.nrr-res{text-align:center;font-size:15px;padding:12px;background:var(--s1);border:1px solid var(--bdr);
+  border-radius:10px;font-variant-numeric:tabular-nums}
+.nrr-res b{font-size:20px;color:var(--ac);margin-left:4px}
+.det-expl{margin-top:12px;background:var(--s2);border:1px solid var(--bdr);
+  border-radius:10px;padding:12px 14px}
+.det-expl-t{font-size:12px;font-weight:600;margin-bottom:6px}
+.det-expl-b{font-size:11.5px;color:var(--tx2);line-height:1.55}
+.det-chip{display:inline-block;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;
+  padding:2px 7px;margin:2px 4px 2px 0;font-size:11px;font-variant-numeric:tabular-nums}
 .det-grp{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);
   margin:14px 0 6px;padding:0 12px}
 .clicavel{cursor:pointer}
@@ -319,6 +374,15 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .pj-zero{color:var(--mu);opacity:.45}
 .pj-money{text-align:right;font-weight:600;font-size:12.5px}
 .pj-big{text-align:right;font-family:var(--ff);font-weight:700;font-size:12.5px}
+.pj-faixa{font-size:9.5px;padding:2px 6px;border-radius:5px;margin-left:6px;
+  background:rgba(224,168,0,.14);color:#9A7B1F;border:1px solid rgba(224,168,0,.3);
+  white-space:nowrap;cursor:help}
+.pj-imp{border:1px solid var(--bdr);background:var(--s1);font:inherit;font-size:11px;
+  color:var(--mu);padding:5px 11px;border-radius:8px;cursor:pointer;margin-left:8px;
+  transition:background .15s,color .15s,border-color .15s}
+.pj-imp:hover:not(:disabled){color:var(--tx);border-color:var(--mu)}
+.pj-imp.on{background:var(--ac-soft);border-color:var(--ac-ring);color:var(--ac);font-weight:600}
+.pj-imp:disabled{opacity:.4;cursor:not-allowed}
 .pj-den{display:inline-flex;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:2px}
 .pj-den button{border:none;background:none;font:inherit;font-size:11px;color:var(--mu);
   padding:4px 10px;border-radius:6px;cursor:pointer}
@@ -574,13 +638,23 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .prev-v{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:3px 0;font-variant-numeric:tabular-nums}
 .prev-v.up{color:var(--g)} .prev-v.down{color:var(--rd)}
 .prev-n{font-size:11px;color:var(--mu)}
-.prev-prem{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;padding-top:13px;border-top:1px solid var(--bdr)}
-.prev-prem label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--mu)}
+/* Era flex com align-items:flex-end. Como cada label tem um numero diferente de
+   linhas de apoio embaixo, os campos paravam em alturas diferentes e a faixa
+   inteira ficava desencontrada. Grid alinha pelo topo e da largura igual. */
+.prev-prem{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:14px 18px;
+  align-items:start;padding-top:14px;border-top:1px solid var(--bdr)}
+.prev-prem label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--mu);min-width:0}
+.prev-prem>label>span:first-of-type{min-height:15px}
 .prev-prem input{background:var(--input-bg);border:1px solid var(--bdr);border-radius:var(--r3);
-  padding:7px 9px;color:var(--tx);font-family:var(--ff);font-size:12.5px;outline:none;width:120px;font-variant-numeric:tabular-nums}
+  padding:7px 9px;color:var(--tx);font-family:var(--ff);font-size:12.5px;outline:none;width:100%;
+  max-width:150px;box-sizing:border-box;font-variant-numeric:tabular-nums}
 .prev-prem input:disabled{opacity:.7;cursor:default}
 .prev-prem input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
-.prev-eq{font-size:10.5px;color:var(--mu)}
+.prev-eq{font-size:10.5px;color:var(--mu);line-height:1.45}
+.ajuda{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;
+  border-radius:50%;border:1px solid var(--bdr2,var(--bdr));color:var(--mu);font-size:9px;
+  font-weight:700;cursor:pointer;vertical-align:1px;margin-left:3px;user-select:none}
+.ajuda:hover,.ajuda:focus{border-color:var(--ac);color:var(--ac);background:var(--ac-soft);outline:none}
 .prev-nota{font-size:11px;color:var(--mu);line-height:1.6;margin-top:12px;padding-top:11px;border-top:1px solid var(--bdr)}
 @media(max-width:820px){.prev-g{grid-template-columns:1fr}}
 
@@ -786,6 +860,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
+
+<div id="nrr-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharNRR()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title"><span>O que é NRR</span>
+      <button class="btn sm" onclick="fecharNRR()">Fechar</button></div>
+    <div id="nrr-body"></div>
+  </div>
+</div>
 
 <div id="tempo-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharTempoCasa()">
   <div class="modal" style="max-width:620px">
@@ -1373,6 +1455,136 @@ function mesEhFuturo(m){
 // Custos EFETIVOS do mês, em um lugar só, para não existirem duas verdades.
 // Num mês futuro, o item coberto por regra sai da lista e entra a linha
 // calculada pela regra — nunca os dois, senão o valor duplicaria.
+// ══════════════════════════════════════════════════════════════════════════
+// FISCAL — Simples Nacional, Anexo III
+// Faixas da LC 123/2006, Anexo III (serviços). A Evolve entra aqui pelo CNAE
+// 6319-4/00 e, conforme a contabilidade, sem sujeicao ao Fator R — o Anexo III
+// e direto. A aliquota EFETIVA nao e a nominal da faixa: desconta a parcela a
+// deduzir sobre a receita dos ultimos 12 meses (RBT12).
+//   efetiva = (RBT12 × nominal − deducao) ÷ RBT12
+// Na 1a faixa a deducao e zero, entao efetiva = 6% — o numero da proposta.
+// ══════════════════════════════════════════════════════════════════════════
+const ANEXO_III = [
+  {faixa:1, ate:  180000, aliq:0.060, ded:      0},
+  {faixa:2, ate:  360000, aliq:0.112, ded:   9360},
+  {faixa:3, ate:  720000, aliq:0.135, ded:  17640},
+  {faixa:4, ate: 1800000, aliq:0.160, ded:  35640},
+  {faixa:5, ate: 3600000, aliq:0.210, ded: 125640},
+  {faixa:6, ate: 4800000, aliq:0.330, ded: 648000},
+];
+function faixaAnexoIII(rbt12){
+  return ANEXO_III.find(f=>rbt12<=f.ate) || ANEXO_III[ANEXO_III.length-1];
+}
+function aliquotaEfetiva(rbt12){
+  if(!(rbt12>0)) return ANEXO_III[0].aliq;
+  const f = faixaAnexoIII(rbt12);
+  return Math.max(0, (rbt12*f.aliq - f.ded)/rbt12);
+}
+
+// Configuracao fiscal, guardada em settings para valer para todo mundo.
+function configFiscal(){
+  const g = k => (S.settings||{})[k];
+  return {
+    ativo:  g('fiscal_ativo') !== '0',                 // nasce ligado
+    auto:   g('fiscal_auto')  !== '0',                 // progressivo por faixa
+    pct:    parseFloat(String(g('fiscal_pct')||'6').replace(',','.')) || 6,
+    parc:   (()=>{ try { return JSON.parse(g('fiscal_parcelamento')||'null'); }
+                   catch(_){ return null; } })()
+  };
+}
+
+// Receita bruta dos ultimos 12 meses ate o mes m, inclusive. Mes fechado usa o
+// realizado; mes a frente usa o previsto, porque e sobre ele que o imposto vai
+// incidir quando chegar la.
+// Le a receita direto das linhas, sem passar por calcMonth: calcMonth chama
+// custosEfetivos, que chama o imposto, que chamaria isto aqui de volta —
+// recursao infinita. Receita nao depende de custo, entao a volta e desnecessaria.
+function rbt12De(m, prevPorMes){
+  const fim = m.year*12 + m.month;
+  const somaRev = x => (x.revenues||[])
+      .filter(r => mesEhFuturo(x) || !r.status || r.status==='realizado')
+      .reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
+  return (S.months||[]).reduce((s,x)=>{
+    const k = x.year*12 + x.month;
+    if(k > fim || k <= fim-12) return s;
+    const prev = prevPorMes && prevPorMes[x.year*100+x.month];
+    return s + (prev!=null ? prev : somaRev(x));
+  }, 0);
+}
+
+// Imposto do mes: receita do mes × aliquota efetiva sobre o RBT12.
+function impostoDoMes(m, receitaMes, prevPorMes){
+  const cfg = configFiscal();
+  if(!cfg.ativo) return null;
+  const rbt = rbt12De(m, prevPorMes);
+  const aliq = cfg.auto ? aliquotaEfetiva(rbt) : cfg.pct/100;
+  return { valor: (receitaMes||0)*aliq, aliq, rbt,
+           faixa: cfg.auto ? faixaAnexoIII(rbt).faixa : null, auto: cfg.auto };
+}
+
+// Parcelamento de imposto retroativo: valor fixo entre duas competencias.
+// Fica desligado ate a contabilidade fechar o numero. Como e gerado aqui e nao
+// lancado no banco, nao ha risco de duplicar quando for lancado de verdade —
+// basta desligar.
+function parcelaDoMes(m){
+  const {parc} = configFiscal();
+  if(!parc || !parc.ativo || !(parc.valor>0)) return null;
+  const k = m.year*12 + m.month;
+  const [ay,am] = String(parc.inicio||'').split('-').map(Number);
+  const [by,bm] = String(parc.fim||'').split('-').map(Number);
+  if(!ay||!am) return null;
+  if(k < ay*12+am) return null;
+  if(by && bm && k > by*12+bm) return null;
+  return { valor: parc.valor, desc: parc.desc || 'Parcelamento de imposto' };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// IMPREVISTOS — reserva de contingência
+// A projecao soma so o que esta cadastrado, e nenhum mes fechado teve zero de
+// gasto nao planejado. A reserva fecha essa diferenca sem inventar item.
+//
+// Metodo: MEDIANA do custo total dos ultimos 6 meses fechados (fora imposto,
+// que agora tem calculo proprio) menos o custo ja cadastrado do mes projetado.
+// Mediana e nao media porque a serie e curta e tem outlier — junho custou
+// R$ 12 mil e a media seria arrastada por ele. O piso e zero: se o mes ja tem
+// mais cadastrado que a mediana historica, nao ha o que reservar.
+//
+// Isso NAO cria despesa nova: aproxima o previsto do que a empresa de fato
+// gasta. E o mesmo raciocinio que a aba Fluxo ja fazia com medias, agora
+// explicito e auditavel.
+// ══════════════════════════════════════════════════════════════════════════
+const MESES_BASE_IMPREV = 6;
+function imprevistosLigado(){ return (S.settings||{}).imprevistos === '1'; }
+
+function baseImprevistos(){
+  const hoje = new Date(), atual = hoje.getFullYear()*12 + (hoje.getMonth()+1);
+  const fechados = (S.months||[])
+    .filter(m => (m.year*12+m.month) < atual)
+    .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
+    .map(m => ({ m, v: (m.costs||[])
+        .filter(c => (!c.status || c.status==='realizado') && c.category!=='imposto')
+        .reduce((s,c)=>s+(parseFloat(c.amount)||0),0) }))
+    .filter(x => x.v > 0);
+  const ult = fechados.slice(-MESES_BASE_IMPREV);
+  if(ult.length < 3) return null;                    // amostra curta demais
+  const vs = ult.map(x=>x.v).sort((a,b)=>a-b);
+  const meio = Math.floor(vs.length/2);
+  const mediana = vs.length%2 ? vs[meio] : (vs[meio-1]+vs[meio])/2;
+  return { mediana, meses: ult.length,
+           menor: vs[0], maior: vs[vs.length-1],
+           detalhe: ult.map(x=>({mes:x.m.month, ano:x.m.year, v:x.v})) };
+}
+
+// custoCadastrado = o que ja existe no mes, sem imposto e sem a propria reserva
+function imprevistoDoMes(custoCadastrado){
+  if(!imprevistosLigado()) return null;
+  const b = baseImprevistos();
+  if(!b) return null;
+  const valor = Math.max(0, b.mediana - (custoCadastrado||0));
+  if(valor < 1) return null;
+  return { valor, base: b };
+}
+
 // Fonte unica das premissas em uso pela Projecao. Tudo que projeta — a receita
 // da aba, a carteira que alimenta as regras de custo e a linha oficial do
 // simulador — tem de ler daqui, senao voltam a existir tres verdades.
@@ -1416,28 +1628,60 @@ function carteiraProjetada(m){
 
 function custosEfetivos(m, paraProjecao){
   const base=(m.costs||[]).map(c=>({...c, viaRegra:false}));
-  if(!mesEhFuturo(m) || !(S.costRules||[]).length) return base;
-  const {nClientes, novos, tk} = carteiraProjetada(m);
-  // Um item ja confirmado no mes manda mais que a regra: se alguem lancou e
-  // confirmou "Adriano" ali, a regra nao pode somar uma segunda linha por cima.
-  const confirmados = new Set(base.filter(c=>c.status && c.status!=='projetado')
-      .map(c=>semAcento(c.name)));
-  const jaConfirmado = nome => {
-    const n = semAcento(nome||'');
-    for(const cf of confirmados){ if(n===cf || n.includes(cf) || cf.includes(n)) return true; }
-    return false;
-  };
-  // o lancamento projetado coberto por regra sai; o confirmado fica
-  const semCobertos=base.filter(c=>!temRegra(c.name) || jaConfirmado(c.name));
-  const calc=custoPorRegras(nClientes, novos, tk).linhas
-    .filter(l=>!jaConfirmado(l.nome))
-    .filter(l=>paraProjecao || !l.regra.so_projecao)
-    .map(l=>({
-      id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
-      category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true,
-      regra:l.regra, mes_id:m.id
-    }));
-  return [...semCobertos, ...calc];
+  const futuro = mesEhFuturo(m);
+  const fiscal = configFiscal();
+  // Com o calculo fiscal ligado, o imposto lancado a frente sai da lista: quem
+  // manda passa a ser a aliquota sobre a receita do mes. Sem isso o DAS antigo
+  // e o novo se somariam.
+  const semImposto = (futuro && fiscal.ativo)
+      ? base.filter(c=>c.category!=='imposto' || (c.status && c.status!=='projetado'))
+      : base;
+  if(!futuro) return semImposto;
+
+  let lista = semImposto;
+  if((S.costRules||[]).length){
+    const {nClientes, novos, tk} = carteiraProjetada(m);
+    const confirmados = new Set(semImposto.filter(c=>c.status && c.status!=='projetado')
+        .map(c=>semAcento(c.name)));
+    const jaConfirmado = nome => {
+      const n = semAcento(nome||'');
+      for(const cf of confirmados){ if(n===cf || n.includes(cf) || cf.includes(n)) return true; }
+      return false;
+    };
+    const semCobertos=semImposto.filter(c=>!temRegra(c.name) || jaConfirmado(c.name));
+    const calc=custoPorRegras(nClientes, novos, tk).linhas
+      .filter(l=>!jaConfirmado(l.nome))
+      .filter(l=>paraProjecao || !l.regra.so_projecao)
+      .map(l=>({
+        id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
+        category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true,
+        regra:l.regra, mes_id:m.id
+      }));
+    lista = [...semCobertos, ...calc];
+  }
+
+  // Reserva de imprevistos: completa ate a mediana historica. Vem antes do
+  // imposto de proposito — imposto incide sobre receita, nao sobre custo.
+  const semReserva = lista.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const imp = imprevistoDoMes(semReserva);
+  if(imp) lista = [...lista, {
+    id:'imprev-'+m.id, name:'Imprevistos (reserva)', amount:imp.valor, payment_date:'',
+    category:'outros', status:'projetado', viaImprevisto:true, base:imp.base, mes_id:m.id }];
+
+  // Imposto pela aliquota efetiva e parcela de imposto retroativo
+  if(fiscal.ativo){
+    const rev = (m.revenues||[]).reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+    const fx = impostoDoMes(m, rev);
+    if(fx && fx.valor>0) lista = [...lista, {
+      id:'fiscal-'+m.id, name:'Simples Nacional — DAS', amount:fx.valor, payment_date:'',
+      category:'imposto', status:'projetado', viaFiscal:true, fiscal:fx, mes_id:m.id }];
+  }
+  const pc = parcelaDoMes(m);
+  if(pc) lista = [...lista, {
+    id:'parc-'+m.id, name:pc.desc, amount:pc.valor, payment_date:'',
+    category:'imposto', status:'projetado', viaParcela:true, mes_id:m.id }];
+
+  return lista;
 }
 function calcMonth(m, paraProjecao) {
   const custos = custosEfetivos(m, paraProjecao);
@@ -2349,11 +2593,16 @@ function renderMonthTab(mid) {
           ${REV_CATS.map(c=>`<option value="${c}" ${c===r.category?'selected':''}>${catLabel(c)}</option>`).join('')}
         </select>
       </td>
-      <td style="white-space:nowrap">
-        <button class="new-btn ${r.is_new_client?'active':''}" onclick="toggleNewClient(${mid},${r.id},this)">${r.is_new_client?'★ Novo':'☆ Novo'}</button>
-        <button class="nr-btn ${r.nonrecurring==1?'active':''}" title="Item não recorrente — entra no Cenário A do fechamento"
-          onclick="toggleNonRec('revenue',${mid},${r.id},this)">NR</button>
-        ${!hasRec?`<button class="del-btn" title="Tornar recorrente" onclick="openMakeRecurringModal('revenue',${r.id})" style="font-size:11px;width:22px;height:22px;color:var(--pu)">🔁</button>`:''}
+      <td>
+        <div class="row-acts">
+          <button class="new-btn ${r.is_new_client?'active':''}" title="Marca que este cliente entrou neste mês"
+            onclick="toggleNewClient(${mid},${r.id},this)">${r.is_new_client?'★ Novo':'☆ Novo'}</button>
+          <button class="nr-btn ${r.nonrecurring==1?'active':''}"
+            title="NR = Não Recorrente. Trabalho pontual: fica fora da carteira, então o fim dele não conta como cliente perdido."
+            onclick="toggleNonRec('revenue',${mid},${r.id},this)">NR</button>
+          ${!hasRec?`<button class="rec-btn" title="Tornar recorrente — repete este lançamento todos os meses"
+            onclick="openMakeRecurringModal('revenue',${r.id})">🔁</button>`:''}
+        </div>
       </td>
       <td><button class="del-btn" onclick="deleteRevenue(${mid},${r.id})">✕</button></td>
     </tr>`;
@@ -2365,18 +2614,26 @@ function renderMonthTab(mid) {
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
     // linha vinda de regra vem antes: ela tambem tem status projetado, mas nao
     // existe no banco — confirmar aqui a materializa como despesa do mes
-    if(c.viaRegra){
+    // linhas calculadas: regra de custo, reserva de imprevistos, imposto e
+    // parcelamento. Nao existem no banco — sao recalculadas a cada render.
+    const calc = c.viaRegra ? {tag:'regra', dica:'Calculado pela regra de custo', botao:'Regra', acao:'openRulesModal()'}
+      : c.viaImprevisto ? {tag:'reserva', dica:'Reserva de contingência pela mediana histórica', botao:'Ajustar', acao:'openRulesModal()'}
+      : c.viaFiscal ? {tag:`imposto ${(c.fiscal.aliq*100).toFixed(2).replace('.',',')}%`,
+                       dica:`Alíquota efetiva sobre RRT12 de ${brl(c.fiscal.rbt)}`, botao:'Regra', acao:'openRulesModal()'}
+      : c.viaParcela ? {tag:'parcelamento', dica:'Parcela de imposto retroativo', botao:'Ajustar', acao:'openRulesModal()'}
+      : null;
+    if(calc){
       return `<tr class="linha-regra">
         <td class="sel-col"></td>
         <td><span style="font-size:12px">${esc(c.name)}</span>
-            <span class="tag-regra" title="Calculado pela regra de custo">regra</span></td>
+            <span class="tag-regra" title="${esc(calc.dica)}">${calc.tag}</span></td>
         <td class="r"><span style="font-weight:600;font-size:12px">${fmtAmt(c.amount)}</span></td>
         <td><span style="font-size:11px;color:var(--mu)">—</span></td>
         <td><span style="font-size:11px;color:var(--mu)">${catLabel(c.category)}</span></td>
         <td style="white-space:nowrap">
-          <button class="btn sm grn" title="Lançar este valor como despesa do mês"
-            onclick="confirmarRegra(${mid},'${esc(c.name).replace(/'/g,"\\'")}',${c.amount},'${c.category}')">✓ Confirmar</button>
-          <button class="btn sm" onclick="openRulesModal()">Regra</button>
+          ${c.viaImprevisto?'':`<button class="btn sm grn" title="Lançar este valor como despesa do mês"
+            onclick="confirmarRegra(${mid},'${esc(c.name).replace(/'/g,"\\'")}',${c.amount},'${c.category}')">✓ Confirmar</button>`}
+          <button class="btn sm" onclick="${calc.acao}">${calc.botao}</button>
         </td>
         <td></td>
       </tr>`;
@@ -2413,10 +2670,14 @@ function renderMonthTab(mid) {
           ${COST_CATS.map(cat=>`<option value="${cat}" ${cat===c.category?'selected':''}>${catLabel(cat)}</option>`).join('')}
         </select>
       </td>
-      <td style="white-space:nowrap">
-        <button class="nr-btn ${c.nonrecurring==1?'active':''}" title="Item não recorrente — entra no Cenário A do fechamento"
-          onclick="toggleNonRec('cost',${mid},${c.id},this)">NR</button>
-        ${!hasRec?`<button class="del-btn" title="Tornar recorrente" onclick="openMakeRecurringModal('cost',${c.id})" style="font-size:11px;width:22px;height:22px;color:var(--ac)">↻</button>`:''}
+      <td>
+        <div class="row-acts">
+          <button class="nr-btn ${c.nonrecurring==1?'active':''}"
+            title="NR = Não Recorrente. Gasto pontual, que não deve se repetir todo mês."
+            onclick="toggleNonRec('cost',${mid},${c.id},this)">NR</button>
+          ${!hasRec?`<button class="rec-btn" style="color:var(--ac)" title="Tornar recorrente — repete esta despesa todos os meses"
+            onclick="openMakeRecurringModal('cost',${c.id})">↻</button>`:''}
+        </div>
       </td>
       <td><button class="del-btn" onclick="deleteCost(${mid},${c.id})">✕</button></td>
     </tr>`;
@@ -2575,34 +2836,51 @@ function updateSummary(mid) {
   const cosPct=sc.cosProj>0?Math.min(sc.cos/sc.cosProj*100,100):100;
   const balProjCol=sc.balProj>=0?'var(--g)':'var(--rd)';
   const balRealCol=sc.bal>=0?'var(--g)':'var(--rd)';
-  pp.innerHTML=`<div class="card" style="margin-bottom:14px;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.04)">
-    <div class="ct" style="color:var(--pu)">Projetado × Realizado</div>
-    <div class="g3" style="margin-bottom:10px">
-      <div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span style="color:var(--mu)">Receita</span>
-          <span><span style="color:var(--g);font-weight:700">${brl(sc.rev)}</span> <span style="color:var(--mu)">/ ${brl(sc.revProj)}</span></span>
-        </div>
-        <div class="prog-track"><div class="prog-fill" style="width:${revPct}%;background:var(--g)"></div></div>
-        <div style="font-size:11px;color:var(--mu);margin-top:3px">${revPct.toFixed(0)}% realizado</div>
+  // Antes eram tres barras soltas com dois numeros cada e uma seta no meio: dava
+  // para ler tudo e nao entender nada. Agora a pergunta vem primeiro — quanto
+  // falta fechar — e cada linha mostra o quanto ja andou, com o que falta
+  // nomeado ao lado. O saldo vira uma faixa unica com a posicao atual sobre ela.
+  const abertosRev = m.revenues.filter(r=>r.status==='projetado');
+  const abertosCos = (m.costs||[]).filter(c=>c.status==='projetado');
+  const faltaRev = sc.revProj - sc.rev, faltaCos = sc.cosProj - sc.cos;
+  const linhaPxr = (rot, feito, total, cor, abertos, verbo) => {
+    const pct = total>0 ? Math.min(feito/total*100,100) : (feito>0?100:0);
+    const falta = total - feito;
+    return `<div class="pxr-l">
+      <div class="pxr-h">
+        <span class="pxr-rot">${rot}</span>
+        <span class="pxr-num"><b style="color:${cor}">${brl(feito)}</b>
+          <span class="pxr-de">de ${brl(total)}</span></span>
       </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span style="color:var(--mu)">Despesa</span>
-          <span><span style="color:var(--rd);font-weight:700">${brl(sc.cos)}</span> <span style="color:var(--mu)">/ ${brl(sc.cosProj)}</span></span>
-        </div>
-        <div class="prog-track"><div class="prog-fill" style="width:${cosPct}%;background:var(--rd)"></div></div>
-        <div style="font-size:11px;color:var(--mu);margin-top:3px">${cosPct.toFixed(0)}% realizado</div>
+      <div class="pxr-track"><div class="pxr-fill" style="width:${pct}%;background:${cor}"></div></div>
+      <div class="pxr-pe">
+        <span>${pct.toFixed(0)}% ${verbo}</span>
+        ${falta>0.5?`<span class="pxr-falta" ${abertos.length?`onclick="abrirDetalhe(${mid},'${rot==='Receita'?'rev':'cos'}')" style="cursor:pointer"`:''}>
+          falta ${brl(falta)}${abertos.length?` · ${abertos.length} ${abertos.length===1?'item':'itens'}`:''}</span>`:'<span class="pxr-ok">fechado</span>'}
       </div>
+    </div>`;
+  };
+  const posSaldo = sc.balProj>0 ? Math.max(0,Math.min(sc.bal/sc.balProj*100,100)) : 0;
+  pp.innerHTML=`<div class="card pxr">
+    <div class="pxr-top">
       <div>
-        <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Saldo</div>
-        <div style="display:flex;gap:12px;align-items:center">
-          <div><div style="font-size:11px;color:var(--mu);">Projetado</div><div style="font-family:var(--ff);font-weight:700;font-size:14px;color:${balProjCol}">${brl(sc.balProj)}</div></div>
-          <div style="color:var(--mu)">→</div>
-          <div><div style="font-size:11px;color:var(--mu);">Realizado</div><div style="font-family:var(--ff);font-weight:700;font-size:14px;color:${balRealCol}">${brl(sc.bal)}</div></div>
-        </div>
+        <div class="pxr-t">Quanto do mês já fechou</div>
+        <div class="pxr-s">O projetado inclui o que ainda está pendente de confirmação</div>
+      </div>
+      <div class="pxr-saldo">
+        <div class="pxr-saldo-l">Saldo projetado</div>
+        <div class="pxr-saldo-v" style="color:${sc.balProj>=0?'var(--ac)':'var(--rd)'}">${brl(sc.balProj)}</div>
+        <div class="pxr-saldo-s">realizado até agora <b style="color:${sc.bal>=0?'var(--g)':'var(--rd)'}">${brl(sc.bal)}</b></div>
       </div>
     </div>
+    <div class="pxr-g">
+      ${linhaPxr('Receita', sc.rev, sc.revProj, 'var(--g)', abertosRev, 'recebido')}
+      ${linhaPxr('Despesa', sc.cos, sc.cosProj, 'var(--rd)', abertosCos, 'pago')}
+    </div>
+    ${sc.balProj>0?`<div class="pxr-bar">
+      <div class="pxr-bar-t"><div class="pxr-bar-f" style="width:${posSaldo}%"></div></div>
+      <div class="pxr-bar-p"><span>R$ 0</span><span>${posSaldo.toFixed(0)}% do saldo do mês já é dinheiro em caixa</span><span>${brl(sc.balProj)}</span></div>
+    </div>`:''}
   </div>`;
 }
 
@@ -4204,7 +4482,104 @@ function renderRules(){
         no cálculo da Projeção e do simulador, mas não aparece lançado na aba do mês como se
         fosse compromisso certo.</div>
     </div>
-    <div id="rg-erro" class="sim-erro" style="display:none"></div>`;
+    <div id="rg-erro" class="sim-erro" style="display:none"></div>
+
+    ${blocoFiscal()}`;
+}
+
+// Regras fiscais: aliquota e parcelamento de imposto retroativo. Ficam aqui
+// junto das regras de custo porque sao a mesma coisa — custo que a projecao
+// calcula sozinha em vez de esperar alguem lancar.
+function blocoFiscal(){
+  const f = configFiscal();
+  const p = f.parc || {ativo:false, valor:0, inicio:'', fim:'', desc:'Parcelamento de imposto'};
+  const hoje = new Date();
+  const mAtual = (S.months||[]).find(m=>m.year===hoje.getFullYear() && m.month===hoje.getMonth()+1);
+  const rbt = mAtual ? rbt12De(mAtual) : 0;
+  const efetiva = aliquotaEfetiva(rbt);
+  const fx = faixaAnexoIII(rbt);
+  const proxima = ANEXO_III[ANEXO_III.indexOf(fx)+1];
+  const falta = proxima ? fx.ate - rbt : null;
+
+  return `
+  <div class="sim-card" style="margin-top:16px">
+    <div class="sim-card-h">Imposto</div>
+    <div class="sim-card-b" style="flex-wrap:wrap">
+      <label style="flex-direction:row;align-items:center;gap:6px;padding-top:14px">
+        <input type="checkbox" ${f.ativo?'checked':''} style="width:auto;margin:0"
+          onchange="setFiscal('fiscal_ativo', this.checked?'1':'0')">
+        <span style="font-size:11px;color:var(--tx2)">Calcular imposto na projeção</span></label>
+      <label style="flex-direction:row;align-items:center;gap:6px;padding-top:14px">
+        <input type="checkbox" ${f.auto?'checked':''} style="width:auto;margin:0"
+          onchange="setFiscal('fiscal_auto', this.checked?'1':'0')">
+        <span style="font-size:11px;color:var(--tx2)">Anexo III progressivo</span></label>
+      <label>Percentual fixo
+        <input value="${String(f.pct).replace('.',',')}" style="width:80px" ${f.auto?'disabled':''}
+          onchange="setFiscal('fiscal_pct', this.value.replace(',','.'))"></label>
+    </div>
+    <div class="rel-help" style="padding:0 14px 12px">
+      ${f.auto
+        ? `Hoje o RBT12 (receita dos últimos 12 meses) está em <b>${brl(rbt)}</b> — faixa ${fx.faixa} do Anexo III,
+           alíquota efetiva de <b>${(efetiva*100).toFixed(2).replace('.',',')}%</b>.
+           ${proxima?`A faixa ${proxima.faixa} começa em ${brl(fx.ate)}: faltam <b>${brl(falta)}</b> de faturamento
+             anual, e lá a alíquota passa a ${(aliquotaEfetiva(fx.ate+1)*100).toFixed(2).replace('.',',')}%
+             e sobe conforme o faturamento.`:''}
+           A projeção recalcula isso mês a mês e marca a linha quando a faixa vira.`
+        : `Percentual fixo sobre a receita de cada mês. Com o Anexo III ligado, o cálculo passa a
+           seguir as faixas da LC 123/2006 e ignora este campo.`}
+      Conforme a Continuwa, a Evolve entra no Anexo III pelo CNAE 6319-4/00, sem sujeição ao Fator R.
+    </div>
+  </div>
+
+  <div class="sim-card" style="margin-top:12px">
+    <div class="sim-card-h">Parcelamento de imposto retroativo</div>
+    <div class="sim-card-b" style="flex-wrap:wrap">
+      <label style="flex-direction:row;align-items:center;gap:6px;padding-top:14px">
+        <input type="checkbox" id="pc-ativo" ${p.ativo?'checked':''} style="width:auto;margin:0"
+          onchange="salvarParcelamento()">
+        <span style="font-size:11px;color:var(--tx2)">Aplicar na projeção</span></label>
+      <label>Descrição<input id="pc-desc" value="${esc(p.desc||'')}" style="width:190px"
+        placeholder="Parcelamento de imposto" onchange="salvarParcelamento()"></label>
+      <label>Valor da parcela<input id="pc-valor" value="${p.valor?brl(p.valor).replace('R$ ',''):''}"
+        style="width:110px" placeholder="0,00" onchange="salvarParcelamento()"></label>
+      <label>De<input id="pc-ini" type="month" value="${esc(p.inicio||'')}" style="width:140px"
+        onchange="salvarParcelamento()"></label>
+      <label>Até<input id="pc-fim" type="month" value="${esc(p.fim||'')}" style="width:140px"
+        onchange="salvarParcelamento()"></label>
+    </div>
+    <div class="rel-help" style="padding:0 14px 12px">
+      Enquanto a contabilidade não fecha o valor, deixe desligado. Quando as guias forem
+      emitidas e lançadas de verdade nos meses, <b>desligue aqui</b> — a linha some da projeção
+      e não há duplicação, porque ela é calculada e nunca gravada como despesa.
+    </div>
+  </div>`;
+}
+
+async function setFiscal(chave, valor){
+  S.settings[chave] = valor;
+  try { await api('PUT','/api/settings',{[chave]:valor}); syncLabel(fmtSync(),'saved'); }
+  catch(err){ alert(err.message); }
+  renderRules();
+  if(S.tab==='projecao') renderProjecaoTab(); else updateDashboard();
+}
+async function salvarParcelamento(){
+  const obj = {
+    ativo:  e('pc-ativo').checked,
+    desc:   e('pc-desc').value.trim() || 'Parcelamento de imposto',
+    valor:  parseAmt(e('pc-valor').value),
+    inicio: e('pc-ini').value,
+    fim:    e('pc-fim').value
+  };
+  if(obj.ativo && (!obj.valor || !obj.inicio)){
+    const err=e('rg-erro'); err.textContent='Para aplicar o parcelamento, informe o valor da parcela e o mês de início.';
+    err.style.display='block'; e('pc-ativo').checked=false; return;
+  }
+  e('rg-erro').style.display='none';
+  const txt = JSON.stringify(obj);
+  S.settings.fiscal_parcelamento = txt;
+  try { await api('PUT','/api/settings',{fiscal_parcelamento:txt}); syncLabel(fmtSync(),'saved'); }
+  catch(err){ alert(err.message); }
+  if(S.tab==='projecao') renderProjecaoTab(); else updateDashboard();
 }
 function ajustaDicaRegra(){
   const t = e('rg-tipo').value;
@@ -4735,9 +5110,12 @@ function drawSim(){
         ${(S.simAjustes||[]).length?`<button class="sim-limpar" onclick="limparSim()">Limpar tudo</button>`:''}</div>
     </div>
 
-    <div class="pj-den" style="margin-bottom:10px">
-      <button class="${vista==='cenario'?'on':''}" onclick="setVistaSim('cenario')">Cenário</button>
-      <button class="${vista==='comparar'?'on':''}" onclick="setVistaSim('comparar')">Comparar com a oficial</button>
+    <div style="display:flex;align-items:center;margin-bottom:10px">
+      <div class="pj-den">
+        <button class="${vista==='cenario'?'on':''}" onclick="setVistaSim('cenario')">Cenário</button>
+        <button class="${vista==='comparar'?'on':''}" onclick="setVistaSim('comparar')">Comparar com a oficial</button>
+      </div>
+      ${botaoImprevistos()}
     </div>
 
     ${vista==='comparar' ? tabelaComparacao(r, linhas) : `
@@ -5204,7 +5582,8 @@ function abrirDetalhe(mid, tipo){
                     st:r.status, nr:r.nonrecurring==1, rec:!!r.recurring_id, regra:false }))
                 : custosEfetivos(m, true).map(c=>({
                     nome:c.name, v:parseFloat(c.amount)||0, cat:c.category,
-                    st:c.status, nr:c.nonrecurring==1, rec:!!c.recurring_id, regra:!!c.viaRegra })))
+                    st:c.status, nr:c.nonrecurring==1, rec:!!c.recurring_id, regra:!!c.viaRegra,
+                    imprev:c.base||null, fiscal:c.fiscal||null, parc:!!c.viaParcela })))
               .filter(x=>x.v!==0)
               .sort((a,b)=>b.v-a.v);
   const total = itens.reduce((s,x)=>s+x.v,0);
@@ -5230,7 +5609,34 @@ function abrirDetalhe(mid, tipo){
         : itens.map(linha).join('')}
     <div class="det-tot"><span>${itens.length} ${itens.length===1?'item':'itens'}</span>
       <span style="color:${cor};font-variant-numeric:tabular-nums">${brl(total)}</span></div>
-    <div class="rel-help" style="padding:10px 12px 0">Ordenado do maior para o menor. A barra mostra o peso de cada linha no total.</div>`
+    <div class="rel-help" style="padding:10px 12px 0">Ordenado do maior para o menor. A barra mostra o peso de cada linha no total.</div>
+    ${(()=>{ const im = itens.find(x=>x.imprev); if(!im) return '';
+      const b = im.imprev;
+      const M = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return `<div class="det-expl">
+        <div class="det-expl-t">De onde vem a reserva de ${brl(im.v)}</div>
+        <div class="det-expl-b">
+          Os últimos ${b.meses} meses fechados custaram, fora imposto:
+          ${b.detalhe.map(d=>`<span class="det-chip">${M[d.mes]} ${brl(d.v)}</span>`).join('')}
+          <div style="margin-top:8px">
+            Mediana <b>${brl(b.mediana)}</b> · já cadastrado neste mês <b>${brl(b.mediana-im.v)}</b> ·
+            reserva <b>${brl(im.v)}</b> para fechar a diferença.
+          </div>
+          <div style="margin-top:6px;color:var(--mu)">
+            Mediana e não média: a série é curta e um mês fora da curva puxaria a média sozinho.
+            A reserva não é uma despesa nova — é o reconhecimento de que nenhum mês fechado
+            gastou só o que estava planejado.
+          </div>
+        </div></div>`; })()}
+    ${(()=>{ const fx = itens.find(x=>x.fiscal); if(!fx) return '';
+      const f = fx.fiscal;
+      return `<div class="det-expl">
+        <div class="det-expl-t">Como o imposto foi calculado</div>
+        <div class="det-expl-b">
+          Receita dos últimos 12 meses (RBT12): <b>${brl(f.rbt)}</b>${f.auto?` · Anexo III, faixa ${f.faixa}`:''}<br>
+          Alíquota efetiva <b>${(f.aliq*100).toFixed(2).replace('.',',')}%</b> sobre a receita do mês = <b>${brl(fx.v)}</b>
+          ${f.auto?'':' · percentual fixo definido nas regras'}
+        </div></div>`; })()}`
     : '<div class="rel-help" style="padding:16px 12px">Nenhum lançamento neste mês.</div>';
   e('det-overlay').style.display='flex';
 }
@@ -5368,6 +5774,73 @@ function renderTempoCasa(){
     <div class="rel-help" style="padding:10px 12px 0">
       Quem está na casa ainda vai somar mais meses — por isso essa média fica abaixo da vida esperada.</div>`;
 }
+
+async function toggleImprevistos(){
+  const novo = imprevistosLigado() ? '0' : '1';
+  S.settings.imprevistos = novo;
+  try { await api('PUT','/api/settings',{imprevistos:novo}); syncLabel(fmtSync(),'saved'); }
+  catch(err){ alert(err.message); }
+  if(S.tab==='projecao') renderProjecaoTab();
+  if(e('sim-overlay') && e('sim-overlay').style.display==='flex') drawSim();
+  updateDashboard();
+}
+function botaoImprevistos(){
+  const on = imprevistosLigado();
+  const b = baseImprevistos();
+  const dica = b ? `Completa até a mediana de ${brl(b.mediana)} dos últimos ${b.meses} meses fechados`
+                 : 'Precisa de pelo menos 3 meses fechados';
+  return `<button class="pj-imp ${on?'on':''}" onclick="toggleImprevistos()" title="${esc(dica)}"
+    ${b?'':'disabled'}>${on?'✓ ':''}Imprevistos</button>`;
+}
+
+// NRR e a metrica que mais gera cara de duvida, entao a explicacao usa os
+// numeros reais da carteira em vez de definicao abstrata.
+function abrirNRR(){
+  const mc = metricasCarteira();
+  const p = mc.pontes || [];
+  const ab  = p.reduce((s,x)=>s+x.ab,0);
+  const exp = p.reduce((s,x)=>s+x.exp,0);
+  const con = p.reduce((s,x)=>s+x.con,0);
+  const chn = p.reduce((s,x)=>s+x.churn,0);
+  const fim = ab + exp - con - chn;
+  const n1 = v => v.toFixed(1).replace('.',',');
+  e('nrr-body').innerHTML = `
+    <div class="rel-hint">NRR quer dizer <b>Net Revenue Retention</b>, ou
+      <b>retenção líquida de receita</b>. Ele responde uma pergunta só:</div>
+
+    <div class="nrr-q">Se eu não vender para <b>nenhum</b> cliente novo,
+      a receita dos clientes que já tenho sobe ou desce?</div>
+
+    <div class="nrr-conta">
+      <div class="nrr-l"><span>Receita que esses clientes traziam no início</span><b>${brl(ab)}</b></div>
+      <div class="nrr-l up"><span>+ aumentaram de contrato</span><b>+ ${brl(exp)}</b></div>
+      <div class="nrr-l down"><span>− diminuíram de contrato</span><b>− ${brl(con)}</b></div>
+      <div class="nrr-l down"><span>− foram embora</span><b>− ${brl(chn)}</b></div>
+      <div class="nrr-l tot"><span>= sobrou desses mesmos clientes</span><b>${brl(fim)}</b></div>
+    </div>
+
+    <div class="nrr-res">
+      ${brl(fim)} ÷ ${brl(ab)} = <b>${(mc.nrr*100).toFixed(1).replace('.',',')}%</b>
+    </div>
+
+    <div class="rel-hint" style="margin-top:14px">
+      ${mc.nrr < 1
+        ? `<b>Está abaixo de 100%, e isso importa.</b> A cada mês, a base que você já tem
+           encolhe sozinha em ${n1((1-mc.nrr)*100)}%. Na prática: <b>vender ${n1((1-mc.nrr)*100)}%
+           a mais só empata</b> — só depois disso a agência começa a crescer de verdade.
+           É por isso que a projeção precisa de entrada de clientes só para ficar parada.`
+        : `<b>Está acima de 100%.</b> Os clientes que você já tem geram mais receita a cada mês,
+           mesmo sem nenhuma venda nova. Quem vende a mais, cresce em cima disso.`}
+    </div>
+
+    <div class="rel-help" style="padding:12px 0 0">
+      Só conta cliente recorrente e só compara com quem já estava na casa — cliente novo
+      fica de fora de propósito, senão a conta mediria venda, não retenção.
+      Calculado sobre ${p.length} ${p.length===1?'transição':'transições'} de mês.
+    </div>`;
+  e('nrr-overlay').style.display='flex';
+}
+function fecharNRR(){ e('nrr-overlay').style.display='none'; }
 
 function blocoCarteira(){
   const u = unitEconomics();
@@ -5552,6 +6025,21 @@ function renderProjecaoTab() {
     rows.forEach(r=>{ acc += (r.projRev - r.projCos); r.cumCashEnd = acc; });
   }
 
+  // faixa do Simples mes a mes: o salto de faixa e o tipo de coisa que so se
+  // descobre quando a guia chega, entao a tabela avisa antes
+  {
+    let ant = null;
+    rows.forEach(r=>{
+      if(!(r.isFuture || r.isCurrent)) return;
+      const fx = impostoDoMes(r.m, r.projRev, prevPorMes);
+      r.fiscal = fx;
+      if(fx && fx.auto){
+        if(ant!=null && fx.faixa !== ant) r.mudouFaixa = fx.faixa;
+        ant = fx.faixa;
+      }
+    });
+  }
+
   const totalProjRev = futureRows.reduce((s,r) => s + r.projRev, 0);
   // "Se nada mudar" tem de somar o LANCADO. projRev ja foi sobrescrito pelo
   // previsto logo acima, entao somar projRev fazia os dois cards mostrarem o
@@ -5616,8 +6104,13 @@ function renderProjecaoTab() {
         <span class="prev-eq">= ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} × ${brl(mc.ticket)} de ticket</span>
         <span class="prev-eq">≈ ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} cliente${(novoUso/(mc.ticket||1))>=2?'s':''}/mês</span>
         <span class="prev-eq">${cadencia(mc.ticket? novoUso/mc.ticket:0,'entra')}</span></label>
-      <label>NRR observado<input value="${(mc.nrr*100).toFixed(1).replace('.',',')}%" disabled>
-        <span class="prev-eq">abaixo de 100% a base encolhe sozinha</span></label>
+      <label><span>NRR observado <span class="ajuda" tabindex="0"
+          onclick="abrirNRR()" onkeydown="if(event.key==='Enter')abrirNRR()"
+          title="O que é NRR — clique para entender">?</span></span>
+        <input value="${(mc.nrr*100).toFixed(1).replace('.',',')}%" disabled>
+        <span class="prev-eq">${mc.nrr<1
+          ? 'abaixo de 100%: os clientes atuais valem menos a cada mês'
+          : 'acima de 100%: os clientes atuais crescem sozinhos'}</span></label>
       <button class="sim-limpar" onclick="S.projChurn=null;S.projNovo=null;S.projCenario='base';renderProjecaoTab()">voltar ao padrão</button>
     </div>
     <div class="prev-nota">
@@ -5871,9 +6364,12 @@ function renderProjecaoTab() {
     <div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;
                 align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div class="ct" style="margin-bottom:0">Detalhamento mês a mês</div>
-      <div class="pj-den">
-        <button class="${completo?'':'on'}" onclick="setDensidadeProj(0)">Essencial</button>
-        <button class="${completo?'on':''}" onclick="setDensidadeProj(1)">Completo</button>
+      <div style="display:flex;align-items:center">
+        <div class="pj-den">
+          <button class="${completo?'':'on'}" onclick="setDensidadeProj(0)">Essencial</button>
+          <button class="${completo?'on':''}" onclick="setDensidadeProj(1)">Completo</button>
+        </div>
+        ${botaoImprevistos()}
       </div>
     </div>
     <div class="pj-wrap">
@@ -5914,7 +6410,8 @@ function renderProjecaoTab() {
                                   : `<span class="${cls}">${numCli(v)}</span>`);
             return `<tr style="${rowBg}">
               <td style="font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">
-                ${MONTHS_FULL[r.m.month-1]} ${r.m.year} ${badge}</td>
+                ${MONTHS_FULL[r.m.month-1]} ${r.m.year} ${badge}${
+                  r.mudouFaixa ? `<span class="pj-faixa" title="A receita dos últimos 12 meses cruza o limite da faixa ${r.mudouFaixa-1}. A alíquota efetiva sobe para ${(r.fiscal.aliq*100).toFixed(2).replace('.',',')}% e continua subindo com o faturamento.">⚠ faixa ${r.mudouFaixa}</span>` : ''}</td>
               <td class="pj-cli pj-sep" style="font-weight:600;color:var(--tx)">${numCli(c.clientes)}</td>
               ${completo?`
               <td class="pj-in">${sinal(c.entram,'pj-in')}</td>
