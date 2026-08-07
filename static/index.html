@@ -686,6 +686,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
+
+<div id="rules-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeRulesModal()">
+  <div class="modal rel-modal">
+    <div class="modal-title"><span>Regras de custo</span>
+      <button class="btn sm" onclick="closeRulesModal()">Fechar</button></div>
+    <div id="rules-body"></div>
+  </div>
+</div>
     </div>
     </main>
   </div>
@@ -2747,6 +2755,7 @@ const ICONS = {
   bonus:      IC('<path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 16.8 6.6 19.7l1.2-6.1L3.3 9.4l6.1-.8z"/>'),
   backup:     IC('<path d="M12 3.5v11M8 11l4 4 4-4"/><path d="M4 17v2.5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V17"/>'),
   restaurar:  IC('<path d="M12 20.5v-11M8 13l4-4 4 4"/><path d="M4 7V4.5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1V7"/>'),
+  regras:     IC('<path d="M4 7h10M4 12h16M4 17h7"/><circle cx="17" cy="7" r="2.2"/><circle cx="14" cy="17" r="2.2"/>'),
   senha:      IC('<rect x="4" y="10" width="16" height="10.5" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
   sair:       IC('<path d="M15 4.5h3.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H15"/><path d="M10 8l-4 4 4 4M6 12h9"/>'),
 };
@@ -2786,6 +2795,7 @@ function buildNav() {
     ${item('audit',ICONS.historico,'Histórico')}
     <button class="side-item" onclick="openCatsModal()"><span class="si-ic">${ICONS.categorias}</span><span class="si-tx">Categorias</span></button>
     <button class="side-item" onclick="openRecurringModal()"><span class="si-ic">${ICONS.recorrentes}</span><span class="si-tx">Recorrentes</span></button>
+    <button class="side-item" onclick="openRulesModal()"><span class="si-ic">${ICONS.regras}</span><span class="si-tx">Regras de custo</span></button>
     <button class="side-item" onclick="openGoalsModal()"><span class="si-ic">${ICONS.metas}</span><span class="si-tx">Metas</span></button>
     <button class="side-item" onclick="openBonusModal()"><span class="si-ic">${ICONS.bonus}</span><span class="si-tx">Bônus</span></button>
 
@@ -3837,6 +3847,134 @@ function premissasObservadas(){
     meses: comDados.length, pares, pontuais
   };
 }
+// ── Regras de custo em degrau ────────────────────────────────────────────────
+// Dado o numero de clientes, o custo e determinado — nao e estimativa, e
+// politica ja acordada. Por isso vale tambem na projecao oficial.
+function regrasVigentes(nClientes){
+  return (S.costRules||[]).filter(r=>r.ativo!==0
+    && nClientes >= (r.min_clientes||0)
+    && (r.max_clientes==null || nClientes <= r.max_clientes));
+}
+// nomes cobertos por alguma regra: o lancamento desses itens em mes futuro
+// e ignorado, senao o valor entraria duas vezes
+function nomesComRegra(){
+  return new Set((S.costRules||[]).filter(r=>r.ativo!==0).map(r=>semAcento(r.nome)));
+}
+function temRegra(nome){
+  const n = semAcento(nome||'');
+  for(const r of nomesComRegra()){ if(n===r || n.includes(r) || r.includes(n)) return true; }
+  return false;
+}
+// custo calculado pelas regras para um mes
+function custoPorRegras(nClientes, nNovos, ticket){
+  const linhas = [];
+  regrasVigentes(nClientes).forEach(r=>{
+    let v = 0;
+    if(r.tipo==='fixo')            v = r.valor;
+    else if(r.tipo==='por_cliente') v = r.valor * nClientes;
+    else if(r.tipo==='pct_primeiro') v = (r.valor/100) * (ticket||0) * (nNovos||0);
+    if(v) linhas.push({nome:r.nome, tipo:r.tipo, valor:v, regra:r});
+  });
+  return {linhas, total: linhas.reduce((s,l)=>s+l.valor,0)};
+}
+async function carregarRegras(force){
+  if(S.costRules && !force) return S.costRules;
+  try { S.costRules = await api('GET','/api/cost-rules'); } catch(_){ S.costRules = []; }
+  return S.costRules;
+}
+
+// ── Tela de regras ───────────────────────────────────────────────────────────
+const TIPO_ROT = {fixo:'Fixo', por_cliente:'Por cliente', pct_primeiro:'% do 1º pagamento'};
+async function openRulesModal(){
+  await carregarRegras(true);
+  renderRules();
+  e('rules-overlay').style.display='flex';
+}
+function closeRulesModal(){ e('rules-overlay').style.display='none'; }
+
+function renderRules(){
+  const mc = metricasCarteira();
+  const rs = (S.costRules||[]).slice().sort((a,b)=>
+    a.nome.localeCompare(b.nome) || (a.min_clientes||0)-(b.min_clientes||0));
+  const faixa = r => `${r.min_clientes||0}${r.max_clientes!=null?` a ${r.max_clientes}`:'+'}`;
+  const vale = r => (mc.baseCli>=(r.min_clientes||0)) && (r.max_clientes==null||mc.baseCli<=r.max_clientes);
+  const valorTxt = r => r.tipo==='fixo' ? brl(r.valor)
+      : r.tipo==='por_cliente' ? `${brl(r.valor)} × cliente`
+      : `${String(r.valor).replace('.',',')}% do 1º pagamento`;
+
+  const hoje = custoPorRegras(mc.baseCli, mc.entramMes, mc.ticket);
+  e('rules-body').innerHTML = `
+    <div class="rel-hint">Dado o número de clientes, estas regras determinam o custo — não são estimativa.
+      A Projeção usa elas nos meses futuros, no lugar do que estiver lançado com o mesmo nome.
+      Hoje você tem <b>${mc.baseCli} clientes</b>.</div>
+
+    <table class="etable plain"><thead><tr>
+      <th class="flush">Nome</th><th class="flush">Tipo</th><th class="r">Valor</th>
+      <th class="flush">Faixa de clientes</th><th class="r">Hoje</th><th style="width:34px"></th>
+    </tr></thead><tbody>
+      ${rs.length? rs.map(r=>`<tr class="${vale(r)?'':'off'}">
+        <td>${esc(r.nome)}</td>
+        <td>${TIPO_ROT[r.tipo]||r.tipo}</td>
+        <td class="r">${valorTxt(r)}</td>
+        <td>${faixa(r)} ${vale(r)?'<span class="rg-on">vigente</span>':''}</td>
+        <td class="r">${vale(r)? brl((hoje.linhas.find(l=>l.regra.id===r.id)||{valor:0}).valor) : '—'}</td>
+        <td><button class="del-btn" onclick="removerRegra(${r.id})" title="Remover">✕</button></td>
+      </tr>`).join('')
+      : '<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:18px">Nenhuma regra cadastrada</td></tr>'}
+    </tbody>
+    ${rs.length?`<tfoot><tr class="tot"><td colspan="4">Custo pelas regras, com ${mc.baseCli} clientes</td>
+      <td class="r">${brl(hoje.total)}</td><td></td></tr></tfoot>`:''}
+    </table>
+
+    <div class="sim-card" style="margin-top:16px">
+      <div class="sim-card-h">Nova regra</div>
+      <div class="sim-card-b">
+        <label>Nome<input id="rg-nome" placeholder="Ex.: Adriano" style="width:150px"></label>
+        <label>Tipo<select id="rg-tipo" onchange="ajustaDicaRegra()">
+          <option value="fixo">Fixo</option><option value="por_cliente">Por cliente</option>
+          <option value="pct_primeiro">% do 1º pagamento</option></select></label>
+        <label><span id="rg-lbl">Valor</span><input id="rg-valor" placeholder="1.500,00" style="width:110px"></label>
+        <label>De<input id="rg-min" placeholder="0" style="width:66px"></label>
+        <label>Até<input id="rg-max" placeholder="sem limite" style="width:96px"></label>
+        <button class="btn filled-g" onclick="criarRegra()">Adicionar</button>
+      </div>
+      <div class="rel-help" style="padding:0 14px 12px" id="rg-dica">Valor fixo por mês, independente do número de clientes.</div>
+    </div>
+    <div id="rg-erro" class="sim-erro" style="display:none"></div>`;
+}
+function ajustaDicaRegra(){
+  const t = e('rg-tipo').value;
+  const d = {fixo:'Valor fixo por mês, independente do número de clientes.',
+             por_cliente:'Multiplicado pelo número de clientes do mês.',
+             pct_primeiro:'Percentual sobre o primeiro pagamento de cada cliente novo.'};
+  e('rg-dica').textContent = d[t]||'';
+  e('rg-lbl').textContent = t==='pct_primeiro' ? 'Percentual' : 'Valor';
+}
+async function criarRegra(){
+  const err=e('rg-erro');
+  const nome=e('rg-nome').value.trim();
+  const tipo=e('rg-tipo').value;
+  const valor=parseAmt(e('rg-valor').value);
+  const min=parseInt(e('rg-min').value,10)||0;
+  const maxRaw=e('rg-max').value.trim();
+  const max=maxRaw===''?null:(parseInt(maxRaw,10));
+  if(!nome){ err.textContent='Informe o nome.'; err.style.display='block'; return; }
+  if(!valor){ err.textContent='Informe o valor.'; err.style.display='block'; return; }
+  if(max!=null && max<min){ err.textContent='A faixa termina antes de começar.'; err.style.display='block'; return; }
+  err.style.display='none';
+  try{
+    await api('POST','/api/cost-rules',{nome,tipo,valor,min_clientes:min,max_clientes:max});
+    await carregarRegras(true); renderRules(); syncLabel(fmtSync(),'saved');
+    if(S.tab==='projecao') renderProjecaoTab();
+  }catch(ex){ err.textContent=ex.message; err.style.display='block'; }
+}
+async function removerRegra(id){
+  if(!await confirm2('Remover regra','A projeção volta a usar o que estiver lançado para esse item.','Remover','red')) return;
+  try{ await api('DELETE','/api/cost-rules/'+id); await carregarRegras(true); renderRules();
+       if(S.tab==='projecao') renderProjecaoTab(); syncLabel(fmtSync(),'saved'); }
+  catch(ex){ alert(ex.message); }
+}
+
 // ── Métricas da carteira recorrente ──────────────────────────────────────────
 // Ponte de MRR mês a mês: abertura + novo + expansão − contração − churn.
 // Tudo sai dos dados, então a cada mês fechado os números se atualizam sozinhos.
@@ -4575,6 +4713,34 @@ function renderProjecaoTab() {
   });
 
   const futureRows = rows.filter(r => r.isFuture || r.isCurrent);
+  const mcRegras = metricasCarteira();
+  // Regras de custo mandam no futuro: o lancamento projetado de um item que
+  // tem regra e ignorado, para o valor nao entrar duas vezes.
+  const comRegra = (S.costRules||[]).length>0;
+  const custoRegras = {};   // chave ano*100+mes -> {total, linhas}
+  if(comRegra){
+    let nCli = mcRegras.baseCli;
+    futureRows.forEach(r=>{
+      const novos = mcRegras.entramMes;
+      custoRegras[r.m.year*100+r.m.month] = custoPorRegras(Math.round(nCli), novos, mcRegras.ticket);
+      nCli = nCli - (nCli*mcRegras.churnPct) + novos;
+    });
+  }
+  // recalcula a despesa dos meses futuros descontando o que a regra cobre
+  if(comRegra){
+    futureRows.forEach(r=>{
+      const k = r.m.year*100+r.m.month;
+      const lancadoCoberto = (r.m.costs||[])
+        .filter(c=>temRegra(c.name)).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+      r.projCos = r.projCos - lancadoCoberto + (custoRegras[k]?custoRegras[k].total:0);
+      r.projBal = r.projRev - r.projCos;
+    });
+  }
+  // caixa acumulado precisa refletir a despesa recalculada
+  if(comRegra){
+    let acc = saldoInicial;
+    rows.forEach(r=>{ acc += (r.projRev - r.projCos); r.cumCashEnd = acc; });
+  }
   const totalProjRev = futureRows.reduce((s,r) => s + r.projRev, 0);
   const totalProjCos = futureRows.reduce((s,r) => s + r.projCos, 0);
   const totalProjBal = totalProjRev - totalProjCos;
@@ -5542,7 +5708,7 @@ function showApp() {
     const mo=localStorage.getItem('ef_meses_open');
     if(mo!==null) S.mesesOpen = mo==='1';
   }catch(_){}
-  buildNav(); buildTabs();
+  buildNav(); buildTabs(); carregarRegras();
   // Restaurar só para sócios — o botão nasce dentro da sidebar, então vem depois do buildNav
   const isSocio=S.user&&S.user.role==='admin';
   const restoreBtn=document.getElementById('restore-btn-topbar');

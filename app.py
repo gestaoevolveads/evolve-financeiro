@@ -197,6 +197,18 @@ def init_db():
             # Blocos de texto dos relatórios (resumo, conclusão, observações).
             # key no formato 'mensal:2026-07:resumo' ou 'semanal:2026-08-03:obs'
             "CREATE TABLE IF NOT EXISTS report_texts (key TEXT PRIMARY KEY, value TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))",
+            # Regras de custo em degrau: fixo, por cliente ou % do 1o pagamento,
+            # cada uma valendo dentro de uma faixa de numero de clientes.
+            """CREATE TABLE IF NOT EXISTS cost_rules (
+                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                 nome         TEXT NOT NULL,
+                 tipo         TEXT NOT NULL DEFAULT 'fixo',
+                 valor        REAL DEFAULT 0,
+                 min_clientes INTEGER DEFAULT 0,
+                 max_clientes INTEGER,
+                 categoria    TEXT DEFAULT 'operacional',
+                 ativo        INTEGER DEFAULT 1,
+                 created_at   TEXT DEFAULT (datetime('now')))""",
         ]:
             try: c.execute(sql)
             except Exception: pass
@@ -981,6 +993,65 @@ def export_data():
         data   = [month_full(c, m['id']) for m in months]
     return jsonify(data)
 
+# ── Regras de custo ───────────────────────────────────────────────────────────
+# Custo em degrau: dado o numero de clientes, o valor e determinado. Nao e
+# estimativa, e politica ja acordada — por isso vale na projecao oficial.
+
+RULE_COLS = {'nome':_s,'tipo':_s,'valor':_f,'min_clientes':lambda v:int(v or 0),
+             'max_clientes':lambda v:(None if v in ('', None) else int(v)),
+             'categoria':_s,'ativo':_b}
+TIPOS_REGRA = ('fixo','por_cliente','pct_primeiro')
+
+@app.get('/api/cost-rules')
+@auth
+def list_cost_rules():
+    with db() as c:
+        rows = c.execute('SELECT * FROM cost_rules WHERE ativo=1 ORDER BY nome, min_clientes').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.post('/api/cost-rules')
+@auth
+def create_cost_rule():
+    d = request.get_json() or {}
+    nome = _s(d.get('nome')).strip()
+    if not nome: return jsonify({'error':'Informe o nome da regra'}), 400
+    tipo = _s(d.get('tipo')) or 'fixo'
+    if tipo not in TIPOS_REGRA: return jsonify({'error':'Tipo inválido'}), 400
+    mx = d.get('max_clientes')
+    mx = None if mx in ('', None) else int(mx)
+    mn = int(d.get('min_clientes') or 0)
+    if mx is not None and mx < mn:
+        return jsonify({'error':'A faixa termina antes de começar'}), 400
+    with db() as c:
+        cur = c.execute('INSERT INTO cost_rules (nome,tipo,valor,min_clientes,max_clientes,categoria) '
+                        'VALUES (?,?,?,?,?,?)',
+                        (nome, tipo, _f(d.get('valor')), mn, mx, _s(d.get('categoria')) or 'operacional'))
+        c.commit()
+        row = c.execute('SELECT * FROM cost_rules WHERE id=?', (cur.lastrowid,)).fetchone()
+    audit(request.user['username'], 'regra_criada', f"{nome} — {tipo} {_f(d.get('valor')):.2f}")
+    return jsonify(dict(row))
+
+@app.put('/api/cost-rules/<int:rid>')
+@auth
+def update_cost_rule(rid):
+    d = request.get_json() or {}
+    if d.get('tipo') and d['tipo'] not in TIPOS_REGRA:
+        return jsonify({'error':'Tipo inválido'}), 400
+    if not partial_update('cost_rules', RULE_COLS, d, rid):
+        return jsonify({'error':'Nada para atualizar'}), 400
+    audit(request.user['username'], 'regra_editada', f"ID {rid}")
+    return jsonify({'success':True})
+
+@app.delete('/api/cost-rules/<int:rid>')
+@auth
+def delete_cost_rule(rid):
+    with db() as c:
+        row = c.execute('SELECT nome FROM cost_rules WHERE id=?', (rid,)).fetchone()
+        c.execute('UPDATE cost_rules SET ativo=0 WHERE id=?', (rid,))
+        c.commit()
+    audit(request.user['username'], 'regra_removida', row['nome'] if row else str(rid))
+    return jsonify({'success':True})
+
 # ── Textos dos relatórios ─────────────────────────────────────────────────────
 # Blocos de redação da Carla (resumo executivo, conclusão, observações).
 # key: 'mensal:2026-07:resumo' | 'semanal:2026-08-03:obs' | 'mensal:2026-07:cat:pro-labore'
@@ -1076,56 +1147,4 @@ def restore():
                     (mid,r.get('name',''),r.get('amount',0),r.get('payment_date',''),
                      r.get('category','operacional'),r.get('sort_order',999)))
         # Goals
-        for g in payload.get('goals', []):
-            c.execute('INSERT OR IGNORE INTO goals (name,target_value,metric,year,month) VALUES (?,?,?,?,?)',
-                (g['name'],g['target_value'],g.get('metric','receita_mensal'),g.get('year',2026),g.get('month',0)))
-        # Categories (optional — skip if not in backup)
-        for cat in payload.get('categories', []):
-            c.execute('INSERT OR IGNORE INTO categories (type,slug,label,color,sort_order) VALUES (?,?,?,?,?)',
-                (cat['type'],cat['slug'],cat['label'],cat.get('color','#6b7fa3'),cat.get('sort_order',99)))
-        # Receivables
-        c.execute('DELETE FROM receivables')
-        for r in payload.get('receivables', []):
-            c.execute('INSERT INTO receivables (description,client_name,amount,due_date,received_date,status,category,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)',
-                (r.get('description',''),r.get('client_name',''),r.get('amount',0),r.get('due_date',''),
-                 r.get('received_date',''),r.get('status','pendente'),r.get('category','servico'),
-                 r.get('notes',''),r.get('created_at','')))
-        # Payables
-        c.execute('DELETE FROM payables')
-        for p in payload.get('payables', []):
-            c.execute('INSERT INTO payables (description,amount,due_date,paid_date,status,category,notes,created_at) VALUES (?,?,?,?,?,?,?,?)',
-                (p.get('description',''),p.get('amount',0),p.get('due_date',''),p.get('paid_date',''),
-                 p.get('status','pendente'),p.get('category','operacional'),p.get('notes',''),p.get('created_at','')))
-        # Settings
-        for key, value in payload.get('settings', {}).items():
-            c.execute('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', (key, str(value)))
-        # Recurring items
-        for r in payload.get('recurring', []):
-            c.execute('INSERT OR IGNORE INTO recurring_items (id,type,description,client_name,amount,category,start_year,start_month,end_year,end_month,active,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                (r.get('id'), r.get('type','revenue'), r.get('description',''), r.get('client_name',''),
-                 r.get('amount',0), r.get('category','servico'),
-                 r.get('start_year',2026), r.get('start_month',1),
-                 r.get('end_year'), r.get('end_month'), r.get('active',1), r.get('created_at','')))
-        c.commit()
-    audit(request.user['username'], 'restore', 'Backup restaurado')
-    return jsonify({'success': True})
-
-# ── Frontend ──────────────────────────────────────────────────────────────────
-
-@app.get('/')
-def index():
-    return send_from_directory('static','index.html')
-
-# ── Start ─────────────────────────────────────────────────────────────────────
-
-if __name__ == '__main__':
-    init_db()
-    print('\n' + '='*52)
-    print('  EVOLVE FINANCEIRO 2026')
-    print('='*52)
-    print('  Usuários:  hudson     / evolve2026')
-    print('             diego      / evolve2026')
-    print('             financeiro / evolve2026')
-    print('  Acesse:    http://localhost:5050')
-    print('='*52 + '\n')
-    app.run(host='0.0.0.0', port=5050, debug=False)
+        for g in payload.get('goals',
