@@ -4320,9 +4320,11 @@ function metricasCarteira(){
 }
 
 // Cenários: multiplicadores declarados sobre as premissas observadas.
-// Com 6 transições e base pequena, usar o pior e o melhor mês observado daria
-// 0% e 32% — extremos que não servem como cenário. Multiplicador é honesto e
-// o usuário vê e edita o que está sendo aplicado.
+// Cenarios sao multiplicadores sobre a premissa Base, nao estatistica: com 6
+// transicoes, usar o pior e o melhor mes observado daria 0% e 32% de churn,
+// extremos que nao servem para planejar. Lidos em clientes, o Base assume 1
+// entrada e 0,7 saida por mes; o Otimista dobra a entrada e corta o churn pela
+// metade; o Pessimista faz o inverso. O usuario ve e edita o que esta aplicado.
 // "0,9 cliente/mes" nao se le. A leitura util e sempre sobre UM cliente: a
 // cada quanto tempo sai um, a cada quanto tempo entra um. Par de inteiros do
 // tipo "7 a cada 10 meses" era exato mas nao ajudava a imaginar a coisa.
@@ -4330,6 +4332,11 @@ function metricasCarteira(){
 // "a cada 25 dias" e exato, enquanto "a cada 4 semanas" se confunde com um mes.
 function cadencia(taxa, verbo){
   if(!taxa || taxa<=0) return '';
+  // a partir de 2 por mes a leitura natural volta a ser o total, nao o intervalo
+  if(taxa >= 1.5 && Math.abs(taxa-Math.round(taxa)) < 0.06){
+    const n = Math.round(taxa);
+    return `${verbo}m ${n} clientes por mês`;
+  }
   const meses = 1/taxa;
   if(meses >= 0.95){
     const x = Math.round(meses*10)/10;
@@ -4349,7 +4356,7 @@ const CHURN_BASE_CLI = 0.7;
 const CENARIOS = {
   pessimista: {rot:'Pessimista', churn:1.5, novo:0.5},
   base:       {rot:'Base',       churn:1.0, novo:1.0},
-  otimista:   {rot:'Otimista',   churn:0.5, novo:1.5},
+  otimista:   {rot:'Otimista',   churn:0.5, novo:2.0},
 };
 
 // O simulador guarda EXATAMENTE os dois numeros que a Projecao usa: churn em
@@ -5578,8 +5585,11 @@ function renderProjecaoTab() {
           e aplica churn e venda nova — os números da tabela, do resultado e do caixa já são esses.</div>
       </div>
       <div class="prev-cen">
-        ${Object.entries(CENARIOS).map(([k,c])=>
-          `<button class="prev-pill ${S.projCenario===k?'on':''}" onclick="S.projCenario='${k}';renderProjecaoTab()">${c.rot}</button>`).join('')}
+        ${Object.entries(CENARIOS).map(([k,c])=>{
+          const ent = (mc.entramProj||0)*c.novo, sai = CHURN_BASE_CLI*c.churn;
+          const dica = `${ent.toFixed(1).replace('.',',')} entrando e ${sai.toFixed(1).replace('.',',')} saindo por mês`;
+          return `<button class="prev-pill ${S.projCenario===k?'on':''}" title="${dica}"
+            onclick="S.projCenario='${k}';renderProjecaoTab()">${c.rot}</button>`;}).join('')}
       </div>
     </div>
     <div class="prev-g">
@@ -5600,8 +5610,10 @@ function renderProjecaoTab() {
         <input value="${(churnUso*100).toFixed(1).replace('.',',')}" onchange="S.projChurn=parseFloat(this.value.replace(',','.'))/${cen.churn};renderProjecaoTab()">
         <span class="prev-eq">≈ ${cliEquiv.toFixed(1).replace('.',',')} cliente${cliEquiv>=2?'s':''}/mês</span>
         <span class="prev-eq">${cadencia(cliEquiv,'sai')}</span></label>
-      <label>Novo MRR por mês
+      <label title="Soma da receita que entra por mês. Não é o fee de um cliente: é quantos clientes entram vezes o ticket médio."
+             >Receita nova por mês
         <input value="${brl(novoUso).replace('R$ ','')}" onchange="S.projNovo=parseAmt(this.value)/${cen.novo};renderProjecaoTab()">
+        <span class="prev-eq">= ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} × ${brl(mc.ticket)} de ticket</span>
         <span class="prev-eq">≈ ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} cliente${(novoUso/(mc.ticket||1))>=2?'s':''}/mês</span>
         <span class="prev-eq">${cadencia(mc.ticket? novoUso/mc.ticket:0,'entra')}</span></label>
       <label>NRR observado<input value="${(mc.nrr*100).toFixed(1).replace('.',',')}%" disabled>
