@@ -2518,9 +2518,30 @@ function buildWeekly(startISO){
   const kFim = fim.getFullYear()*10000+(fim.getMonth()+1)*100+fim.getDate();
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
-  const inWeek = it => { const k=dateKey(it.due_date); return k!==null && k>=kIni && k<=kFim; };
-  const pagar   = (S.payables||[]).filter(inWeek).sort((a,b)=>dateKey(a.due_date)-dateKey(b.due_date));
-  const receber = (S.receivables||[]).filter(inWeek).sort((a,b)=>dateKey(a.due_date)-dateKey(b.due_date));
+  // Pagar e receber saem das tabelas do MES, que e onde os lancamentos vivem de
+  // verdade. Ler da aba Contas deixava o relatorio zerado, porque ela nao e usada.
+  // Datas do mes sao texto livre ("03/08" ou "2026-08-03"), entao o ano do mes
+  // entra como fallback no parse.
+  const pagar = [], receber = [];
+  (S.months||[]).forEach(m=>{
+    (m.costs||[]).forEach(c=>{
+      const k = dateKey(c.payment_date, m.year);
+      if(k===null || k<kIni || k>kFim) return;
+      pagar.push({ id:c.id, _k:k, due_date:c.payment_date, description:c.name,
+                   category:c.category, amount:c.amount,
+                   status: c.status==='projetado' ? 'pendente' : 'pago' });
+    });
+    (m.revenues||[]).forEach(r=>{
+      const k = dateKey(r.received_date, m.year);
+      if(k===null || k<kIni || k>kFim) return;
+      receber.push({ id:r.id, _k:k, due_date:r.received_date, client_name:r.client_name,
+                     description:r.client_name, category:r.category, amount:r.amount,
+                     status: r.status==='projetado' ? 'pendente' : 'recebido',
+                     received_date: r.status==='projetado' ? '' : r.received_date });
+    });
+  });
+  pagar.sort((a,b)=>a._k-b._k);
+  receber.sort((a,b)=>a._k-b._k);
 
   // Inadimplente = a receber, ainda pendente, vencida antes desta semana
   const inad = (S.receivables||[]).filter(r=>{
