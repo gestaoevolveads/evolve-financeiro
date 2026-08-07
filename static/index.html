@@ -4206,8 +4206,8 @@ function exportarCenario(){
 </div>
 
 <div class="kpis">
-  <div class="kpi"><div class="l">Projeção oficial</div><div class="v">${brl(r.finalOf)}</div></div>
-  <div class="kpi hi"><div class="l">Neste cenário</div><div class="v">${brl(r.finalSim)}</div></div>
+  <div class="kpi"><div class="l">Receita lançada</div><div class="v">${brl(r.finalOf)}</div></div>
+  <div class="kpi hi"><div class="l">Receita prevista</div><div class="v">${brl(r.finalSim)}</div></div>
   <div class="kpi"><div class="l">Diferença</div><div class="v" style="color:${r.delta>=0?'#0A7A55':'#C42D25'}">${
     r.delta>=0?'+':'−'} ${brl(Math.abs(r.delta))}</div></div>
 </div>
@@ -4781,7 +4781,7 @@ function renderProjecaoTab() {
   const custoRegras = {};      // custo do CONTRATADO: usa a carteira lançada
   const custoRegrasPrev = {};  // custo do PREVISTO: usa a carteira projetada
   if(comRegra){
-    // Contratado usa o número de clientes que de fato tem lançamento no mês.
+    // A receita lançada usa o número de clientes que de fato tem lançamento no mês.
     // Usar a carteira prevista aqui contaminaria a linha que deve ser
     // defensável com uma estimativa.
     const nomesDoMes = m => new Set((m.revenues||[])
@@ -4812,7 +4812,7 @@ function renderProjecaoTab() {
   const negativoMonths = futureRows.filter(r => r.projBal < 0);
   const endCash = rows.length ? rows[rows.length-1].cumCashEnd : saldoInicial;
 
-  // ── Previsto: contratado é uma linha reta que assume que ninguém sai e
+  // ── Prevista: a receita lançada é uma linha reta que assume que ninguém sai e
   // ninguém entra. O previsto aplica as duas forças, a partir da base real.
   const mc = metricasCarteira();
   if(!S.projCenario) S.projCenario = 'base';
@@ -4844,8 +4844,9 @@ function renderProjecaoTab() {
   <div class="prev-box">
     <div class="prev-h">
       <div>
-        <div class="prev-t">Contratado × Previsto</div>
-        <div class="prev-s">Contratado é o que está lançado. Previsto aplica entrada de clientes e churn sobre a base real de ${brl(mc.baseMRR)}.</div>
+        <div class="prev-t">Receita lançada × Receita prevista</div>
+        <div class="prev-s"><b>Lançada</b> é a soma do que está registrado em cada mês — em geral vindo das recorrências cadastradas.
+          <b>Prevista</b> parte da carteira real de ${brl(mc.baseMRR)} e aplica entrada de clientes e churn.</div>
       </div>
       <div class="prev-cen">
         ${Object.entries(CENARIOS).map(([k,c])=>
@@ -4853,18 +4854,18 @@ function renderProjecaoTab() {
       </div>
     </div>
     <div class="prev-g">
-      <div class="prev-c"><div class="prev-l">Contratado no período</div><div class="prev-v">${brl(totalProjRev)}</div>
-        <div class="prev-n">soma dos lançamentos</div></div>
-      <div class="prev-c hi"><div class="prev-l">Previsto no período</div><div class="prev-v">${brl(totalPrev)}</div>
+      <div class="prev-c"><div class="prev-l">Receita lançada no período</div><div class="prev-v">${brl(totalProjRev)}</div>
+        <div class="prev-n">o que está registrado nos meses</div></div>
+      <div class="prev-c hi"><div class="prev-l">Receita prevista no período</div><div class="prev-v">${brl(totalPrev)}</div>
         <div class="prev-n">com churn e venda nova</div></div>
       <div class="prev-c"><div class="prev-l">Diferença na receita</div>
         <div class="prev-v ${difPrev>=0?'up':'down'}">${difPrev>=0?'+':'−'} ${brl(Math.abs(difPrev))}</div>
-        <div class="prev-n">${difPrev>=0?'o contratado ignora venda nova':'o contratado ignora quem sai'}</div></div>
+        <div class="prev-n">${difPrev>=0?'o lançado ignora venda nova':'o lançado ignora quem sai'}</div></div>
     </div>
     ${comRegra?`<div class="prev-res">
-      <span>Resultado contratado <b>${brl(totalProjRev-totalProjCos)}</b></span>
+      <span>Resultado com a receita lançada <b>${brl(totalProjRev-totalProjCos)}</b></span>
       <span class="op">·</span>
-      <span>Resultado previsto <b>${brl(totalPrev-totalPrevCos)}</b></span>
+      <span>Resultado com a receita prevista <b>${brl(totalPrev-totalPrevCos)}</b></span>
       <span class="prev-n2">as regras de custo escalam junto com a carteira nos dois</span>
     </div>`:''}
     <div class="prev-prem">
@@ -4879,6 +4880,18 @@ function renderProjecaoTab() {
       <button class="sim-limpar" onclick="S.projChurn=null;S.projNovo=null;S.projCenario='base';renderProjecaoTab()">voltar ao observado</button>
     </div>
     <div class="prev-nota">
+      ${(()=>{ // de onde vem a receita lançada dos meses futuros
+        let rec=0, dig=0;
+        futureRows.forEach(r=>(r.m.revenues||[]).forEach(x=>{
+          const v=parseFloat(x.amount)||0;
+          if(x.recurring_id) rec+=v; else dig+=v;
+        }));
+        const tot=rec+dig;
+        if(!tot) return '';
+        return dig===0
+          ? `Toda a receita lançada à frente (${brl(rec)}) vem de recorrências cadastradas.`
+          : `Da receita lançada à frente, ${brl(rec)} vem de recorrências cadastradas e <b>${brl(dig)} foi digitado ou copiado</b> — esse pedaço é suposição, não contrato.`;
+      })()}
       Observado em ${mc.transicoes} transições de mês: churn ${(mc.churnPct*100).toFixed(1).replace('.',',')}% ·
       novo MRR ${brl(mc.novoMRR)} · entram ${mc.entramMes.toFixed(1).replace('.',',')} e saem ${mc.saemMes.toFixed(1).replace('.',',')} clientes por mês.
       ${mc.transicoes<12?`<b>Amostra pequena:</b> ${mc.mesesComChurn} de ${mc.transicoes} meses tiveram alguma saída, então leia o previsto como ordem de grandeza, não como precisão.`:''}
@@ -5051,8 +5064,8 @@ function renderProjecaoTab() {
         <thead><tr>
           <th style="min-width:110px">Mês</th>
           <th style="min-width:70px">Status</th>
-          <th class="r" style="min-width:110px">Contratado</th>
-          <th class="r" style="min-width:110px">Previsto</th>
+          <th class="r" style="min-width:110px">Lançada</th>
+          <th class="r" style="min-width:110px">Prevista</th>
           <th class="r" style="min-width:110px">Despesa</th>
           <th class="r" style="min-width:110px">Resultado</th>
           <th class="r" style="min-width:55px">Margem</th>
