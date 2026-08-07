@@ -375,6 +375,30 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .pj-zero{color:var(--mu);opacity:.45}
 .pj-money{text-align:right;font-weight:600;font-size:12.5px}
 .pj-big{text-align:right;font-family:var(--ff);font-weight:700;font-size:12.5px}
+.mv.ac{color:var(--ac)}
+.cxa{padding:16px 18px}
+.cxa-hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;
+  background:linear-gradient(180deg,var(--ac-soft),transparent);border:1px solid var(--ac-ring);
+  border-radius:var(--r2);padding:18px 20px;margin-bottom:14px;align-items:end}
+.cxa-hero-v{font-size:28px;font-weight:700;letter-spacing:-.03em;margin:3px 0;font-variant-numeric:tabular-nums}
+.cxa-marco{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--ac-soft);color:var(--ac);
+  border:1px solid var(--ac-ring);white-space:nowrap}
+.cxa-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.cxa-s{font-size:11px;color:var(--mu)}
+.cxa-in{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.cxa-in label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--mu)}
+.cxa-in input{background:var(--input-bg);border:1px solid var(--bdr);border-radius:var(--r3);
+  padding:7px 9px;color:var(--tx);font-family:var(--ff);font-size:13px;outline:none;width:130px;
+  font-variant-numeric:tabular-nums}
+.cxa-in input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.cxa-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+  background:var(--bdr);border-radius:var(--r2);overflow:hidden;margin-top:14px}
+.cxa-c{background:var(--s1);padding:12px 14px}
+.cxa-c.ok{background:var(--ac-soft)}
+.cxa-l{font-size:10.5px;color:var(--mu)}
+.cxa-v{font-size:18px;font-weight:700;letter-spacing:-.02em;margin:3px 0 2px;font-variant-numeric:tabular-nums}
+.cxa-c.ok .cxa-v{color:var(--ac)}
+.cxa-n{font-size:10.5px;color:var(--mu);line-height:1.4}
 .cat-imprev{display:flex;flex-wrap:wrap;gap:6px;padding:4px 14px 8px}
 .cat-chip{font:inherit;font-size:11px;padding:5px 10px;border-radius:99px;cursor:pointer;
   border:1px solid var(--bdr);background:var(--s1);color:var(--mu);transition:.15s}
@@ -904,6 +928,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-cashflow" class="tab"></div>
     <div id="tab-contas" class="tab"></div>
     <div id="tab-projecao" class="tab"></div>
+    <div id="tab-caixinha" class="tab"></div>
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
@@ -1730,20 +1755,30 @@ function carteiraProjetada(m){
   };
 }
 
+// Mes corrente ou a frente. As regras de custo seguem so no futuro — elas
+// SUBSTITUEM o lancamento, e trocar o que ja esta lancado no mes que se esta
+// gerenciando confunde. Imposto e reserva apenas SOMAM, entao valem tambem para
+// o mes corrente: senao ele aparece barato de mentira e o degrau para o mes
+// seguinte parece erro de calculo.
+function mesEmAberto(m){
+  const h = new Date();
+  return (m.year*12+m.month) >= (h.getFullYear()*12 + (h.getMonth()+1));
+}
 function custosEfetivos(m, paraProjecao){
   const base=(m.costs||[]).map(c=>({...c, viaRegra:false}));
   const futuro = mesEhFuturo(m);
+  const aberto = mesEmAberto(m);
   const fiscal = configFiscal();
   // Com o calculo fiscal ligado, o imposto lancado a frente sai da lista: quem
   // manda passa a ser a aliquota sobre a receita do mes. Sem isso o DAS antigo
   // e o novo se somariam.
-  const semImposto = (futuro && fiscal.ativo)
+  const semImposto = (aberto && fiscal.ativo)
       ? base.filter(c=>c.category!=='imposto' || (c.status && c.status!=='projetado'))
       : base;
-  if(!futuro) return semImposto;
+  if(!aberto) return semImposto;
 
   let lista = semImposto;
-  if((S.costRules||[]).length){
+  if(futuro && (S.costRules||[]).length){
     const {nClientes, novos, tk} = carteiraProjetada(m);
     const confirmados = new Set(semImposto.filter(c=>c.status && c.status!=='projetado')
         .map(c=>semAcento(c.name)));
@@ -3060,10 +3095,13 @@ function renderDashboard() {
 
   <!-- METRICS GRID -->
   <div class="g5" style="margin-bottom:16px">
-    <div class="mc"><div class="ml">Receita total 2026</div><div class="mv">${brl(a.totalRev)}</div><div class="mv-sub">${withData.length} meses</div></div>
+    <div class="mc"><div class="ml">Receita total 2026</div><div class="mv ac">${brl(a.totalRev)}</div><div class="mv-sub">${withData.length} meses</div></div>
     <div class="mc"><div class="ml">Despesas totais</div><div class="mv">${brl(a.totalCos)}</div></div>
-    <div class="mc"><div class="ml">Saldo acumulado</div><div class="mv ${a.totalBal>=0?'':'r'}">${brl(a.totalBal)}</div></div>
-    <div class="mc"><div class="ml">Margem média</div><div class="mv ${a.avgMargin<0?'r':''}">${pct(a.avgMargin)}</div></div>
+    <div class="mc"><div class="ml">Saldo acumulado</div><div class="mv ${a.totalBal>=0?'ac':'r'}">${brl(a.totalBal)}</div></div>
+    <div class="mc"><div class="ml">Margem média
+      <span class="ajuda" tabindex="0" onclick="abrirInfoMargem()"
+        onkeydown="if(event.key==='Enter')abrirInfoMargem()" title="Como este número é calculado">?</span></div>
+      <div class="mv ${a.avgMargin<0?'r':''}">${pct(a.avgMargin)}</div></div>
     <div class="mc"><div class="ml">Ticket médio</div><div class="mv">${brl(annAvgTicket)}</div><div class="mv-sub">média dos meses</div></div>
   </div>
 
@@ -3078,6 +3116,9 @@ function renderDashboard() {
     <div class="ct">Metas 2026</div>
     ${goalsHtml}
   </div>
+
+  <!-- CAIXINHA -->
+  ${blocoCaixinha()}
 
   <!-- CARTEIRA E UNIT ECONOMICS -->
   ${blocoCarteira()}
@@ -3334,6 +3375,7 @@ function goTab(id) {
   else if(id==='cashflow') renderCashflowTab();
   else if(id==='contas') renderContasTab();
   else if(id==='projecao') renderProjecaoTab();
+  else if(id==='caixinha') renderCaixinhaTab();
   else if(id==='search') renderSearchTab();
   else if(id==='audit') renderAuditTab();
   else if(id==='relatorios') renderRelatoriosTab();
@@ -3394,6 +3436,7 @@ function buildNav() {
     ${item('cashflow',ICONS.fluxo,'Fluxo de caixa')}
     ${item('contas',ICONS.contas,'Contas')}
     ${item('projecao',ICONS.projecao,'Projeção')}
+    ${item('caixinha',ICONS.metas,'Caixinha')}
     ${item('relatorios',ICONS.relatorios,'Relatórios')}
 
     <div class="side-sec">Ferramentas</div>
@@ -3627,7 +3670,8 @@ function closeWeekly(){ e('weekly-overlay').style.display='none'; }
 
 // saldo no início da semana = saldo inicial configurado + realizado até a véspera
 function saldoSemana(w){
-  const base = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
+  const base = (parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0)
+              + (caixinhaAplicada() ? caixinhaValor() : 0);
   const lim = w.ini;
   let acc = base;
   (S.months||[]).forEach(m=>{
@@ -4291,7 +4335,8 @@ function simular(ajustes, anoRef, horizonte){
   if(nMeses>0) serie = serie.filter(x=> (x.m.year*12+x.m.month) >= (aAtual*12+mAtual));
   else serie = serie.filter(x=> x.m.year===anoRef);
 
-  const saldoIni = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
+  const saldoIni = (parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0)
+                 + (caixinhaAplicada() ? caixinhaValor() : 0);
   let acumOf = saldoIni, acumSim = saldoIni, mesesRodados = 0;
   let mrrOf = null, mrrSim = null;   // roll-forward de MRR, igual ao da aba Projeção
 
@@ -5163,7 +5208,9 @@ function drawSim(){
       <div class="sim-cmp">
         <div class="sim-cmp-c"><div class="sim-cmp-l">Projeção oficial · fim de ${S.simAno}</div>
           <div class="sim-cmp-v">${brl(r.finalOf)}</div></div>
-        <div class="sim-cmp-c hi"><div class="sim-cmp-l">Neste cenário</div>
+        <div class="sim-cmp-c hi"><div class="sim-cmp-l">Neste cenário
+          <span class="ajuda" tabindex="0" onclick="abrirInfoCaixa()"
+            onkeydown="if(event.key==='Enter')abrirInfoCaixa()" title="De onde vem este número">?</span></div>
           <div class="sim-cmp-v">${brl(r.finalSim)}</div></div>
         <div class="sim-cmp-c"><div class="sim-cmp-l">Diferença</div>
           <div class="sim-cmp-v ${r.delta>=0?'up':'down'}">${r.delta>=0?'+':'−'} ${brl(Math.abs(r.delta))}</div></div>
@@ -5269,7 +5316,7 @@ function drawSim(){
             <tr>
               <th class="pj-grp" style="text-align:left"></th>
               <th class="pj-grp pj-sep" colspan="3">Carteira</th>
-              <th class="pj-grp pj-sep" colspan="5">Resultado do cenário</th>
+              <th class="pj-grp pj-sep" colspan="6">Resultado do cenário</th>
             </tr>
             <tr>
               <th class="l" style="min-width:74px">Mês</th>
@@ -5279,6 +5326,7 @@ function drawSim(){
               <th class="pj-sep" style="min-width:104px">Receita</th>
               <th style="min-width:96px">Despesa</th>
               <th style="min-width:96px">Resultado</th>
+              <th style="min-width:56px">Margem</th>
               <th style="min-width:104px">Caixa acum.</th>
               <th style="min-width:96px">vs oficial</th>
             </tr>
@@ -5298,6 +5346,8 @@ function drawSim(){
               <td class="pj-money pj-sep">${brl(l.sRev)}</td>
               <td class="pj-money">${brl(l.sCos)}</td>
               <td class="pj-big" style="color:${l.sBal>=0?'var(--tx)':'var(--rd)'}">${brl(l.sBal)}</td>
+              <td class="pj-mu" style="color:${l.sRev>0&&l.sBal/l.sRev<0?'var(--rd)':'var(--mu)'}">${
+                l.sRev>0 ? (l.sBal/l.sRev*100).toFixed(1).replace('.',',')+'%' : '—'}</td>
               <td class="pj-big">${brl(l.sAcum)}</td>
               <td class="pj-mu" style="color:${Math.abs(dif)<0.5?'var(--mu)':(dif>0?'var(--g)':'var(--rd)')}">${
                 Math.abs(dif)<0.5?'—':(dif>0?'+':'−')+' '+brl(Math.abs(dif))}</td>
@@ -6137,6 +6187,280 @@ function abrirInfoFaixa(faixa, aliq, rbt, mes){
     </div>`);
 }
 
+// De onde sai o caixa do fim do periodo. A pergunta "por que esse numero?"
+// aparece toda vez, e a resposta e uma soma simples que ninguem ve.
+function abrirInfoCaixa(){
+  const r = simular(S.simAjustes||[], {ate:S.simHorizonte||0});
+  const L = r.linhas;
+  const ini = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
+  const rev = L.reduce((s,l)=>s+l.sRev,0), cos = L.reduce((s,l)=>s+l.sCos,0);
+  const M = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const neg = L.filter(l=>l.sBal<0);
+  abrirInfo('Como se chega ao caixa do fim do período', `
+    <div class="rel-hint">Caixa acumulado não é resultado do mês. É tudo que sobrou
+      desde o começo, somado mês a mês sobre o saldo que já existia.</div>
+    <div class="nrr-conta">
+      <div class="nrr-l"><span>Saldo inicial</span><b>${brl(ini)}</b></div>
+      <div class="nrr-l up"><span>+ receita de todo o período (${L.length} meses)</span><b>+ ${brl(rev)}</b></div>
+      <div class="nrr-l down"><span>− despesa de todo o período</span><b>− ${brl(cos)}</b></div>
+      <div class="nrr-l tot"><span>= caixa no fim</span><b>${brl(r.finalSim)}</b></div>
+    </div>
+    <div class="info-passo">
+      <div class="info-n">!</div>
+      <div><div class="info-t">O que este número não diz</div>
+        <div class="info-d">Ele é o ponto final, não o caminho. ${neg.length
+          ? `Neste cenário, <b>${neg.length} ${neg.length===1?'mês fecha':'meses fecham'} no vermelho</b>
+             (${neg.map(l=>M[l.mes]).join(', ')}) — o caixa cai nesses meses antes de subir de novo.
+             Olhe a coluna Caixa acum. mês a mês para ver se ele chega a ficar apertado no meio do caminho.`
+          : 'Neste cenário nenhum mês fecha no vermelho, então o caixa só sobe. A coluna Caixa acum. mostra o ritmo.'}
+        </div></div>
+    </div>
+    <div class="info-nota">
+      É caixa de regime de competência: conta o mês em que a receita e a despesa são reconhecidas,
+      não o dia em que o dinheiro entra ou sai da conta. Para prazo de recebimento, a aba
+      <b>Fluxo de caixa</b> é a certa.
+    </div>`);
+}
+
+// Margem media do ano: a pergunta e sempre "media de quê?"
+function abrirInfoMargem(){
+  const a = annualMetrics();
+  const M = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const comDados = (S.months||[]).map(m=>({m, sc:calcMonth(m)}))
+      .filter(x=>x.sc.rev>0)
+      .sort((a,b)=>(a.m.year-b.m.year)||(a.m.month-b.m.month));
+  const pond = a.totalRev>0 ? (a.totalBal/a.totalRev*100) : 0;
+  const n1 = v => v.toFixed(1).replace('.',',')+'%';
+  abrirInfo('Como a margem média é calculada', `
+    <div class="rel-hint">Margem é quanto sobra de cada real que entra, depois de pagar tudo.
+      Margem de ${n1(pond)} quer dizer: <b>de cada R$ 100 faturados, sobram
+      R$ ${(pond).toFixed(0)}</b>.</div>
+
+    <div class="info-tab">
+      ${comDados.map(x=>`<div class="info-l">
+        <div><b>${M[x.m.month]}</b> <span class="info-s">${brl(x.sc.rev)} − ${brl(x.sc.cos)}</span></div>
+        <div class="info-v" style="color:${x.sc.margin<0?'var(--rd)':'var(--tx)'}">${n1(x.sc.margin)}</div>
+      </div>`).join('')}
+    </div>
+
+    <div class="info-passo">
+      <div class="info-n">=</div>
+      <div><div class="info-t">A média é ponderada, não simples</div>
+        <div class="info-d">Somo toda a receita do ano (<b>${brl(a.totalRev)}</b>) e toda a despesa
+          (<b>${brl(a.totalCos)}</b>), e divido o que sobrou pelo que entrou:
+          ${brl(a.totalBal)} ÷ ${brl(a.totalRev)} = <b>${n1(pond)}</b>.
+          A média simples das margens mensais daria outro número, e seria pior: um mês de
+          R$ 5 mil pesaria igual a um de R$ 15 mil.</div></div>
+    </div>
+
+    <div class="info-nota">
+      Margem mede eficiência, não tamanho. Ela pode cair num mês em que vocês faturaram mais —
+      basta o custo ter subido mais que a receita. E sobe sozinha quando a receita cresce sem a
+      estrutura crescer junto, que é o efeito que a Projeção mostra nos meses à frente.
+    </div>`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CAIXINHA — reserva de emergencia
+// Dinheiro guardado que nao esta no caixa operacional. Fica separado de
+// saldo_inicial de proposito: o saldo inicial e de onde a operacao parte, a
+// caixinha e o colchao. Somar os dois faria a agencia parecer ter folga
+// operacional que nao tem.
+// ══════════════════════════════════════════════════════════════════════════
+function caixinhaValor(){ return parseFloat((S.settings||{}).caixinha || 0) || 0; }
+function caixinhaAplicada(){ return (S.settings||{}).caixinha_aplicada === '1'; }
+
+// Custo mensal de referencia para medir folga: mediana dos meses fechados.
+// Mediana e nao media pelo mesmo motivo de sempre — um mes atipico nao pode
+// definir de quanto colchao a empresa precisa.
+function custoMensalRef(){
+  const h = new Date(), atual = h.getFullYear()*12 + (h.getMonth()+1);
+  const vs = (S.months||[])
+    .filter(m => (m.year*12+m.month) < atual)
+    .map(m => (m.costs||[]).filter(c=>!c.status||c.status==='realizado')
+        .reduce((s,c)=>s+(parseFloat(c.amount)||0),0))
+    .filter(v => v>0).slice(-6).sort((a,b)=>a-b);
+  if(!vs.length) return 0;
+  const i = Math.floor(vs.length/2);
+  return vs.length%2 ? vs[i] : (vs[i-1]+vs[i])/2;
+}
+
+function metricasCaixinha(){
+  const guardado = caixinhaValor();
+  const custo = custoMensalRef();
+  const meses = custo>0 ? guardado/custo : 0;
+  // Quanto sobra por mes hoje, para estimar em quanto tempo se chega ao alvo
+  const h = new Date();
+  const proj = (S.months||[]).filter(m=>mesEmAberto(m))
+      .map(m=>{ const sc = calcMonth(m, true);
+                return (mesEhFuturo(m)||true) ? sc.revProj - sc.cosProj : sc.bal; });
+  const sobraMes = proj.length ? proj.reduce((a,b)=>a+b,0)/proj.length : 0;
+  const alvos = [3,6,12].map(n=>{
+    const precisa = custo*n;
+    const falta = Math.max(0, precisa - guardado);
+    return { n, precisa, falta, ok: falta<=0,
+             mesesPara: (falta>0 && sobraMes>0) ? falta/sobraMes : null };
+  });
+  return { guardado, custo, meses, sobraMes, alvos, aplicada: caixinhaAplicada() };
+}
+
+async function salvarCaixinha(valor, aplicar){
+  const v = String(parseAmt(valor)||0);
+  S.settings.caixinha = v;
+  if(aplicar!==undefined) S.settings.caixinha_aplicada = aplicar ? '1' : '0';
+  try {
+    await api('PUT','/api/settings',
+      aplicar!==undefined ? {caixinha:v, caixinha_aplicada: aplicar?'1':'0'} : {caixinha:v});
+    syncLabel(fmtSync(),'saved');
+  } catch(err){ alert(err.message); }
+  updateDashboard();
+  if(S.tab==='caixinha') renderCaixinhaTab();
+  if(S.tab==='projecao') renderProjecaoTab();
+}
+async function alternarCaixinha(){ await salvarCaixinha(caixinhaValor(), !caixinhaAplicada()); }
+
+function renderCaixinhaTab(){
+  const el = e('tab-caixinha'); if(!el) return;
+  const c = metricasCaixinha();
+  const n1 = v => v.toFixed(1).replace('.',',');
+  const M = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  // Evolucao: caixinha somada ao resultado de cada mes a frente, para ver
+  // quando cada alvo e alcancado se tudo que sobrar for guardado.
+  const futuros = (S.months||[]).filter(m=>mesEmAberto(m))
+      .sort((a,b)=>(a.year-b.year)||(a.month-b.month));
+  let acc = c.guardado;
+  const curva = futuros.map(m=>{
+    const sc = calcMonth(m, true);
+    acc += (sc.revProj - sc.cosProj);
+    return { m, saldo: acc, meses: c.custo>0 ? acc/c.custo : 0 };
+  });
+  const alcanca = n => { const alvo=c.custo*n;
+    if(c.guardado>=alvo) return 'já atingido';
+    const p = curva.find(x=>x.saldo>=alvo);
+    return p ? `${M[p.m.month]}/${String(p.m.year).slice(2)}` : 'não neste horizonte'; };
+
+  el.innerHTML = `
+  <div class="th"><h2>Caixinha</h2>
+    <div class="ths">Reserva de emergência — quanto tempo a agência aguenta sem faturar nada</div></div>
+
+  <div class="cxa-hero">
+    <div>
+      <div class="cxa-l">Guardado hoje</div>
+      <div class="cxa-hero-v">${brl(c.guardado)}</div>
+      <div class="cxa-n">${c.aplicada
+        ? 'somado ao caixa nas projeções' : 'guardado à parte, fora das projeções'}</div>
+    </div>
+    <div>
+      <div class="cxa-l">Cobre</div>
+      <div class="cxa-hero-v" style="color:${c.meses>=6?'var(--g)':c.meses>=3?'var(--ac)':'var(--rd)'}">
+        ${n1(c.meses)} ${c.meses>=2?'meses':'mês'}</div>
+      <div class="cxa-n">de custo, a ${brl(c.custo)}/mês</div>
+    </div>
+    <div class="cxa-in" style="align-items:flex-end">
+      <label>Ajustar valor
+        <input value="${c.guardado?brl(c.guardado).replace('R$ ',''):''}" placeholder="0,00"
+          onchange="salvarCaixinha(this.value)"></label>
+      <button class="btn ${c.aplicada?'filled-g':''}" onclick="alternarCaixinha()"
+        >${c.aplicada?'✓ Aplicada no caixa':'Aplicar no caixa'}</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">Quanto é o suficiente</div>
+    <div class="rel-hint">A referência de mercado para serviço recorrente é de <b>3 a 6 meses</b>
+      de custo guardado. Três meses é o piso que dá tempo de reagir a uma perda grande de
+      carteira; seis dá tempo de reconstruir sem decisão desesperada.</div>
+    <div class="cxa-g" style="margin-top:12px">
+      ${c.alvos.map(a=>`<div class="cxa-c ${a.ok?'ok':''}">
+        <div class="cxa-l">${a.n} meses · ${brl(a.precisa)}</div>
+        <div class="cxa-v">${a.ok?'✓ atingido':`falta ${brl(a.falta)}`}</div>
+        <div class="cxa-n">${a.ok
+          ? `sobra ${brl(c.guardado-a.precisa)} acima do alvo`
+          : `no ritmo atual, alcançado em <b>${alcanca(a.n)}</b>`}</div></div>`).join('')}
+    </div>
+    <div class="rel-help" style="padding:12px 0 0">
+      Custo de referência: mediana dos últimos meses fechados (${brl(c.custo)}).
+      Sobra média projetada por mês: <b>${brl(c.sobraMes)}</b> — é com ela que se calcula a data
+      de cada alvo, assumindo que tudo que sobrar vai para a caixinha.
+    </div>
+  </div>
+
+  ${curva.length ? `<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--bdr)">
+      <div class="ct" style="margin-bottom:0">Se tudo que sobrar for guardado</div></div>
+    <div class="pj-wrap"><table class="pj-tab">
+      <thead><tr><th class="l" style="min-width:110px">Mês</th>
+        <th style="min-width:110px">Resultado</th>
+        <th style="min-width:120px">Caixinha</th>
+        <th style="min-width:110px">Cobre</th>
+        <th class="l" style="min-width:130px">Marco</th></tr></thead>
+      <tbody>${curva.map(x=>{
+        const marcos = c.alvos.filter(a=>!a.ok && x.saldo>=a.precisa
+          && !curva.some(y=>y.saldo>=a.precisa && (y.m.year*12+y.m.month)<(x.m.year*12+x.m.month)));
+        const sc = calcMonth(x.m, true);
+        const res = sc.revProj - sc.cosProj;
+        return `<tr>
+          <td>${MONTHS_FULL[x.m.month-1]} ${x.m.year}</td>
+          <td class="pj-money" style="color:${res>=0?'var(--tx)':'var(--rd)'}">${res>=0?'+':''}${brl(res)}</td>
+          <td class="pj-big">${brl(x.saldo)}</td>
+          <td class="pj-mu">${n1(x.meses)} ${x.meses>=2?'meses':'mês'}</td>
+          <td>${marcos.map(a=>`<span class="cxa-marco">✓ ${a.n} meses</span>`).join(' ')}</td>
+        </tr>`;}).join('')}</tbody>
+    </table></div>
+    <div class="rel-help" style="padding:12px 18px">
+      Cenário otimista por construção: assume que <b>nada</b> do resultado é distribuído.
+      Se metade for para vocês, dobre os prazos.
+    </div>
+  </div>` : ''}
+
+  <div class="card">
+    <div class="ct">O que a caixinha muda nos números</div>
+    <div class="rel-hint">
+      <b>Desaplicada</b>, ela fica fora de tudo: a Projeção e o Fluxo mostram só o caixa da
+      operação. É a leitura mais dura, e a mais útil para decidir se dá para contratar.<br><br>
+      <b>Aplicada</b>, ela entra como saldo inicial nas projeções — o caixa acumulado sobe
+      ${brl(c.guardado)} em todos os meses. Serve para responder "quanto tenho de verdade,
+      somando tudo". Não muda receita, custo, margem nem resultado: só o caixa.
+    </div>
+  </div>`;
+}
+
+function blocoCaixinha(){
+  const c = metricasCaixinha();
+  const n1 = v => v.toFixed(1).replace('.',',');
+  return `
+  <div class="card cxa" style="margin-bottom:14px">
+    <div class="cxa-top">
+      <div>
+        <div class="ct" style="margin-bottom:2px">Caixinha</div>
+        <div class="cxa-s">Reserva guardada fora do caixa da operação</div>
+      </div>
+      <div class="cxa-in">
+        <label>Valor guardado
+          <input value="${c.guardado?brl(c.guardado).replace('R$ ',''):''}" placeholder="0,00"
+            onchange="salvarCaixinha(this.value)"></label>
+        <button class="btn ${c.aplicada?'filled-g':''}" onclick="alternarCaixinha()"
+          title="${c.aplicada?'A caixinha está somada ao caixa nas projeções':'A caixinha está guardada, fora das projeções'}"
+          >${c.aplicada?'✓ Aplicada':'Aplicar no caixa'}</button>
+        <button class="btn sm" onclick="goTab('caixinha')">Ver detalhe</button>
+      </div>
+    </div>
+    ${c.guardado>0 ? `<div class="cxa-g">
+      <div class="cxa-c"><div class="cxa-l">Cobre</div>
+        <div class="cxa-v">${n1(c.meses)} ${c.meses>=2?'meses':'mês'}</div>
+        <div class="cxa-n">de custo, a ${brl(c.custo)}/mês</div></div>
+      ${c.alvos.map(a=>`<div class="cxa-c ${a.ok?'ok':''}">
+        <div class="cxa-l">${a.n} meses de custo</div>
+        <div class="cxa-v">${a.ok?'✓ atingido':brl(a.falta)}</div>
+        <div class="cxa-n">${a.ok?`sobra ${brl(c.guardado-a.precisa)}`
+          : a.mesesPara ? `faltam ${n1(a.mesesPara)} meses no ritmo atual` : `alvo de ${brl(a.precisa)}`}</div></div>`).join('')}
+    </div>` : `<div class="rel-help" style="padding:4px 0 0">
+      Informe quanto está guardado nas caixinhas para ver quantos meses de custo isso cobre
+      e o quanto falta para uma reserva saudável.</div>`}
+  </div>`;
+}
+
 function blocoCarteira(){
   const u = unitEconomics();
   const mc = u.mc;
@@ -6294,7 +6618,10 @@ function renderProjecaoTab() {
   const horizon = S.projecaoHorizon ?? 0; // 0 = Ano 2026 (default)
   const today = new Date();
   const curYear = today.getFullYear(), curMonth = today.getMonth() + 1;
-  const saldoInicial = parseFloat(S.settings?.saldo_inicial || 0);
+  // A caixinha entra como saldo inicial quando aplicada. Nao mexe em receita,
+  // custo nem margem — so no caixa, que e o unico numero que ela de fato altera.
+  const saldoInicial = parseFloat(S.settings?.saldo_inicial || 0)
+                     + (caixinhaAplicada() ? caixinhaValor() : 0);
   const allMonths = [...S.months].sort((a,b)=> a.year!==b.year ? a.year-b.year : a.month-b.month);
   const pastMonths = allMonths.filter(m => (m.year < curYear) || (m.year === curYear && m.month < curMonth));
   const futureMonths = allMonths.filter(m => (m.year > curYear) || (m.year === curYear && m.month >= curMonth));
@@ -6794,8 +7121,12 @@ function renderProjecaoTab() {
                     >⚠ faixa ${r.mudouFaixa}</span>` : ''}</td>
               <td class="pj-cli pj-sep" style="font-weight:600;color:var(--tx)">${numCli(c.clientes)}</td>
               ${completo?`
-              <td class="pj-in">${sinal(c.entram,'pj-in')}</td>
-              <td class="pj-out">${sinal(c.saem,'pj-out')}</td>
+              <td class="pj-in" title="${c.projetado&&c.entram!=null
+                ? esc(`${cadencia(c.entram,'entra')} — em ${MONTHS_FULL[r.m.month-1]} a projeção conta com isso`)
+                : 'Clientes que entraram de fato neste mês'}">${sinal(c.entram,'pj-in')}</td>
+              <td class="pj-out" title="${c.projetado&&c.saem!=null
+                ? esc(`${cadencia(c.saem,'sai')} — ${(c.saem*100/(c.clientes||1)).toFixed(0)}% da carteira por mês. Não é um cliente pela metade: é a chance de perder um, distribuída no tempo.`)
+                : 'Clientes que saíram de fato neste mês'}">${sinal(c.saem,'pj-out')}</td>
               <td class="pj-mu">${c.ticket? brl(c.ticket) : '—'}</td>`:''}
               <td class="pj-money pj-sep clicavel" title="Ver as receitas deste mês, uma a uma"
                   onclick="abrirDetalhe(${r.m.id},'rev')">${brl(r.projRev)}${
