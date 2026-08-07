@@ -176,6 +176,10 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 /* category dot */
 .cat-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.nr-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);font-size:10px;font-weight:600;
+  color:var(--mu);cursor:pointer;padding:3px 6px;line-height:1.2;margin-left:3px}
+.nr-btn.active{border-color:var(--am);color:var(--am);background:color-mix(in srgb,var(--am) 10%,transparent)}
+.nr-btn:hover:not(.active){border-color:var(--bdr2);color:var(--tx2)}
 .new-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);font-size:11px;font-weight:500;color:var(--mu);cursor:pointer;padding:3px 8px;white-space:nowrap}
 .new-btn.active{border-color:var(--ac-ring);color:var(--ac);background:var(--ac-soft)}
 .new-btn:hover:not(.active){border-color:var(--bdr2);color:var(--tx2)}
@@ -262,6 +266,17 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .rel-textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
 .rel-edit{border:1px solid var(--bdr) !important;background:var(--input-bg) !important}
 .etable tfoot .tot td{background:var(--s2);font-weight:600;border-bottom:none}
+
+
+.rel-help{font-size:11px;color:var(--mu);margin-top:6px}
+.rel-cen{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rel-cen-card{background:var(--s2);border:1px solid var(--bdr);border-left:3px solid var(--ac);border-radius:var(--r2);padding:14px}
+.rel-cen-card.alt{border-left-color:var(--g)}
+.rel-cen-t{font-size:11px;color:var(--mu);margin-bottom:4px}
+.rel-cen-v{font-size:22px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rel-cen-s{font-size:11px;color:var(--mu);margin-top:4px}
+.rel-tag-new{font-size:10px;color:var(--ac);background:var(--ac-soft);border-radius:999px;padding:1px 7px;margin-left:5px}
+@media(max-width:720px){.rel-cen{grid-template-columns:1fr}}
 
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
@@ -422,6 +437,21 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
+
+<div id="monthly-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeMonthly()">
+  <div class="modal rel-modal">
+    <div class="modal-title">
+      <span id="monthly-title">Fechamento mensal</span>
+      <span style="display:flex;gap:8px;align-items:center">
+        <button class="btn sm" onclick="closeMonthly()">Fechar</button>
+        <button class="btn sm filled-g" onclick="exportMonthly()">Salvar e exportar PDF</button>
+      </span>
+    </div>
+    <div class="rel-hint">A ferramenta montou tudo com os dados do mês. Revise os campos marcados como editáveis e exporte.</div>
+    <div id="monthly-body"></div>
+  </div>
+</div>
+
 
 <div id="weekly-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeWeekly()">
   <div class="modal rel-modal">
@@ -767,6 +797,19 @@ function byDateDesc(field, year){
     if(kb===null) return -1;
     return kb-ka || a.id-b.id;
   };
+}
+
+async function toggleNonRec(kind, mid, id, btn){
+  const m=S.map[mid]; if(!m) return;
+  const arr = kind==='revenue' ? m.revenues : m.costs;
+  const it = arr.find(x=>x.id===id); if(!it) return;
+  const novo = it.nonrecurring==1 ? 0 : 1;
+  it.nonrecurring = novo;
+  btn.classList.toggle('active', novo===1);
+  try { await api('PUT', `/api/${kind==='revenue'?'revenues':'costs'}/${id}`, {nonrecurring:novo});
+        syncLabel(fmtSync(),'saved'); }
+  catch(err){ it.nonrecurring = novo?0:1; btn.classList.toggle('active', !novo); syncLabel('Erro','error');
+              alert('Não consegui salvar: '+err.message); }
 }
 
 function onAmtFocus(el){ el.value = amtEdit(el.value); el.select(); }
@@ -1832,6 +1875,8 @@ function renderMonthTab(mid) {
       </td>
       <td style="white-space:nowrap">
         <button class="new-btn ${r.is_new_client?'active':''}" onclick="toggleNewClient(${mid},${r.id},this)">${r.is_new_client?'★ Novo':'☆ Novo'}</button>
+        <button class="nr-btn ${r.nonrecurring==1?'active':''}" title="Item não recorrente — entra no Cenário A do fechamento"
+          onclick="toggleNonRec('revenue',${mid},${r.id},this)">NR</button>
         ${!hasRec?`<button class="del-btn" title="Tornar recorrente" onclick="openMakeRecurringModal('revenue',${r.id})" style="font-size:11px;width:22px;height:22px;color:var(--pu)">🔁</button>`:''}
       </td>
       <td><button class="del-btn" onclick="deleteRevenue(${mid},${r.id})">✕</button></td>
@@ -1875,7 +1920,9 @@ function renderMonthTab(mid) {
         </select>
       </td>
       <td style="white-space:nowrap">
-        ${!hasRec?`<button class="del-btn" title="Tornar recorrente" onclick="openMakeRecurringModal('cost',${c.id})" style="font-size:11px;width:22px;height:22px;color:var(--pu)">🔁</button>`:''}
+        <button class="nr-btn ${c.nonrecurring==1?'active':''}" title="Item não recorrente — entra no Cenário A do fechamento"
+          onclick="toggleNonRec('cost',${mid},${c.id},this)">NR</button>
+        ${!hasRec?`<button class="del-btn" title="Tornar recorrente" onclick="openMakeRecurringModal('cost',${c.id})" style="font-size:11px;width:22px;height:22px;color:var(--ac)">↻</button>`:''}
       </td>
       <td><button class="del-btn" onclick="deleteCost(${mid},${c.id})">✕</button></td>
     </tr>`;
@@ -2662,6 +2709,379 @@ async function exportWeekly(){
 <div class="foot"><span>Carla Ribeiro · Assistência Financeira &nbsp;|&nbsp; Cliente: Evolve</span>
 <span>Relatório Semanal · ${per} · Documento confidencial</span></div>
 <script>window.onload=()=>{setTimeout(()=>window.print(),300)}<\/script>
+</body></html>`;
+
+  const win = window.open('','_blank');
+  if(!win){ alert('O navegador bloqueou a janela. Libere pop-ups para este site.'); return; }
+  win.document.write(html); win.document.close();
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FECHAMENTO MENSAL — motor
+// ══════════════════════════════════════════════════════════════════════════════
+function monthByYM(ym){
+  const [y,mo] = ym.split('-').map(Number);
+  return (S.months||[]).find(m=>m.year===y && m.month===mo);
+}
+function realizados(list){ return (list||[]).filter(x=>!x.status || x.status==='realizado'); }
+
+function buildMonthly(ym){
+  const m = monthByYM(ym);
+  if(!m) return null;
+  const [y,mo] = ym.split('-').map(Number);
+  const prevYM = mo===1 ? `${y-1}-12` : `${y}-${String(mo-1).padStart(2,'0')}`;
+  const prev = monthByYM(prevYM);
+
+  const agg = (mm) => {
+    if(!mm) return {rev:0,cos:0,bal:0,revs:[],costs:[],porCat:{},revCat:{}};
+    const revs = realizados(mm.revenues), costs = realizados(mm.costs);
+    const rev = revs.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+    const cos = costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+    const porCat = {}, revCat = {};
+    costs.forEach(c=>{ porCat[c.category]=(porCat[c.category]||0)+(parseFloat(c.amount)||0); });
+    revs.forEach(r=>{ revCat[r.category]=(revCat[r.category]||0)+(parseFloat(r.amount)||0); });
+    return {rev,cos,bal:rev-cos,revs,costs,porCat,revCat};
+  };
+
+  const cur = agg(m), pre = agg(prev);
+  // itens marcados como nao recorrentes alimentam o Cenario A
+  const naoRec = cur.costs.filter(c=>c.nonrecurring==1);
+  const totalNaoRec = naoRec.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  // valores em aberto: contas a receber pendentes e vencidas
+  const emAberto = (S.receivables||[]).filter(r=>(r.status||'pendente')==='pendente');
+  const totalEmAberto = emAberto.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+
+  const clientes = cur.revs.filter(r=>(parseFloat(r.amount)||0)>0).length;
+  const ticket = clientes ? cur.rev/clientes : 0;
+
+  // ano ate o mes de referencia
+  const doAno = (S.months||[]).filter(x=>x.year===y && x.month<=mo)
+    .map(x=>{ const a=agg(x); return {mes:x.month, rev:a.rev, cos:a.cos, bal:a.bal}; })
+    .filter(x=>x.rev>0||x.cos>0);
+  const anoRev = doAno.reduce((s,x)=>s+x.rev,0);
+  const anoCos = doAno.reduce((s,x)=>s+x.cos,0);
+
+  // projecao dos meses seguintes, com o que ja esta cadastrado como projetado
+  const proj = (S.months||[]).filter(x=>x.year===y && x.month>mo).map(x=>{
+    const rev=(x.revenues||[]).reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+    const cos=(x.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+    return {mes:x.month, rev, cos, bal:rev-cos};
+  });
+  let acum = anoRev-anoCos;
+  proj.forEach(p=>{ acum += p.bal; p.saldo = acum; });
+
+  return {
+    ym, prevYM, ano:y, mes:mo, m, prev,
+    cur, pre, naoRec, totalNaoRec, emAberto, totalEmAberto,
+    clientes, ticket, doAno, anoRev, anoCos, anoBal:anoRev-anoCos,
+    proj, projEntradas:proj.reduce((s,p)=>s+p.rev,0), projSaidas:proj.reduce((s,p)=>s+p.cos,0),
+    projSaldoFinal: proj.length? proj[proj.length-1].saldo : anoRev-anoCos,
+    varRev: cur.rev-pre.rev, varCos: cur.cos-pre.cos, varBal: cur.bal-pre.bal,
+    pctRev: pre.rev? ((cur.rev-pre.rev)/pre.rev*100) : 0,
+    pctCos: pre.cos? ((cur.cos-pre.cos)/pre.cos*100) : 0,
+    cenarioA: cur.bal + totalNaoRec,
+    cenarioB: cur.bal + totalNaoRec + totalEmAberto,
+  };
+}
+
+async function openMonthly(){
+  await ensureContasLoaded();
+  const d = buildMonthly(S.relMonth);
+  if(!d){ alert('Não encontrei esse mês na base. Cadastre o mês antes de gerar o fechamento.'); return; }
+  S.monthlyData = d;
+  const pfx = `mensal:${d.ym}:`;
+  let txt = {};
+  try { txt = await api('GET', `/api/report-texts?prefix=${encodeURIComponent(pfx)}`) || {}; } catch(_){}
+  S.monthlyTxt = txt;
+
+  const pct = v => (v>=0?'+':'') + v.toFixed(1).replace('.',',') + '%';
+  const sinal = v => (v>=0?'+ ':'− ') + brl(Math.abs(v)).replace('R$ ','R$ ');
+  const nome = c => catLabel(c);
+
+  // sugestão de resumo, para ela partir de algo escrito e não da folha em branco
+  const sugestao = txt[pfx+'resumo'] || montaResumo(d);
+
+  const catRows = Object.entries(d.cur.porCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`
+    <tr><td>${esc(nome(c))}</td><td class="r">${brl(v)}</td>
+        <td class="r">${d.cur.cos?((v/d.cur.cos*100).toFixed(2).replace('.',',')+'%'):'—'}</td>
+        <td><input class="cell-input rel-edit" value="${esc(txt[pfx+'cat:'+c]||'')}" placeholder="Detalhe (opcional)…"
+             onchange="S.monthlyTxt['${pfx}cat:${c}']=this.value"></td></tr>`).join('');
+
+  const revRows = [...d.cur.revs].sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0)).map(r=>`
+    <tr><td>${esc(r.client_name||'—')}${r.is_new_client?' <span class="rel-tag-new">1º mês</span>':''}</td>
+        <td class="r">${brl(r.amount)}</td>
+        <td class="r">${d.cur.rev?((parseFloat(r.amount)/d.cur.rev*100).toFixed(2).replace('.',',')+'%'):'—'}</td>
+        <td>${esc(r.received_date||'')}</td>
+        <td><input class="cell-input rel-edit" value="${esc(r.note||'')}" placeholder="Status / observação…"
+             onchange="saveItemNote('revenue',${r.id},this.value)"></td></tr>`).join('');
+
+  const cmpCat = () => {
+    const cats = [...new Set([...Object.keys(d.cur.porCat), ...Object.keys(d.pre.porCat)])];
+    return cats.map(c=>{
+      const a=d.pre.porCat[c]||0, b=d.cur.porCat[c]||0;
+      return {c, a, b, v:b-a};
+    }).sort((x,y)=>Math.abs(y.v)-Math.abs(x.v))
+      .map(x=>`<tr><td>${esc(nome(x.c))}</td><td class="r">${brl(x.a)}</td><td class="r">${brl(x.b)}</td>
+        <td class="r" style="color:${x.v===0?'var(--mu)':(x.v>0?'var(--rd)':'var(--g)')}">${x.v===0?'= 0,00':sinal(x.v)}</td></tr>`).join('');
+  };
+
+  e('monthly-body').innerHTML = `
+    <div class="rel-kpis">
+      ${[['Receita', brl(d.cur.rev), `${d.pre.rev?pct(d.pctRev)+' vs mês anterior':'—'}`],
+         ['Resultado do mês', brl(d.cur.bal), d.cur.bal>=0?'positivo':'negativo'],
+         ['Resultado do ano', brl(d.anoBal), `${d.doAno.length} meses`],
+         ['Clientes', String(d.clientes), `ticket ${brl(d.ticket)}`]]
+        .map(([l,v,s])=>`<div class="rel-kpi"><div class="rel-kpi-l">${l}</div><div class="rel-kpi-v">${v}</div><div class="rel-kpi-s">${s}</div></div>`).join('')}
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Resumo executivo <span class="rel-edit-tag">editável</span></div>
+      <textarea id="mo-resumo" class="rel-textarea" rows="5">${esc(sugestao)}</textarea>
+      <div class="rel-help">A ferramenta escreveu uma primeira versão com os números do mês. Ajuste o texto como quiser.</div>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Análise de cenários</div>
+      <div class="rel-cen">
+        <div class="rel-cen-card">
+          <div class="rel-cen-t">Cenário A · sem itens não recorrentes</div>
+          <div class="rel-cen-v">${brl(d.cenarioA)}</div>
+          <div class="rel-cen-s">Resultado real + ${brl(d.totalNaoRec)} de ${d.naoRec.length} item(ns) marcado(s) como não recorrente</div>
+        </div>
+        <div class="rel-cen-card alt">
+          <div class="rel-cen-t">Cenário B · A + valores em aberto</div>
+          <div class="rel-cen-v">${brl(d.cenarioB)}</div>
+          <div class="rel-cen-s">Cenário A + ${brl(d.totalEmAberto)} a receber ainda pendente</div>
+        </div>
+      </div>
+      <div class="rel-help">Marque um lançamento como não recorrente na aba do mês para ele entrar no Cenário A.</div>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Receitas do mês</div>
+      <table class="etable plain"><thead><tr><th class="flush">Cliente / Linha</th><th class="r">Valor</th>
+        <th class="r">% Total</th><th class="flush">Data</th><th class="flush">Status <span class="rel-edit-tag">editável</span></th></tr></thead>
+        <tbody>${revRows||'<tr><td colspan="5" style="text-align:center;color:var(--mu);padding:14px">Sem receitas no mês</td></tr>'}</tbody>
+        <tfoot><tr class="tot"><td>Total recebido</td><td class="r">${brl(d.cur.rev)}</td><td class="r">100%</td><td colspan="2"></td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Despesas por categoria</div>
+      <table class="etable plain"><thead><tr><th class="flush">Categoria</th><th class="r">Valor</th>
+        <th class="r">% Total</th><th class="flush">Detalhe <span class="rel-edit-tag">editável</span></th></tr></thead>
+        <tbody>${catRows||'<tr><td colspan="4" style="text-align:center;color:var(--mu);padding:14px">Sem despesas no mês</td></tr>'}</tbody>
+        <tfoot><tr class="tot"><td>Total</td><td class="r">${brl(d.cur.cos)}</td><td class="r">100%</td><td></td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Comparativo com ${MONTHS_FULL[(d.prev?d.prev.month:d.mes)-1]}</div>
+      <table class="etable plain"><thead><tr><th class="flush">Categoria</th>
+        <th class="r">${MONTHS_PT[(d.prev?d.prev.month:d.mes)-1]}</th><th class="r">${MONTHS_PT[d.mes-1]}</th><th class="r">Variação</th></tr></thead>
+        <tbody>${cmpCat()||'<tr><td colspan="4" style="text-align:center;color:var(--mu);padding:14px">Sem mês anterior para comparar</td></tr>'}</tbody>
+        <tfoot><tr class="tot"><td>Total despesas</td><td class="r">${brl(d.pre.cos)}</td><td class="r">${brl(d.cur.cos)}</td>
+          <td class="r">${sinal(d.varCos)}</td></tr>
+          <tr class="tot"><td>Resultado líquido</td><td class="r">${brl(d.pre.bal)}</td><td class="r">${brl(d.cur.bal)}</td>
+          <td class="r">${sinal(d.varBal)}</td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="rel-sec"><div class="rel-sec-h">Evolução do ano</div>
+      <table class="etable plain"><thead><tr><th class="flush">Mês</th><th class="r">Receita</th><th class="r">Despesas</th><th class="r">Resultado</th></tr></thead>
+        <tbody>${d.doAno.map(x=>`<tr><td>${MONTHS_PT[x.mes-1]}/${d.ano}</td><td class="r">${brl(x.rev)}</td>
+          <td class="r">${brl(x.cos)}</td><td class="r" style="color:${x.bal>=0?'var(--tx)':'var(--rd)'}">${sinal(x.bal)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr class="tot"><td>Total</td><td class="r">${brl(d.anoRev)}</td><td class="r">${brl(d.anoCos)}</td><td class="r">${sinal(d.anoBal)}</td></tr></tfoot>
+      </table>
+    </div>
+
+    ${d.proj.length?`<div class="rel-sec"><div class="rel-sec-h">Projeção de caixa</div>
+      <table class="etable plain"><thead><tr><th class="flush">Mês</th><th class="r">Entradas</th><th class="r">Saídas</th><th class="r">Resultado</th><th class="r">Saldo acum.</th></tr></thead>
+        <tbody>${d.proj.map(p=>`<tr><td>${MONTHS_PT[p.mes-1]}/${d.ano}</td><td class="r">${brl(p.rev)}</td>
+          <td class="r">${brl(p.cos)}</td><td class="r">${sinal(p.bal)}</td><td class="r">${brl(p.saldo)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr class="tot"><td>Total</td><td class="r">${brl(d.projEntradas)}</td><td class="r">${brl(d.projSaidas)}</td>
+          <td class="r">${sinal(d.projEntradas-d.projSaidas)}</td><td class="r">${brl(d.projSaldoFinal)}</td></tr></tfoot>
+      </table>
+      <div class="rel-help">A projeção usa apenas o que já está cadastrado nos meses seguintes. Sem médias nem estimativas.</div>
+    </div>`:''}
+
+    <div class="rel-sec"><div class="rel-sec-h">Conclusão <span class="rel-edit-tag">editável</span></div>
+      <textarea id="mo-conclusao" class="rel-textarea" rows="5" placeholder="Conclusão do mês…">${esc(txt[pfx+'conclusao']||'')}</textarea>
+    </div>`;
+
+  e('monthly-title').textContent = `Fechamento · ${MONTHS_FULL[d.mes-1]} de ${d.ano}`;
+  e('monthly-overlay').style.display='flex';
+}
+function closeMonthly(){ e('monthly-overlay').style.display='none'; }
+
+// primeira versão do resumo, com os números já preenchidos
+function montaResumo(d){
+  const mesNome = MONTHS_FULL[d.mes-1];
+  const varTxt = d.pre.rev
+    ? `${d.pctRev>=0?'uma alta':'uma queda'} de ${Math.abs(d.pctRev).toFixed(2).replace('.',',')}% sobre ${MONTHS_FULL[d.prev.month-1]}`
+    : 'sem mês anterior para comparação';
+  const resTxt = d.cur.bal>=0 ? `fechou positivo em ${brl(d.cur.bal)}` : `fechou negativo em ${brl(Math.abs(d.cur.bal))}`;
+  const desp = d.pre.cos ? ` As despesas ${d.pctCos>=0?'subiram':'recuaram'} ${Math.abs(d.pctCos).toFixed(2).replace('.',',')}%.` : '';
+  const nr = d.totalNaoRec>0 ? ` O mês absorveu ${brl(d.totalNaoRec)} em itens não recorrentes.` : '';
+  return `Em ${mesNome} de ${d.ano} a receita alcançou ${brl(d.cur.rev)}, ${varTxt}. O resultado do mês ${resTxt}. `
+       + `A carteira encerrou o mês com ${d.clientes} cliente${d.clientes===1?'':'s'} ativo${d.clientes===1?'':'s'} e ticket médio de ${brl(d.ticket)}.`
+       + desp + nr + ` O acumulado do ano chega a ${brl(d.anoRev)} de receita e resultado de ${brl(d.anoBal)}.`;
+}
+
+async function saveItemNote(kind, id, value){
+  try { await api('PUT', `/api/${kind==='revenue'?'revenues':'costs'}/${id}`, {note:value});
+        const m=S.map[S.monthlyData.m.id];
+        const arr = kind==='revenue' ? m.revenues : m.costs;
+        const it = arr.find(x=>x.id===id); if(it) it.note=value;
+        syncLabel(fmtSync(),'saved'); }
+  catch(err){ syncLabel('Erro','error'); alert('Não consegui salvar: '+err.message); }
+}
+
+async function saveMonthlyTexts(){
+  const pfx = `mensal:${S.monthlyData.ym}:`;
+  const payload = {...(S.monthlyTxt||{})};
+  payload[pfx+'resumo']    = e('mo-resumo').value;
+  payload[pfx+'conclusao'] = e('mo-conclusao').value;
+  try { await api('PUT','/api/report-texts', payload); S.monthlyTxt=payload; syncLabel(fmtSync(),'saved'); return true; }
+  catch(err){ syncLabel('Erro','error'); alert('Não consegui salvar os textos: '+err.message); return false; }
+}
+
+async function exportMonthly(){
+  if(!await saveMonthlyTexts()) return;
+  const d = S.monthlyData, T = S.monthlyTxt, pfx = `mensal:${d.ym}:`;
+  const per = `${MONTHS_FULL[d.mes-1]} de ${d.ano}`;
+  const sinal = v => (v>=0?'+ ':'− ') + brl(Math.abs(v));
+  const pctv = v => (v>=0?'+':'') + v.toFixed(2).replace('.',',') + '%';
+  const pc = (v,t) => t? (v/t*100).toFixed(2).replace('.',',')+'%' : '—';
+
+  const revRows = [...d.cur.revs].sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0))
+    .map(r=>`<tr><td>${esc(r.client_name||'—')}</td><td class="r">${brl(r.amount)}</td>
+      <td class="r">${pc(parseFloat(r.amount)||0, d.cur.rev)}</td><td class="rr">${esc(r.note||(r.received_date?('Recebido — '+r.received_date):''))}</td></tr>`).join('');
+  const catRows = Object.entries(d.cur.porCat).sort((a,b)=>b[1]-a[1])
+    .map(([c,v])=>`<tr><td>${esc(catLabel(c))}</td><td class="r">${brl(v)}</td>
+      <td class="r">${pc(v,d.cur.cos)}</td><td class="rr">${esc(T[pfx+'cat:'+c]||'')}</td></tr>`).join('');
+  const cats = [...new Set([...Object.keys(d.cur.porCat), ...Object.keys(d.pre.porCat)])]
+    .map(c=>({c,a:d.pre.porCat[c]||0,b:d.cur.porCat[c]||0})).map(x=>({...x,v:x.b-x.a}))
+    .sort((x,y)=>Math.abs(y.v)-Math.abs(x.v));
+  const cmpRows = cats.map(x=>`<tr><td>${esc(catLabel(x.c))}</td><td class="r">${brl(x.a)}</td>
+      <td class="r">${brl(x.b)}</td><td class="r ${x.v>0?'neg':'pos'}">${x.v===0?'= 0,00':sinal(x.v)}</td></tr>`).join('');
+  const anoRows = d.doAno.map(x=>`<tr><td>${MONTHS_PT[x.mes-1]}/${d.ano}</td><td class="r">${brl(x.rev)}</td>
+      <td class="r">${brl(x.cos)}</td><td class="r ${x.bal>=0?'pos':'neg'}">${sinal(x.bal)}</td></tr>`).join('');
+  const projRows = d.proj.map(p=>`<tr><td>${MONTHS_PT[p.mes-1]}/${d.ano}</td><td class="r">${brl(p.rev)}</td>
+      <td class="r">${brl(p.cos)}</td><td class="r ${p.bal>=0?'pos':'neg'}">${sinal(p.bal)}</td><td class="r">${brl(p.saldo)}</td></tr>`).join('');
+
+  const pg = (n,corpo) => `<section class="pg"><div class="pg-body">${corpo}</div>
+      <div class="pg-foot">Carla Ribeiro Assistência Financeira &nbsp;|&nbsp; Evolve — ${MONTHS_PT[d.mes-1].toLowerCase()}/${d.ano} &nbsp;|&nbsp; Pag. ${n}</div></section>`;
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Fechamento ${per}</title>
+<style>
+  @page{size:A4;margin:0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:${SYSFONT};color:#20241f;background:#fff;font-size:10.5px;line-height:1.55}
+  .pg{width:210mm;min-height:297mm;padding:18mm 16mm 14mm;position:relative;page-break-after:always;display:flex;flex-direction:column}
+  .pg:last-child{page-break-after:auto}
+  .pg-body{flex:1}
+  .pg-foot{border-top:1px solid #d8d8cd;padding-top:6px;font-size:8px;color:#8a8a80;text-align:center}
+  .capa{background:#22301F;color:#fff;justify-content:center;align-items:center;text-align:center;padding:0}
+  .capa .mark{font-size:64px;font-weight:800;letter-spacing:-.04em;color:#fff;margin-bottom:56px}
+  .capa .kicker{font-size:12px;letter-spacing:.22em;color:#C8BE8A;text-transform:uppercase;font-weight:600}
+  .capa h1{font-size:40px;font-weight:700;margin-top:8px}
+  .capa .by{position:absolute;bottom:0;left:0;right:0;background:#F2F0E6;color:#3a3a32;padding:14px;font-size:9.5px;text-align:center}
+  h2{font-size:15px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #B5A863}
+  p{margin-bottom:9px;text-align:justify}
+  .kpis{display:flex;gap:0;background:#F5F4EC;border-left:3px solid #B5A863;margin:14px 0}
+  .kpis div{flex:1;padding:11px 14px;text-align:center}
+  .kpis .v{font-size:17px;font-weight:700;color:#2E5E3A}
+  .kpis .l{font-size:7.5px;letter-spacing:.11em;color:#6a6a60;text-transform:uppercase;margin-top:3px}
+  table{width:100%;border-collapse:collapse;margin:10px 0}
+  th{background:#22301F;color:#fff;font-size:8.5px;font-weight:600;padding:6px 8px;text-align:left}
+  th.r,td.r{text-align:right} td.rr{text-align:right;color:#5a5a52}
+  td{padding:6px 8px;border-bottom:1px solid #e8e8de;font-size:9.5px}
+  tbody tr:nth-child(even) td{background:#faf9f4}
+  tfoot td{background:#F2F0E6;font-weight:700;border-top:1px solid #B5A863}
+  .pos{color:#2E5E3A}.neg{color:#A33A2E}
+  .cen{display:flex;gap:10px;margin:12px 0}
+  .cen div{flex:1;padding:12px 14px}
+  .cen .a{background:#F5F4EC;border-left:3px solid #B5A863}
+  .cen .b{background:#22301F;color:#fff}
+  .cen .t{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a70}
+  .cen .b .t{color:#C8BE8A}
+  .cen .v{font-size:22px;font-weight:700;margin:4px 0;color:#2E5E3A}
+  .cen .b .v{color:#C8BE8A}
+  .cen .s{font-size:8.5px;font-style:italic;color:#6a6a60}
+  .cen .b .s{color:#c9cfc4}
+  .nota{border-left:3px solid #A33A2E;background:#fbf3f2;padding:8px 11px;font-size:9px;color:#A33A2E;margin-top:8px}
+</style></head><body>
+
+<section class="pg capa">
+  <div class="mark">ev</div>
+  <div class="kicker">Relatório mensal de gestão financeira</div>
+  <h1>${per}</h1>
+  <div class="by"><b>Preparado por:</b> Carla Ribeiro - Assistência Financeira<br>
+    <i>Documento confidencial. Uso exclusivo do cliente.</i></div>
+</section>
+
+${pg(2, `
+  <h2>Resumo Executivo</h2>
+  <p>${esc(T[pfx+'resumo']||'').replace(/\n/g,'</p><p>')}</p>
+  <div class="kpis">
+    <div><div class="v">${brl(d.cur.rev)}</div><div class="l">Receita ${MONTHS_PT[d.mes-1]}/${d.ano}</div></div>
+    <div><div class="v">${sinal(d.cur.bal)}</div><div class="l">Resultado do mês</div></div>
+    <div><div class="v">${brl(d.anoBal)}</div><div class="l">Resultado ano</div></div>
+  </div>
+  <h2 style="margin-top:18px">Análise de Cenários</h2>
+  <p>O mês concentrou ${brl(d.totalNaoRec)} em despesas não recorrentes. Veja como o resultado se configuraria em cada cenário:</p>
+  <div class="cen">
+    <div class="a"><div class="t">Cenário A</div><b>Sem itens não recorrentes</b>
+      <div class="v">${brl(d.cenarioA)}</div>
+      <div class="s">Resultado real + ${brl(d.totalNaoRec)}</div></div>
+    <div class="b"><div class="t">Cenário B</div><b>Cenário A + valores em aberto</b>
+      <div class="v">${brl(d.cenarioB)}</div>
+      <div class="s">Cenário A + ${brl(d.totalEmAberto)}</div></div>
+  </div>`)}
+
+${pg(3, `
+  <h2>Receitas de ${MONTHS_FULL[d.mes-1]}/${d.ano}</h2>
+  <p>A receita de ${brl(d.cur.rev)} veio de ${d.clientes} cliente${d.clientes===1?'':'s'}, com ticket médio de ${brl(d.ticket)}.</p>
+  <table><thead><tr><th>Cliente / Linha</th><th class="r">Valor</th><th class="r">% Total</th><th class="r">Status</th></tr></thead>
+  <tbody>${revRows}</tbody>
+  <tfoot><tr><td>TOTAL RECEBIDO</td><td class="r">${brl(d.cur.rev)}</td><td class="r">100%</td><td></td></tr></tfoot></table>
+  ${d.totalEmAberto>0?`<div class="nota">${brl(d.totalEmAberto)} em contas a receber seguem em aberto e não estão computados na receita acima.</div>`:''}`)}
+
+${pg(4, `
+  <h2>Despesas de ${MONTHS_FULL[d.mes-1]}/${d.ano}</h2>
+  <p>As despesas totalizaram ${brl(d.cur.cos)}${d.pre.cos?`, ${d.pctCos>=0?'alta':'queda'} de ${Math.abs(d.pctCos).toFixed(2).replace('.',',')}% frente a ${MONTHS_FULL[d.prev.month-1].toLowerCase()}`:''}.</p>
+  <table><thead><tr><th>Categoria</th><th class="r">Valor</th><th class="r">% Total</th><th class="r">Detalhe</th></tr></thead>
+  <tbody>${catRows}</tbody>
+  <tfoot><tr><td>TOTAL</td><td class="r">${brl(d.cur.cos)}</td><td class="r">100%</td><td></td></tr></tfoot></table>`)}
+
+${d.prev?pg(5, `
+  <h2>Comparativo ${MONTHS_FULL[d.prev.month-1]} x ${MONTHS_FULL[d.mes-1]} ${d.ano}</h2>
+  <p>Análise comparativa entre os dois últimos meses.</p>
+  <table><thead><tr><th>Categoria</th><th class="r">${MONTHS_PT[d.prev.month-1]}/${d.ano}</th><th class="r">${MONTHS_PT[d.mes-1]}/${d.ano}</th><th class="r">Variação</th></tr></thead>
+  <tbody>${cmpRows}</tbody>
+  <tfoot><tr><td>TOTAL DESPESAS</td><td class="r">${brl(d.pre.cos)}</td><td class="r">${brl(d.cur.cos)}</td><td class="r">${sinal(d.varCos)}</td></tr></tfoot></table>
+  <h2 style="margin-top:16px">Resultado Líquido</h2>
+  <table><thead><tr><th></th><th class="r">${MONTHS_PT[d.prev.month-1]}/${d.ano}</th><th class="r">${MONTHS_PT[d.mes-1]}/${d.ano}</th><th class="r">Variação</th></tr></thead>
+  <tbody><tr><td><b>Receita − Despesas</b></td><td class="r ${d.pre.bal>=0?'pos':'neg'}">${sinal(d.pre.bal)}</td>
+    <td class="r ${d.cur.bal>=0?'pos':'neg'}">${sinal(d.cur.bal)}</td><td class="r">${sinal(d.varBal)}</td></tr></tbody></table>`):''}
+
+${pg(d.prev?6:5, `
+  <h2>Evolução do Ano</h2>
+  <p>No ano a Evolve acumulou ${brl(d.anoRev)} de receita e resultado de ${brl(d.anoBal)}.</p>
+  <table><thead><tr><th>Mês</th><th class="r">Receita</th><th class="r">Despesas</th><th class="r">Resultado</th></tr></thead>
+  <tbody>${anoRows}</tbody>
+  <tfoot><tr><td>TOTAL</td><td class="r">${brl(d.anoRev)}</td><td class="r">${brl(d.anoCos)}</td><td class="r">${sinal(d.anoBal)}</td></tr></tfoot></table>
+  ${d.proj.length?`<h2 style="margin-top:16px">Projeção de Caixa</h2>
+  <p>Com o que já está cadastrado nos meses seguintes, a projeção aponta saldo de ${brl(d.projSaldoFinal)} ao fim do ano.</p>
+  <table><thead><tr><th>Mês</th><th class="r">Entradas</th><th class="r">Saídas</th><th class="r">Resultado</th><th class="r">Saldo Acum.</th></tr></thead>
+  <tbody>${projRows}</tbody>
+  <tfoot><tr><td>TOTAL</td><td class="r">${brl(d.projEntradas)}</td><td class="r">${brl(d.projSaidas)}</td>
+    <td class="r">${sinal(d.projEntradas-d.projSaidas)}</td><td class="r">${brl(d.projSaldoFinal)}</td></tr></tfoot></table>`:''}`)}
+
+${(T[pfx+'conclusao']||'').trim()?pg(d.prev?7:6, `
+  <h2>Conclusão</h2>
+  <p>${esc(T[pfx+'conclusao']).replace(/\n/g,'</p><p>')}</p>`):''}
+
+<script>window.onload=()=>{setTimeout(()=>window.print(),400)}<\/script>
 </body></html>`;
 
   const win = window.open('','_blank');
