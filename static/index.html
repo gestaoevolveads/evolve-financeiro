@@ -93,7 +93,11 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 /* ══ LAYOUT ═══════════════════════════════════════════════════════════════════ */
 .body{padding:18px 20px;max-width:1440px;margin:0 auto}
 .tab{display:none}.tab.active{display:block}
+/* min-width:0 nos filhos: sem isso o item do grid nao encolhe abaixo do
+   conteudo, a coluna cresce e quem rola na horizontal e a PAGINA inteira, nao
+   a tabela dentro do card. */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g2>*,.g3>*,.g4>*,.g5>*,.g6>*{min-width:0}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
@@ -181,8 +185,8 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
    colunas cediam: "2.000,00" virava "2.000,..." e "Operacional" virava
    "Operacic". Com min-width a tabela mantem as colunas e o wrapper rola os
    poucos pixels que faltam, que e o comportamento certo. */
-.etable{width:100%;min-width:600px;border-collapse:collapse;font-size:12px;--td-x:12px;--ink:9.5px}
-.etable .cell-input.date{min-width:66px}
+.etable{width:100%;min-width:540px;border-collapse:collapse;font-size:12px;--td-x:12px;--ink:9.5px}
+.etable .cell-input.date{min-width:58px}
 .etable th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px calc(var(--td-x) + var(--ink));text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
 .etable th.r{text-align:right}
 /* colunas sem controle dentro (texto puro) usam só o padding da célula */
@@ -701,6 +705,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 
 .sim-manual{display:grid;gap:12px;margin-top:12px}
+.gat{display:flex;gap:6px;align-items:center}
 .sim-card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden}
 .sim-card-h{font-size:12px;font-weight:600;color:var(--tx2);padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--bdr)}
 .sim-card-b{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:14px}
@@ -795,7 +800,11 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 /* Overlay que abre a partir de outro overlay. Sem isto, quem vem depois no DOM
    pinta por cima com o mesmo z-index, e o segundo popup fica atras do fundo
    escuro do primeiro: a tela escurece e nada aparece. */
-.overlay.acima{z-index:620;background:rgba(0,0,0,.55)}
+/* Camadas: um popup aberto de dentro de outro precisa subir. Com o mesmo
+   z-index quem vem depois no DOM ganha, e o de baixo some atras do fundo
+   escuro — a tela escurece e nada aparece. */
+.overlay.nivel2{z-index:620;background:rgba(0,0,0,.55)}
+.overlay.acima{z-index:700;background:rgba(0,0,0,.5)}
 .modal{background:var(--s1);border:1px solid var(--bdr);border-radius:16px;padding:24px;min-width:340px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--sh2)}
 .modal-lg{max-width:700px}
 .modal-title{font-family:var(--ff);font-size:15px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;letter-spacing:-.2px}
@@ -980,7 +989,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
   </div>
 </div>
 
-<div id="det-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharDetalhe()">
+<div id="det-overlay" class="overlay nivel2" style="display:none" onclick="if(event.target===this)fecharDetalhe()">
   <div class="modal" style="max-width:620px">
     <div class="modal-title"><span id="det-titulo">Detalhamento</span>
       <button class="btn sm" onclick="fecharDetalhe()">Fechar</button></div>
@@ -2724,9 +2733,9 @@ function renderMonthTab(mid) {
   const sc=calcMonth(m);
   const mName=MONTHS_FULL[m.month-1]+'/'+String(m.year).slice(2);
 
-  const revCatSel=`<select class="cell-select" style="width:100%;min-width:118px" onchange="onRevChange(${mid},ROWID,'category',this.value)">
+  const revCatSel=`<select class="cell-select" style="width:100%;min-width:100px" onchange="onRevChange(${mid},ROWID,'category',this.value)">
     ${REV_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
-  const costCatSel=`<select class="cell-select" style="width:100%;min-width:118px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
+  const costCatSel=`<select class="cell-select" style="width:100%;min-width:100px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
     ${COST_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
 
   const revRows=[...m.revenues].sort(byDateDesc('received_date',m.year)).map(r=>{
@@ -2913,10 +2922,10 @@ function renderMonthTab(mid) {
           <table class="etable">
             <thead><tr>
               ${selTh('revenue',mid)}
-              <th style="min-width:150px">Cliente</th>
-              <th class="r" style="min-width:112px">R$</th>
-              <th style="min-width:82px">Data</th>
-              <th style="min-width:132px">Categoria</th>
+              <th style="min-width:128px">Cliente</th>
+              <th class="r" style="min-width:98px">R$</th>
+              <th style="min-width:70px">Data</th>
+              <th style="min-width:112px">Categoria</th>
               <th style="min-width:80px"></th>
               <th style="width:28px"></th>
             </tr></thead>
@@ -2943,10 +2952,10 @@ function renderMonthTab(mid) {
           <table class="etable">
             <thead><tr>
               ${selTh('cost',mid)}
-              <th style="min-width:150px">Item</th>
-              <th class="r" style="min-width:112px">R$</th>
-              <th style="min-width:82px">Data</th>
-              <th style="min-width:132px">Categoria</th>
+              <th style="min-width:128px">Item</th>
+              <th class="r" style="min-width:98px">R$</th>
+              <th style="min-width:70px">Data</th>
+              <th style="min-width:112px">Categoria</th>
               <th style="min-width:36px"></th>
               <th style="width:28px"></th>
             </tr></thead>
@@ -4452,8 +4461,15 @@ function simular(ajustes, anoRef, horizonte){
     }
 
     ajustes.forEach(a=>{
-      if(m.month < a.desde && (m.year*12+m.month) < (aAtual*12+a.desde)) return;
-      if((m.year*12+m.month) < (aAtual*12 + a.desde)) return;
+      // Um ajuste pode valer a partir de um MES ou a partir de um TAMANHO de
+      // carteira. "Contratar designer quando chegarmos a 12 clientes" nao tem
+      // data — tem um gatilho. Com so a data, era preciso adivinhar o mes.
+      if(a.desdeClientes > 0){
+        if(cart.cliSim < a.desdeClientes) return;
+      } else {
+        if(m.month < a.desde && (m.year*12+m.month) < (aAtual*12+a.desde)) return;
+        if((m.year*12+m.month) < (aAtual*12 + a.desde)) return;
+      }
       let base = 0, emReceita = false;
       if(a.tipoAlvo==='categoria'){
         emReceita = (S.revCats||[]).some(c=>c.slug===a.cat);
@@ -4490,7 +4506,7 @@ function simular(ajustes, anoRef, horizonte){
     });
 
     acumOf += ((ofRev+ofRevAj)-ofCos); acumSim += (sRev-sCos);
-    return {mes:m.month, ano:m.year, sintetico, mesId:m.id||null, ofRev: ofRev+ofRevAj, ofCos, ofBal:(ofRev+ofRevAj)-ofCos, ofAcum:acumOf,
+    return {mes:m.month, ano:m.year, sintetico, mesId:m.id||null, mObj:m, ofRev: ofRev+ofRevAj, ofCos, ofBal:(ofRev+ofRevAj)-ofCos, ofAcum:acumOf,
             sRev, sCos, sBal:sRev-sCos, sAcum:acumSim, efeitos, nCli, cart};
   });
   return {linhas, finalOf:acumOf, finalSim:acumSim, delta:acumSim-acumOf,
@@ -5174,10 +5190,13 @@ function aplicarManual(){
   const alvoRaw = e('man-alvo').value;         // "tipo::valor"
   const op      = e('man-op').value;
   const valor   = parseAmt(e('man-valor').value);
+  const porCli  = e('man-gatilho') && e('man-gatilho').value==='cli';
   const desde   = parseInt(e('man-desde').value,10);
+  const desdeCli= porCli ? (parseInt(e('man-desde-cli').value,10)||0) : 0;
   const err     = e('sim-erro');
   if(!alvoRaw){ err.textContent='Escolha o que você quer mexer.'; err.style.display='block'; return; }
   if(!valor && op!=='zerar'){ err.textContent='Informe um valor.'; err.style.display='block'; return; }
+  if(porCli && !desdeCli){ err.textContent='Informe a partir de quantos clientes o ajuste vale.'; err.style.display='block'; return; }
   err.style.display='none';
 
   const [tipoAlvo, val] = alvoRaw.split('::');
@@ -5196,6 +5215,8 @@ function aplicarManual(){
   else if(op==='definir')   aj = {...alvo, tipo:'definir', valor,     rotulo:`${alvo.rotulo} = ${brl(valor)}`};
   else                      aj = {...alvo, tipo:'pct', delta:-100,    rotulo:`${alvo.rotulo} zerado`};
   aj.desde = desde;
+  aj.desdeClientes = desdeCli;
+  if(desdeCli) aj.rotulo += ` · a partir de ${desdeCli} clientes`;
   simPush([...(S.simAjustes||[]), aj]);
   e('man-valor').value='';
   drawSim();
@@ -5227,6 +5248,7 @@ function drawSim(){
   const prem = premissasAtuais();
   const r = simular(S.simAjustes||[], S.simAno, S.simHorizonte||0);
   const linhas = r.linhas;
+  S._simLinhas = linhas;   // o clique no detalhamento acha o mês por índice
   const sel = S.simMesDetalhe || (linhas.length? linhas[linhas.length-1].mes : 1);
   const o = opcoesAlvo();
   const mesOpts = (v) => linhas.map(l=>`<option value="${l.mes}" ${l.mes===v?'selected':''}>${MONTHS_FULL[l.mes-1]}</option>`).join('');
@@ -5234,7 +5256,7 @@ function drawSim(){
 
   const chips = (S.simAjustes||[]).length
     ? S.simAjustes.map((a,i)=>`<span class="sim-chip" title="${esc(a.frase||a.rotulo)}">${esc(a.rotulo)}
-        <span class="sim-chip-m">desde ${MONTHS_PT[(a.desde||1)-1]}</span>
+        <span class="sim-chip-m">${a.desdeClientes ? `a partir de ${a.desdeClientes} clientes` : 'desde '+MONTHS_PT[(a.desde||1)-1]}</span>
         <button onclick="removeAjuste(${i})" title="Remover">✕</button></span>`).join('')
     : (()=>{ const o=prem.observado;
         const igual = Math.abs(prem.novoMRR-o.novoMRR)<1 && Math.abs(prem.churnPct-o.churnPct)<0.001
@@ -5333,7 +5355,15 @@ function drawSim(){
                 <option value="definir">Definir valor</option><option value="zerar">Zerar</option>
               </select></label>
             <label>Valor<input id="man-valor" placeholder="10" style="width:96px"></label>
-            <label>A partir de<select id="man-desde">${mesOpts(desdePadrao)}</select></label>
+            <label>A partir de
+              <div class="gat">
+                <select id="man-gatilho" onchange="trocaGatilho('man')">
+                  <option value="mes">um mês</option>
+                  <option value="cli">nº de clientes</option>
+                </select>
+                <select id="man-desde">${mesOpts(desdePadrao)}</select>
+                <input id="man-desde-cli" placeholder="12" style="width:64px;display:none" title="A partir de quantos clientes">
+              </div></label>
             <button class="btn filled-g" onclick="aplicarManual()">Aplicar ajuste</button>
           </div>
         </div>
@@ -5388,7 +5418,7 @@ function drawSim(){
             </tr>
           </thead>
           <tbody>
-          ${linhas.map(l=>{
+          ${linhas.map((l,i)=>{
             const dif = l.sAcum - l.ofAcum;
             const c = l.cart;
             // arredonda igual a Projecao: e o mesmo numero de clientes, e as
@@ -5402,12 +5432,10 @@ function drawSim(){
                 ${c.saem?`title="${esc(cadencia(c.saem,'sai')+' — clique para entender')}"
                 onclick="event.stopPropagation();abrirInfoSaidas(${c.saem},${Math.round(c.cliSim)},${c.ticket||0})"`:''}
                 >${c.saem==null?'<span class="pj-zero">—</span>':numCli(Math.round(c.saem*10)/10)}</td>
-              <td class="pj-money pj-sep ${l.mesId?'clicavel':''}"
-                ${l.mesId?`title="Ver as receitas deste mês, uma a uma"
-                onclick="event.stopPropagation();abrirDetalhe(${l.mesId},'rev')"`:''}>${brl(l.sRev)}</td>
-              <td class="pj-money ${l.mesId?'clicavel':''}"
-                ${l.mesId?`title="Ver as despesas deste mês, uma a uma"
-                onclick="event.stopPropagation();abrirDetalhe(${l.mesId},'cos')"`:''}>${brl(l.sCos)}</td>
+              <td class="pj-money pj-sep clicavel" title="Ver as receitas deste mês, uma a uma"
+                onclick="event.stopPropagation();detalheSim(${i},'rev')">${brl(l.sRev)}</td>
+              <td class="pj-money clicavel" title="Ver as despesas deste mês, uma a uma"
+                onclick="event.stopPropagation();detalheSim(${i},'cos')">${brl(l.sCos)}</td>
               <td class="pj-big" style="color:${l.sBal>=0?'var(--tx)':'var(--rd)'}">${brl(l.sBal)}</td>
               <td class="pj-mu" style="color:${l.sRev>0&&l.sBal/l.sRev<0?'var(--rd)':'var(--mu)'}">${
                 l.sRev>0 ? (l.sBal/l.sRev*100).toFixed(1).replace('.',',')+'%' : '—'}</td>
@@ -5510,6 +5538,15 @@ function tabelaComparacao(r, linhas){
 }
 
 function setVistaSim(v){ S.simVista = v; drawSim(); }
+function trocaGatilho(pref){
+  const porCli = e(pref+'-gatilho').value==='cli';
+  e(pref+'-desde').style.display     = porCli ? 'none' : '';
+  e(pref+'-desde-cli').style.display = porCli ? '' : 'none';
+}
+function detalheSim(i, tipo){
+  const l = (S._simLinhas||[])[i]; if(!l) return;
+  abrirDetalhe(l.mesId, tipo, l.mesId ? null : l.mObj);
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CATEGORIES MANAGEMENT
@@ -5834,9 +5871,12 @@ function setDensidadeProj(v){
 // Detalhamento de um mes: abre a lista item a item por tras de um numero
 // agregado. Ver "Despesa R$ 7.868,75" sem poder abrir obriga a sair da tela
 // para conferir de onde veio.
-function abrirDetalhe(mid, tipo){
-  const m = S.map[mid]; if(!m) return;
-  const futuro = mesEhFuturo(m) || (m.year===new Date().getFullYear() && m.month===new Date().getMonth()+1);
+// Aceita um id de mes cadastrado OU o proprio objeto de um mes projetado do
+// simulador. Sem isso o detalhamento parava em janeiro/27 e o clique morria
+// justamente onde a curiosidade e maior.
+function abrirDetalhe(mid, tipo, mObj){
+  const m = mObj || S.map[mid]; if(!m) return;
+  const futuro = mesEmAberto(m);
   const receita = tipo==='rev';
   const itens = (receita ? (m.revenues||[]).map(r=>({
                     nome:r.client_name, v:parseFloat(r.amount)||0, cat:r.category,
@@ -5869,7 +5909,8 @@ function abrirDetalhe(mid, tipo){
     </div>`;
   const bloco = (rot, arr) => arr.length ? `<div class="det-grp">${rot} · ${brl(arr.reduce((s,x)=>s+x.v,0))}</div>${arr.map(linha).join('')}` : '';
   e('det-titulo').textContent =
-    `${receita?'Receitas':'Despesas'} de ${MONTHS_FULL[m.month-1]} ${m.year}`;
+    `${receita?'Receitas':'Despesas'} de ${MONTHS_FULL[m.month-1]} ${m.year}`
+    + (mObj ? ' · projetado' : '');
   e('det-body').innerHTML = itens.length ? `
     ${(pendentes.length && realizados.length)
         ? bloco('Confirmados', realizados) + bloco(futuro?'Pendentes e projetados':'Pendentes', pendentes)
