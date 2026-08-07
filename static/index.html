@@ -787,6 +787,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
 
+<div id="tempo-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharTempoCasa()">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-title"><span>Tempo de casa por cliente</span>
+      <button class="btn sm" onclick="fecharTempoCasa()">Fechar</button></div>
+    <div id="tempo-body"></div>
+  </div>
+</div>
+
 <div id="det-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharDetalhe()">
   <div class="modal" style="max-width:620px">
     <div class="modal-title"><span id="det-titulo">Detalhamento</span>
@@ -1365,6 +1373,20 @@ function mesEhFuturo(m){
 // Custos EFETIVOS do mês, em um lugar só, para não existirem duas verdades.
 // Num mês futuro, o item coberto por regra sai da lista e entra a linha
 // calculada pela regra — nunca os dois, senão o valor duplicaria.
+// Fonte unica das premissas em uso pela Projecao. Tudo que projeta — a receita
+// da aba, a carteira que alimenta as regras de custo e a linha oficial do
+// simulador — tem de ler daqui, senao voltam a existir tres verdades.
+function premissasProjecao(){
+  const mc = metricasCarteira();
+  const cen = CENARIOS[S.projCenario || 'base'] || CENARIOS.base;
+  const churnRef = mc.baseCli ? CHURN_BASE_CLI/mc.baseCli : mc.churnPct;
+  return {
+    churnPct: (S.projChurn!=null ? S.projChurn/100 : churnRef) * cen.churn,
+    novoMRR:  (S.projNovo !=null ? S.projNovo      : mc.novoMRR) * cen.novo,
+    churnRef, mc, cen
+  };
+}
+
 // Tamanho da carteira num mes futuro. A ancora e a lista de clientes de fato
 // lancada no mes; sobre ela aplica-se o mesmo crescimento que a aba Projecao
 // aplica na receita, para que custo variavel e receita cresçam na mesma razao.
@@ -1373,7 +1395,8 @@ function mesEhFuturo(m){
 // derivar tudo de MRR/ticket tambem nao, porque a base fica no ultimo mes
 // fechado e ignorava clientes ja lancados a frente.
 function carteiraProjetada(m){
-  const mc = metricasCarteira();
+  const pp = premissasProjecao();
+  const mc = pp.mc;
   const lanc = (m.revenues||[]).filter(r=>r.nonrecurring!=1
       && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim());
   const nLanc   = lanc.length;
@@ -1381,12 +1404,12 @@ function carteiraProjetada(m){
   const h = new Date();
   const k = (m.year*12+m.month) - (h.getFullYear()*12 + (h.getMonth()+1));
   let mrr = revLanc;
-  for(let i=0; i<=Math.max(k,0); i++) mrr = mrr - mrr*mc.churnPct + mc.novoMRR;
+  for(let i=0; i<=Math.max(k,0); i++) mrr = mrr - mrr*pp.churnPct + pp.novoMRR;
   const razao = revLanc ? mrr/revLanc : 1;
   const tk = mc.ticket || (nLanc ? revLanc/nLanc : 0);
   return {
     nClientes: Math.round(nLanc * razao),
-    novos:     tk ? mc.novoMRR/tk : 0,
+    novos:     tk ? pp.novoMRR/tk : 0,
     tk
   };
 }
@@ -4300,6 +4323,31 @@ function metricasCarteira(){
 // Com 6 transições e base pequena, usar o pior e o melhor mês observado daria
 // 0% e 32% — extremos que não servem como cenário. Multiplicador é honesto e
 // o usuário vê e edita o que está sendo aplicado.
+// "0,9 cliente/mes" nao se le. Traduz a taxa para um par de inteiros pequeno:
+// 1,5/mes vira "3 clientes a cada 2 meses", que e como a conversa acontece.
+function cadencia(taxa, verbo){
+  if(!taxa || taxa<=0) return '';
+  let melhor=null;
+  for(let m=1; m<=12; m++){
+    const n = Math.round(taxa*m);
+    if(n<1) continue;
+    const err = Math.abs(n/m - taxa)/taxa;
+    if(!melhor || err < melhor.err - 1e-9) melhor = {n, m, err};
+    if(err < 1e-9) break;
+  }
+  if(!melhor) return '';
+  const {n,m,err} = melhor;
+  const aprox = err > 0.005 ? '≈ ' : '';
+  const cli = `${n} cliente${n>1?'s':''}`;
+  const mes = m===1 ? 'mês' : `${m} meses`;
+  return `${aprox}${verbo} ${cli} a cada ${mes}`;
+}
+
+// O cenario Base usa a contagem de saidas do historico (clientes por mes), nao
+// o churn de receita. Sao numeros diferentes porque quem saiu tinha ticket
+// acima da media; para planejar carteira, a contagem e a leitura pedida.
+const CHURN_BASE_CLI = 0.7;
+
 const CENARIOS = {
   pessimista: {rot:'Pessimista', churn:1.5, novo:0.5},
   base:       {rot:'Base',       churn:1.0, novo:1.0},
@@ -4315,12 +4363,13 @@ function premissasAtuais(){
   if(!S.simPrem){
     const o  = premissasObservadas();
     const mc = metricasCarteira();
+    const pp = premissasProjecao();   // as MESMAS da aba Projeção
     S.simPrem = {
       ticket: o.ticket || mc.ticket,
-      churnPct: mc.churnPct,       // fracao da receita que sai por mes
-      novoMRR:  mc.novoMRR,        // reais de receita nova por mes
+      churnPct: pp.churnPct,       // fracao da receita que sai por mes
+      novoMRR:  pp.novoMRR,        // reais de receita nova por mes
       desde: (new Date().getMonth()+2),
-      observado: {...o, churnPct: mc.churnPct, novoMRR: mc.novoMRR, baseCli: mc.baseCli}
+      observado: {...o, churnPct: pp.churnPct, novoMRR: pp.novoMRR, baseCli: mc.baseCli}
     };
   }
   return S.simPrem;
@@ -4601,14 +4650,16 @@ function drawSim(){
       <div class="sim-prem">
         <div class="sim-prem-h">
           <span>Premissas da carteira</span>
-          <span class="sim-prem-obs">observado na carteira recorrente: ticket ${brl(prem.observado.ticket)} ·
+          <span class="sim-prem-obs">padrão da Projeção: ticket ${brl(prem.observado.ticket)} ·
             MRR novo ${brl(prem.observado.novoMRR)}/mês · churn ${(prem.observado.churnPct*100).toFixed(1).replace('.',',')}%
-            <button class="sim-limpar" onclick="usarObservado()">usar o observado</button></span>
+            <button class="sim-limpar" onclick="usarObservado()">usar o padrão da Projeção</button></span>
         </div>
         <div class="sim-prem-g">
           <label>Ticket médio<input value="${brl(prem.ticket).replace('R$ ','')}" onchange="setPremissa('ticket',this.value)"></label>
-          <label>Entram por mês (clientes)<input value="${premEntram(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('entram',this.value)"></label>
-          <label>Saem por mês (clientes)<input value="${premSaem(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('saem',this.value)"></label>
+          <label>Entram por mês (clientes)<input value="${premEntram(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('entram',this.value)">
+            <span class="prev-eq">${cadencia(premEntram(prem),'entram')}</span></label>
+          <label>Saem por mês (clientes)<input value="${premSaem(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('saem',this.value)">
+            <span class="prev-eq">${cadencia(premSaem(prem),'saem')}</span></label>
           <label>A partir de<select onchange="setPremissa('desde',this.value)">
             ${mesOpts(prem.desde||desdePadrao)}</select></label>
           <label>Horizonte<select onchange="S.simHorizonte=+this.value;drawSim()">
@@ -5106,7 +5157,7 @@ function carteiraDaLinha(r, mc){
   const m = r.m;
   if(r.isFuture){
     const cp = carteiraProjetada(m);
-    return { clientes: cp.nClientes, entram: cp.novos, saem: cp.nClientes*mc.churnPct,
+    return { clientes: cp.nClientes, entram: cp.novos, saem: cp.nClientes*premissasProjecao().churnPct,
              ticket: cp.tk, projetado: true };
   }
   // Mes fechado conta so o realizado. Mes atual conta tambem o pendente: e a
@@ -5184,6 +5235,30 @@ function fecharDetalhe(){ e('det-overlay').style.display='none'; }
 // vem do inverso do churn, LTV usa margem de CONTRIBUICAO (nao receita bruta,
 // que infla o numero), e o teto de CAC sai da relacao LTV:CAC de 3:1, que e a
 // referencia usada para negocio recorrente saudavel.
+// Quando o cliente comecou, de fato. O sistema so tem meses a partir de 2026,
+// entao um cliente que entrou antes disso apareceria mais novo do que e. Fica
+// em settings como um mapa nome -> "AAAA-MM".
+function clientesDesde(){
+  try { return JSON.parse((S.settings&&S.settings.clientes_desde)||'{}') || {}; }
+  catch(_){ return {}; }
+}
+async function setClienteDesde(nome, valor){
+  const mapa = clientesDesde();
+  const k = semAcento(nome);
+  if(valor) mapa[k] = valor; else delete mapa[k];
+  const txt = JSON.stringify(mapa);
+  S.settings.clientes_desde = txt;
+  try { await api('PUT','/api/settings',{clientes_desde:txt}); syncLabel(fmtSync(),'saved'); }
+  catch(err){ alert(err.message); }
+  renderTempoCasa(); updateDashboard();
+}
+// meses entre "AAAA-MM" e o mes de referencia, inclusive as duas pontas
+function mesesDesde(iso, ate){
+  const [y,mo] = String(iso||'').split('-').map(Number);
+  if(!y||!mo) return null;
+  return (ate.y*12+ate.m) - (y*12+mo) + 1;
+}
+
 function unitEconomics(){
   const mc = metricasCarteira();
   const ticket = mc.ticket;
@@ -5223,6 +5298,15 @@ function unitEconomics(){
       meses[k].n++; meses[k].total += parseFloat(r.amount)||0;
     });
   });
+  // corrige quem entrou antes do primeiro mes cadastrado
+  const desde = clientesDesde();
+  const ult = (S.months||[]).filter(m=>(m.revenues||[]).some(r=>(r.status||'realizado')==='realizado'
+      && (parseFloat(r.amount)||0)>0)).sort((a,b)=>(a.year-b.year)||(a.month-b.month)).pop();
+  const ref = ult ? {y:ult.year, m:ult.month} : {y:new Date().getFullYear(), m:new Date().getMonth()+1};
+  Object.entries(meses).forEach(([k,v])=>{
+    const n = mesesDesde(desde[k], ref);
+    if(n && n > v.n){ v.antes = n - v.n; v.n = n; }
+  });
   const lista = Object.values(meses);
   const tempoObs = lista.length ? lista.reduce((s,x)=>s+x.n,0)/lista.length : 0;
   const maior = lista.slice().sort((a,b)=>b.total-a.total)[0] || null;
@@ -5237,9 +5321,47 @@ function unitEconomics(){
   const clientesAgora = agora.length || mc.baseCli;
   const mrrAgora = agora.reduce((s,r)=>s+(parseFloat(r.amount)||0),0) || mc.baseMRR;
 
-  return { mc, ticket, varPorCliente, margemContrib, contribMes, clientesAgora, mrrAgora,
+  return { mc, ticket, varPorCliente, margemContrib, contribMes, clientesAgora, mrrAgora, refTempo: ref, tenures: lista,
            churnLogo, vidaMeses, ltv, cacTeto, cacAtual, folga,
            tempoObs, maiorCliente: maior, nClientesHist: lista.length };
+}
+
+function abrirTempoCasa(){ renderTempoCasa(); e('tempo-overlay').style.display='flex'; }
+function fecharTempoCasa(){ e('tempo-overlay').style.display='none'; }
+function renderTempoCasa(){
+  const el = e('tempo-body'); if(!el) return;
+  const u = unitEconomics();
+  const desde = clientesDesde();
+  const ativos = new Set((u.clientesAgora ? [] : []));
+  const mesAtual = (S.months||[]).find(m=>m.year===new Date().getFullYear() && m.month===new Date().getMonth()+1);
+  const nomesAtivos = new Set(((mesAtual&&mesAtual.revenues)||[])
+      .filter(r=>r.nonrecurring!=1 && (parseFloat(r.amount)||0)>0)
+      .map(r=>semAcento(r.client_name)));
+  const lista = u.tenures.slice().sort((a,b)=>b.n-a.n);
+  const linha = c => {
+    const k = semAcento(c.nome);
+    const aqui = nomesAtivos.has(k);
+    return `<div class="det-l" style="grid-template-columns:1fr auto auto;gap:12px">
+      <div class="det-n">${esc(c.nome)}
+        ${aqui?'<span class="det-tag" style="background:var(--ac-soft);color:var(--ac)">na casa</span>'
+              :'<span class="det-tag" style="background:var(--s2);color:var(--mu)">saiu</span>'}
+        ${c.antes?`<span class="det-p">${c.antes} ${c.antes===1?'mês':'meses'} antes do sistema</span>`:''}</div>
+      <div class="det-v">${c.n} ${c.n===1?'mês':'meses'}</div>
+      <div><input type="month" value="${esc(desde[k]||'')}" max="2026-12"
+             onchange="setClienteDesde('${esc(c.nome).replace(/'/g,"\\'")}',this.value)"
+             style="font-size:11px;padding:3px 6px;width:130px"
+             title="Quando este cliente entrou de fato, se foi antes do primeiro mês cadastrado"></div>
+    </div>`;
+  };
+  el.innerHTML = `
+    <div class="rel-hint">O sistema começa em janeiro de 2026. Se um cliente entrou antes,
+      informe o mês ao lado e o tempo de casa passa a contar a partir dali.
+      Isso não altera receita nem churn — só a média de permanência.</div>
+    ${lista.map(linha).join('')}
+    <div class="det-tot"><span>${lista.length} clientes</span>
+      <span>média ${u.tempoObs.toFixed(1).replace('.',',')} meses</span></div>
+    <div class="rel-help" style="padding:10px 12px 0">
+      Quem está na casa ainda vai somar mais meses — por isso essa média fica abaixo da vida esperada.</div>`;
 }
 
 function blocoCarteira(){
@@ -5264,11 +5386,12 @@ function blocoCarteira(){
              `${brl(u.mrrAgora)} de receita recorrente lançada`)}
       ${card('Ticket médio', brl(u.ticket), 'por cliente, por mês')}
       ${card('Churn', n1(mc.churnPct*100)+'%',
-             `${n1(mc.saemMes)} cliente por mês${aCada?` · 1 saída a cada ${nn(aCada)} meses`:''}`)}
+             `${n1(mc.saemMes)} cliente por mês · ${cadencia(mc.saemMes,'saem')}`)}
       ${card('Entradas', n1(mc.entramMes),
-             `clientes por mês · a projeção assume ${mc.entramProj}`)}
-      ${card('Tempo de casa', n1(u.tempoObs)+' meses',
-             `média dos ${u.nClientesHist} já atendidos · conta só o que já passou`)}
+             `${cadencia(mc.entramMes,'entram')} · a projeção assume ${mc.entramProj}/mês`)}
+      <div class="uc-c clicavel" onclick="abrirTempoCasa()" title="Ver cliente a cliente e corrigir quem entrou antes de 2026">
+        <div class="uc-l">Tempo de casa</div><div class="uc-v">${n1(u.tempoObs)} meses</div>
+        <div class="uc-s">média dos ${u.nClientesHist} já atendidos · conta só o que já passou</div></div>
       ${u.maiorCliente ? card('Maior cliente', brl(u.maiorCliente.total),
              `${esc(u.maiorCliente.nome)} · ${u.maiorCliente.n} ${u.maiorCliente.n===1?'mês':'meses'}`) : ''}
     </div>
@@ -5392,8 +5515,8 @@ function renderProjecaoTab() {
   if(!S.projCenario) S.projCenario = 'base';
   if(S.projPrev === undefined) S.projPrev = true;
   const cen = CENARIOS[S.projCenario] || CENARIOS.base;
-  const churnUso = (S.projChurn!=null ? S.projChurn/100 : mc.churnPct) * cen.churn;
-  const novoUso  = (S.projNovo!=null  ? S.projNovo      : mc.novoMRR)  * cen.novo;
+  const _pp = premissasProjecao();
+  const churnUso = _pp.churnPct, novoUso = _pp.novoMRR;
 
   // A previsao PARTE do contratado, nao o ignora: assim um contrato novo que
   // voce cadastra entra na hora, e o churn continua sendo aplicado sobre ele.
@@ -5473,13 +5596,15 @@ function renderProjecaoTab() {
     <div class="prev-prem">
       <label>Churn ao mês
         <input value="${(churnUso*100).toFixed(1).replace('.',',')}" onchange="S.projChurn=parseFloat(this.value.replace(',','.'))/${cen.churn};renderProjecaoTab()">
-        <span class="prev-eq">≈ ${cliEquiv.toFixed(1).replace('.',',')} cliente${cliEquiv>=2?'s':''}/mês</span></label>
+        <span class="prev-eq">≈ ${cliEquiv.toFixed(1).replace('.',',')} cliente${cliEquiv>=2?'s':''}/mês</span>
+        <span class="prev-eq">${cadencia(cliEquiv,'saem')}</span></label>
       <label>Novo MRR por mês
         <input value="${brl(novoUso).replace('R$ ','')}" onchange="S.projNovo=parseAmt(this.value)/${cen.novo};renderProjecaoTab()">
-        <span class="prev-eq">≈ ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} cliente${(novoUso/(mc.ticket||1))>=2?'s':''}/mês</span></label>
+        <span class="prev-eq">≈ ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} cliente${(novoUso/(mc.ticket||1))>=2?'s':''}/mês</span>
+        <span class="prev-eq">${cadencia(mc.ticket? novoUso/mc.ticket:0,'entram')}</span></label>
       <label>NRR observado<input value="${(mc.nrr*100).toFixed(1).replace('.',',')}%" disabled>
         <span class="prev-eq">abaixo de 100% a base encolhe sozinha</span></label>
-      <button class="sim-limpar" onclick="S.projChurn=null;S.projNovo=null;S.projCenario='base';renderProjecaoTab()">voltar ao observado</button>
+      <button class="sim-limpar" onclick="S.projChurn=null;S.projNovo=null;S.projCenario='base';renderProjecaoTab()">voltar ao padrão</button>
     </div>
     <div class="prev-nota">
       ${(()=>{ // de onde vem a receita lançada dos meses futuros
@@ -5504,8 +5629,12 @@ function renderProjecaoTab() {
           e nenhum cliente novo está cadastrado adiante. Não é erro de cálculo: é o retrato de “se nada mudar”.
           A coluna <b>Prevista</b> existe justamente para corrigir isso. `;
       })()}
-      Observado em ${mc.transicoes} transições de mês: churn ${(mc.churnPct*100).toFixed(1).replace('.',',')}% ·
-      novo MRR ${brl(mc.novoMRR)} · entram ${mc.entramMes.toFixed(1).replace('.',',')} e saem ${mc.saemMes.toFixed(1).replace('.',',')} clientes por mês.
+      Observado em ${mc.transicoes} transições de mês: entram ${mc.entramMes.toFixed(1).replace('.',',')} e
+      saem ${mc.saemMes.toFixed(1).replace('.',',')} clientes por mês; em receita isso deu churn de
+      ${(mc.churnPct*100).toFixed(1).replace('.',',')}% e novo MRR de ${brl(mc.novoMRRObs)}.
+      O cenário <b>Base</b> assume <b>${CHURN_BASE_CLI.toFixed(1).replace('.',',')} saída e ${mc.entramProj} entrada por mês</b> —
+      contagem de clientes, arredondada para baixo na entrada. Os dois diferem porque quem saiu
+      tinha ticket acima da média.
       ${mc.transicoes<12?`<b>Amostra pequena:</b> ${mc.mesesComChurn} de ${mc.transicoes} meses tiveram alguma saída, então leia o previsto como ordem de grandeza, não como precisão.`:''}
       Estes números se recalculam sozinhos a cada mês fechado.
     </div>
