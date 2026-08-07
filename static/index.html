@@ -186,6 +186,9 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 /* category dot */
 .cat-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.linha-regra td{background:color-mix(in srgb,var(--ac) 4%,transparent)}
+.tag-regra{font-size:10px;color:var(--ac);background:var(--ac-soft);border:1px solid var(--ac-ring);
+  border-radius:999px;padding:1px 7px;margin-left:6px;font-weight:500}
 .nr-btn{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);font-size:10px;font-weight:600;
   color:var(--mu);cursor:pointer;padding:3px 6px;line-height:1.2;margin-left:3px}
 .nr-btn.active{border-color:var(--am);color:var(--am);background:color-mix(in srgb,var(--am) 10%,transparent)}
@@ -1254,15 +1257,52 @@ function trailing12Rev(monthId) {
   const slice=sorted.slice(Math.max(0,idx-11),idx+1);
   return slice.reduce((s,mo)=>s+mo.revenues.reduce((r,x)=>r+(parseFloat(x.amount)||0),0),0);
 }
+// Um mês é futuro quando ainda não chegou. Regra de custo só vale daí para
+// frente: mês fechado é histórico e nunca muda.
+function mesEhFuturo(m){
+  const h=new Date();
+  return (m.year*12+m.month) > (h.getFullYear()*12 + (h.getMonth()+1));
+}
+
+// Custos EFETIVOS do mês, em um lugar só, para não existirem duas verdades.
+// Num mês futuro, o item coberto por regra sai da lista e entra a linha
+// calculada pela regra — nunca os dois, senão o valor duplicaria.
+function custosEfetivos(m){
+  const base=(m.costs||[]).map(c=>({...c, viaRegra:false}));
+  if(!mesEhFuturo(m) || !(S.costRules||[]).length) return base;
+  const nClientes=(m.revenues||[]).filter(r=>r.nonrecurring!=1
+      && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim()).length;
+  const prev=mesAnterior(m);
+  const nomesPrev=prev? new Set((prev.revenues||[]).filter(r=>r.nonrecurring!=1
+      && (parseFloat(r.amount)||0)>0).map(r=>semAcento(r.client_name))) : null;
+  const novos=nomesPrev
+    ? (m.revenues||[]).filter(r=>r.nonrecurring!=1 && (parseFloat(r.amount)||0)>0
+        && !nomesPrev.has(semAcento(r.client_name))).length
+    : 0;
+  const tk=nClientes? (m.revenues||[]).filter(r=>r.nonrecurring!=1)
+        .reduce((s,r)=>s+(parseFloat(r.amount)||0),0)/nClientes : 0;
+  const semCobertos=base.filter(c=>!temRegra(c.name));
+  const calc=custoPorRegras(nClientes, novos, tk).linhas.map(l=>({
+    id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
+    category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true, regra:l.regra
+  }));
+  return [...semCobertos, ...calc];
+}
+function mesAnterior(m){
+  const alvo = m.month===1 ? {y:m.year-1, mo:12} : {y:m.year, mo:m.month-1};
+  return (S.months||[]).find(x=>x.year===alvo.y && x.month===alvo.mo);
+}
+
 function calcMonth(m) {
+  const custos = custosEfetivos(m);
   // Realizado = only status='realizado' or null (legacy rows)
   const realRevs=m.revenues.filter(r=>!r.status||r.status==='realizado');
-  const realCoss=m.costs.filter(c=>!c.status||c.status==='realizado');
+  const realCoss=custos.filter(c=>!c.status||c.status==='realizado');
   // Projetado = ALL items (realizado + projetado)
   const rev=realRevs.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
   const cos=realCoss.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
   const revProj=m.revenues.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-  const cosProj=m.costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const cosProj=custos.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
   const bal=rev-cos;
   const balProj=revProj-cosProj;
   const margin=rev>0?(bal/rev*100):0;
@@ -1712,7 +1752,7 @@ function buildMonthReport(mid) {
   const mName=MONTHS_FULL[m.month-1]+'/'+m.year;
   const dasInfo=m.regime==='MEI'?`MEI · DAS ${brl((parseFloat(m.mei_das)||86.90)*2)}`:`Simples Nacional · DAS estimado ${brl(sc.dasEst)}`;
   const revDist=catDistribution(m.revenues);
-  const cosDist=catDistribution(m.costs);
+  const cosDist=catDistribution(custosEfetivos(m));
 
   const revRows=[...m.revenues].sort(byDateDesc('received_date',m.year)).map(r=>`<tr>
     <td>${esc(r.client_name)}${r.is_new_client?' <span style="color:var(--mu);font-size:11px">★ novo</span>':''}</td>
@@ -1775,7 +1815,7 @@ function buildAnnualReport() {
   const annAvgTicket=withData.length?withData.reduce((s,m)=>s+m.avgTicket,0)/withData.length:0;
   const totalNew=a.months.reduce((s,m)=>s+m.newClients,0);
   const allRevs=a.months.flatMap(m=>m.revenues);
-  const allCosts=a.months.flatMap(m=>m.costs);
+  const allCosts=a.months.flatMap(m=>custosEfetivos(m));
   const annRevDist=catDistribution(allRevs);
   const annCosDist=catDistribution(allCosts);
 
@@ -2173,10 +2213,24 @@ function renderMonthTab(mid) {
     </tr>`;
   }).join('');
 
-  const costRows=[...m.costs].sort(byDateDesc('payment_date',m.year)).map(c=>{
+  const costRows=[...custosEfetivos(m)].sort(byDateDesc('payment_date',m.year)).map(c=>{
     const isProj=c.status==='projetado';
     const hasRec=!!c.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
+    // linha vinda de regra vem antes: ela tambem tem status projetado, mas nao
+    // existe no banco, entao nao pode oferecer Confirmar nem Excluir
+    if(c.viaRegra){
+      return `<tr class="linha-regra">
+        <td class="sel-col"></td>
+        <td><span style="font-size:12px">${esc(c.name)}</span>
+            <span class="tag-regra" title="Calculado pela regra de custo">regra</span></td>
+        <td class="r"><span style="font-weight:600;font-size:12px">${fmtAmt(c.amount)}</span></td>
+        <td><span style="font-size:11px;color:var(--mu)">—</span></td>
+        <td><span style="font-size:11px;color:var(--mu)">${catLabel(c.category)}</span></td>
+        <td><button class="btn sm" onclick="openRulesModal()">Editar regra</button></td>
+        <td></td>
+      </tr>`;
+    }
     if(isProj){
       return `<tr style="${rowStyle}">
         ${selTd('cost',mid,c.id)}
@@ -2223,7 +2277,7 @@ function renderMonthTab(mid) {
     : `Simples Nacional · DAS estimado: <strong>${brl(sc.dasEst)}</strong>`;
 
   const revDist=catDistribution(m.revenues);
-  const cosDist=catDistribution(m.costs);
+  const cosDist=catDistribution(custosEfetivos(m));
 
   container.innerHTML=`
   <div class="sh-title">
@@ -2410,7 +2464,7 @@ function renderDashboard() {
 
   // Annual category distribution
   const allRevs=a.months.flatMap(m=>m.revenues);
-  const allCosts=a.months.flatMap(m=>m.costs);
+  const allCosts=a.months.flatMap(m=>custosEfetivos(m));
   const annRevDist=catDistribution(allRevs);
   const annCosDist=catDistribution(allCosts);
 
@@ -3192,7 +3246,7 @@ function buildMonthly(ym){
   // projecao dos meses seguintes, com o que ja esta cadastrado como projetado
   const proj = (S.months||[]).filter(x=>x.year===y && x.month>mo).map(x=>{
     const rev=(x.revenues||[]).reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-    const cos=(x.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+    const cos=custosEfetivos(x).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
     return {mes:x.month, rev, cos, bal:rev-cos};
   });
   let acum = anoRev-anoCos;
@@ -4750,21 +4804,7 @@ function renderProjecaoTab() {
       nCli = nCli - (nCli*mcRegras.churnPct) + novos;
     });
   }
-  // recalcula a despesa dos meses futuros descontando o que a regra cobre
-  if(comRegra){
-    futureRows.forEach(r=>{
-      const k = r.m.year*100+r.m.month;
-      const lancadoCoberto = (r.m.costs||[])
-        .filter(c=>temRegra(c.name)).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
-      r.projCos = r.projCos - lancadoCoberto + (custoRegras[k]?custoRegras[k].total:0);
-      r.projBal = r.projRev - r.projCos;
-    });
-  }
-  // caixa acumulado precisa refletir a despesa recalculada
-  if(comRegra){
-    let acc = saldoInicial;
-    rows.forEach(r=>{ acc += (r.projRev - r.projCos); r.cumCashEnd = acc; });
-  }
+  // calcMonth já entrega o custo com as regras aplicadas; nada a recalcular aqui.
   const totalProjRev = futureRows.reduce((s,r) => s + r.projRev, 0);
   const totalProjCos = futureRows.reduce((s,r) => s + r.projCos, 0);
   const totalProjBal = totalProjRev - totalProjCos;
