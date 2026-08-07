@@ -495,6 +495,33 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .sim-card-b .btn{margin-left:auto}
 @media(max-width:760px){.sim-card-b .btn{margin-left:0;width:100%;justify-content:center}}
 
+
+/* ══ CONTRATADO × PREVISTO ═══════════════════════════════════════════════════ */
+.prev-box{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px 18px;margin-bottom:14px}
+.prev-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.prev-t{font-size:13px;font-weight:600}
+.prev-s{font-size:11.5px;color:var(--mu);margin-top:3px;max-width:520px;line-height:1.5}
+.prev-cen{display:flex;gap:5px}
+.prev-pill{padding:6px 14px;border-radius:999px;border:1px solid var(--bdr);background:transparent;
+  color:var(--mu);font-family:var(--ff);font-size:12px;cursor:pointer}
+.prev-pill.on{background:var(--ac-soft);border-color:var(--ac-ring);color:var(--ac);font-weight:600}
+.prev-g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.prev-c{background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r2);padding:13px 15px}
+.prev-c.hi{background:var(--ac-soft);border-color:var(--ac-ring)}
+.prev-l{font-size:11px;color:var(--mu)}
+.prev-v{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:3px 0;font-variant-numeric:tabular-nums}
+.prev-v.up{color:var(--g)} .prev-v.down{color:var(--rd)}
+.prev-n{font-size:11px;color:var(--mu)}
+.prev-prem{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;padding-top:13px;border-top:1px solid var(--bdr)}
+.prev-prem label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--mu)}
+.prev-prem input{background:var(--input-bg);border:1px solid var(--bdr);border-radius:var(--r3);
+  padding:7px 9px;color:var(--tx);font-family:var(--ff);font-size:12.5px;outline:none;width:120px;font-variant-numeric:tabular-nums}
+.prev-prem input:disabled{opacity:.7;cursor:default}
+.prev-prem input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.prev-eq{font-size:10.5px;color:var(--mu)}
+.prev-nota{font-size:11px;color:var(--mu);line-height:1.6;margin-top:12px;padding-top:11px;border-top:1px solid var(--bdr)}
+@media(max-width:820px){.prev-g{grid-template-columns:1fr}}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -3810,6 +3837,78 @@ function premissasObservadas(){
     meses: comDados.length, pares, pontuais
   };
 }
+// ── Métricas da carteira recorrente ──────────────────────────────────────────
+// Ponte de MRR mês a mês: abertura + novo + expansão − contração − churn.
+// Tudo sai dos dados, então a cada mês fechado os números se atualizam sozinhos.
+function metricasCarteira(){
+  const sa = semAcento;
+  const recorrente = r => r.nonrecurring!=1 && (parseFloat(r.amount)||0)>0
+      && (r.client_name||'').trim() && (r.status||'realizado')==='realizado';
+  const carteira = m => {
+    const o = {};
+    (m.revenues||[]).filter(recorrente).forEach(r=>{
+      const n = sa(r.client_name); o[n] = (o[n]||0) + (parseFloat(r.amount)||0);
+    });
+    return o;
+  };
+  const serie = (S.months||[]).slice()
+    .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
+    .map(m=>({m, c:carteira(m)}))
+    .filter(x=>Object.keys(x.c).length);
+
+  const pontes = [];
+  for(let i=1;i<serie.length;i++){
+    const a = serie[i-1].c, b = serie[i].c;
+    const ab = Object.values(a).reduce((s,v)=>s+v,0);
+    const novo  = Object.entries(b).filter(([k])=>!(k in a)).reduce((s,[,v])=>s+v,0);
+    const churn = Object.entries(a).filter(([k])=>!(k in b)).reduce((s,[,v])=>s+v,0);
+    const exp   = Object.keys(b).filter(k=>k in a).reduce((s,k)=>s+Math.max(0,b[k]-a[k]),0);
+    const con   = Object.keys(b).filter(k=>k in a).reduce((s,k)=>s+Math.max(0,a[k]-b[k]),0);
+    pontes.push({ mes:serie[i].m.month, ano:serie[i].m.year, ab, novo, churn, exp, con,
+      fim: Object.values(b).reduce((s,v)=>s+v,0),
+      nAb: Object.keys(a).length,
+      nSai: Object.keys(a).filter(k=>!(k in b)).length,
+      nEnt: Object.keys(b).filter(k=>!(k in a)).length,
+      churnPct: ab ? churn/ab : 0 });
+  }
+  const somaAb   = pontes.reduce((s,p)=>s+p.ab,0);
+  const somaChn  = pontes.reduce((s,p)=>s+p.churn,0);
+  const somaExp  = pontes.reduce((s,p)=>s+p.exp,0);
+  const somaCon  = pontes.reduce((s,p)=>s+p.con,0);
+  const somaNovo = pontes.reduce((s,p)=>s+p.novo,0);
+  const somaNAb  = pontes.reduce((s,p)=>s+p.nAb,0);
+  const somaNSai = pontes.reduce((s,p)=>s+p.nSai,0);
+  const somaNEnt = pontes.reduce((s,p)=>s+p.nEnt,0);
+  const n = pontes.length || 1;
+  const ultimo = serie.length ? serie[serie.length-1] : null;
+  const baseMRR = ultimo ? Object.values(ultimo.c).reduce((s,v)=>s+v,0) : 0;
+  const baseCli = ultimo ? Object.keys(ultimo.c).length : 0;
+
+  return {
+    pontes, baseMRR, baseCli,
+    churnPct:  somaAb ? somaChn/somaAb : 0,          // churn de receita, ao mês
+    churnLogo: somaNAb ? somaNSai/somaNAb : 0,       // churn de logo, ao mês
+    novoMRR:   somaNovo/n,                            // novo MRR médio por mês
+    entramMes: somaNEnt/n,                            // clientes novos por mês
+    saemMes:   somaNSai/n,                            // clientes perdidos por mês
+    nrr: somaAb ? (somaAb - somaChn - somaCon + somaExp)/somaAb : 1,
+    ticket: baseCli ? baseMRR/baseCli : 0,
+    transicoes: pontes.length,
+    // dispersão, para a ressalva sobre amostra pequena
+    mesesComChurn: pontes.filter(p=>p.churn>0).length
+  };
+}
+
+// Cenários: multiplicadores declarados sobre as premissas observadas.
+// Com 6 transições e base pequena, usar o pior e o melhor mês observado daria
+// 0% e 32% — extremos que não servem como cenário. Multiplicador é honesto e
+// o usuário vê e edita o que está sendo aplicado.
+const CENARIOS = {
+  pessimista: {rot:'Pessimista', churn:1.5, novo:0.5},
+  base:       {rot:'Base',       churn:1.0, novo:1.0},
+  otimista:   {rot:'Otimista',   churn:0.5, novo:1.5},
+};
+
 function premissasAtuais(){
   if(!S.simPrem){
     const o = premissasObservadas();
@@ -4483,6 +4582,65 @@ function renderProjecaoTab() {
   const negativoMonths = futureRows.filter(r => r.projBal < 0);
   const endCash = rows.length ? rows[rows.length-1].cumCashEnd : saldoInicial;
 
+  // ── Previsto: contratado é uma linha reta que assume que ninguém sai e
+  // ninguém entra. O previsto aplica as duas forças, a partir da base real.
+  const mc = metricasCarteira();
+  if(!S.projCenario) S.projCenario = 'base';
+  if(S.projPrev === undefined) S.projPrev = true;
+  const cen = CENARIOS[S.projCenario] || CENARIOS.base;
+  const churnUso = (S.projChurn!=null ? S.projChurn/100 : mc.churnPct) * cen.churn;
+  const novoUso  = (S.projNovo!=null  ? S.projNovo      : mc.novoMRR)  * cen.novo;
+
+  let mrr = mc.baseMRR;
+  const prevPorMes = {};
+  futureRows.forEach(r=>{
+    mrr = mrr - (mrr*churnUso) + novoUso;
+    prevPorMes[r.m.year*100+r.m.month] = mrr;
+  });
+  const totalPrev = futureRows.reduce((s,r)=>s+(prevPorMes[r.m.year*100+r.m.month]||0),0);
+  const difPrev = totalPrev - totalProjRev;
+  const cliEquiv = mc.baseCli ? churnUso*mc.baseCli : 0;
+
+  const blocoPrevisto = `
+  <div class="prev-box">
+    <div class="prev-h">
+      <div>
+        <div class="prev-t">Contratado × Previsto</div>
+        <div class="prev-s">Contratado é o que está lançado. Previsto aplica entrada de clientes e churn sobre a base real de ${brl(mc.baseMRR)}.</div>
+      </div>
+      <div class="prev-cen">
+        ${Object.entries(CENARIOS).map(([k,c])=>
+          `<button class="prev-pill ${S.projCenario===k?'on':''}" onclick="S.projCenario='${k}';renderProjecaoTab()">${c.rot}</button>`).join('')}
+      </div>
+    </div>
+    <div class="prev-g">
+      <div class="prev-c"><div class="prev-l">Contratado no período</div><div class="prev-v">${brl(totalProjRev)}</div>
+        <div class="prev-n">soma dos lançamentos</div></div>
+      <div class="prev-c hi"><div class="prev-l">Previsto no período</div><div class="prev-v">${brl(totalPrev)}</div>
+        <div class="prev-n">com churn e venda nova</div></div>
+      <div class="prev-c"><div class="prev-l">Diferença</div>
+        <div class="prev-v ${difPrev>=0?'up':'down'}">${difPrev>=0?'+':'−'} ${brl(Math.abs(difPrev))}</div>
+        <div class="prev-n">${difPrev>=0?'o contratado ignora venda nova':'o contratado ignora quem sai'}</div></div>
+    </div>
+    <div class="prev-prem">
+      <label>Churn ao mês
+        <input value="${(churnUso*100).toFixed(1).replace('.',',')}" onchange="S.projChurn=parseFloat(this.value.replace(',','.'))/${cen.churn};renderProjecaoTab()">
+        <span class="prev-eq">≈ ${cliEquiv.toFixed(1).replace('.',',')} cliente${cliEquiv>=2?'s':''}/mês</span></label>
+      <label>Novo MRR por mês
+        <input value="${brl(novoUso).replace('R$ ','')}" onchange="S.projNovo=parseAmt(this.value)/${cen.novo};renderProjecaoTab()">
+        <span class="prev-eq">≈ ${(mc.ticket? novoUso/mc.ticket:0).toFixed(1).replace('.',',')} cliente${(novoUso/(mc.ticket||1))>=2?'s':''}/mês</span></label>
+      <label>NRR observado<input value="${(mc.nrr*100).toFixed(1).replace('.',',')}%" disabled>
+        <span class="prev-eq">abaixo de 100% a base encolhe sozinha</span></label>
+      <button class="sim-limpar" onclick="S.projChurn=null;S.projNovo=null;S.projCenario='base';renderProjecaoTab()">voltar ao observado</button>
+    </div>
+    <div class="prev-nota">
+      Observado em ${mc.transicoes} transições de mês: churn ${(mc.churnPct*100).toFixed(1).replace('.',',')}% ·
+      novo MRR ${brl(mc.novoMRR)} · entram ${mc.entramMes.toFixed(1).replace('.',',')} e saem ${mc.saemMes.toFixed(1).replace('.',',')} clientes por mês.
+      ${mc.transicoes<12?`<b>Amostra pequena:</b> ${mc.mesesComChurn} de ${mc.transicoes} meses tiveram alguma saída, então leia o previsto como ordem de grandeza, não como precisão.`:''}
+      Estes números se recalculam sozinhos a cada mês fechado.
+    </div>
+  </div>`;
+
   // Rotulo do periodo real: antes o chip dizia "Ano 2026" enquanto o card dizia
   // "5 meses a frente". Agora os dois falam do mesmo intervalo.
   const anoRef = rows.length ? rows[rows.length-1].m.year : new Date().getFullYear();
@@ -4616,6 +4774,8 @@ function renderProjecaoTab() {
     </div>
   </details>
 
+  ${blocoPrevisto}
+
   <!-- a conta que liga resultado a caixa, que antes ninguem explicava -->
   <div class="proj-calc">
     <span>Saldo hoje <b>${brl(saldoHoje)}</b></span><span class="op">+</span>
@@ -4646,7 +4806,8 @@ function renderProjecaoTab() {
         <thead><tr>
           <th style="min-width:110px">Mês</th>
           <th style="min-width:70px">Status</th>
-          <th class="r" style="min-width:110px">Receita</th>
+          <th class="r" style="min-width:110px">Contratado</th>
+          <th class="r" style="min-width:110px">Previsto</th>
           <th class="r" style="min-width:110px">Despesa</th>
           <th class="r" style="min-width:110px">Resultado</th>
           <th class="r" style="min-width:55px">Margem</th>
@@ -4666,6 +4827,7 @@ function renderProjecaoTab() {
               <td style="font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]} ${r.m.year}</td>
               <td>${badge}</td>
               <td class="r" style="font-weight:600">${brl(r.projRev)}</td>
+              <td class="r" style="color:var(--ac)">${prevPorMes[r.m.year*100+r.m.month]!=null?brl(prevPorMes[r.m.year*100+r.m.month]):'—'}</td>
               <td class="r" style="font-weight:600">${brl(r.projCos)}</td>
               <td class="r" style="color:${balColor};font-family:var(--ff);font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
               <td class="r" style="font-size:11px;color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
