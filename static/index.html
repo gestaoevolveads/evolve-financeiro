@@ -327,6 +327,92 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .pxr-nota{font-size:11px;color:var(--mu);margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr)}
 @media(max-width:720px){.pxr-grid{grid-template-columns:1fr;gap:16px}}
 
+
+/* ══ SHELL + SIDEBAR ═════════════════════════════════════════════════════════
+   Navegação lateral agrupada, no padrão das referências: item ativo com fundo
+   sutil (não borda), seções nomeadas, ícone + rótulo.                        */
+.shell{display:flex;min-height:100vh}
+.side{width:236px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;
+  transition:width .22s cubic-bezier(.4,0,.2,1)}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:16px 14px 12px;min-height:56px}
+.side-logo{font-size:15px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden}
+.side-logo .dot{width:8px;height:8px;background:var(--ac);border-radius:50%;flex-shrink:0}
+.side-logo span:not(.dot){color:var(--mu);font-weight:400;font-size:12px}
+.side-toggle{background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);color:var(--mu);
+  width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.side-toggle:hover{color:var(--tx);background:var(--s2)}
+.side-nav{flex:1;overflow-y:auto;padding:4px 10px 12px;scrollbar-width:thin}
+.side-nav::-webkit-scrollbar{width:6px}
+.side-nav::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+.side-sec{font-size:10.5px;color:var(--mu);font-weight:500;letter-spacing:.04em;
+  padding:14px 10px 6px;text-transform:none}
+.side-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;
+  background:transparent;color:var(--tx2);font-family:var(--ff);font-size:13px;cursor:pointer;
+  border-radius:var(--r3);text-align:left;white-space:nowrap;margin-bottom:1px}
+.side-item:hover{background:var(--s2);color:var(--tx)}
+.side-item.active{background:var(--ac-soft);color:var(--ac);font-weight:600}
+.side-item.ghost{color:var(--mu)}
+.si-ic{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.si-svg{width:18px;height:18px;opacity:.9}
+.side-item.active .si-svg{opacity:1}
+.si-tx{flex:1;overflow:hidden;text-overflow:ellipsis}
+.si-caret{font-size:10px;color:var(--mu);transition:transform .22s cubic-bezier(.4,0,.2,1);flex-shrink:0}
+.side-group.open .si-caret{transform:rotate(90deg)}
+/* meses: altura animada, sem salto */
+.side-sub{display:grid;grid-template-rows:0fr;transition:grid-template-rows .24s cubic-bezier(.4,0,.2,1)}
+.side-group.open .side-sub{grid-template-rows:1fr}
+.side-sub-in{overflow:hidden;min-height:0}
+.side-sub .side-item{font-size:12.5px;padding-left:38px;color:var(--mu);position:relative}
+.side-sub .side-item::before{content:'';position:absolute;left:19px;top:0;bottom:0;width:1px;background:var(--bdr)}
+.side-sub .side-item:first-child::before{top:6px}
+.side-sub .side-item:last-child::before{bottom:6px}
+.side-sub .side-item.active{color:var(--ac);background:var(--ac-soft)}
+.side-foot{border-top:1px solid var(--bdr);padding:10px}
+.side-user{display:flex;align-items:center;gap:9px;padding:6px 8px 10px}
+.side-avatar{width:28px;height:28px;border-radius:50%;background:var(--ac);color:#fff;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.side-user-t{flex:1;min-width:0;font-size:12px;font-weight:500}
+.side-user-t > div:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-sync{font-size:10.5px;color:var(--mu);font-weight:400}
+.side-sync.saving{color:var(--am)} .side-sync.saved{color:var(--g)} .side-sync.error{color:var(--rd)}
+
+/* recolhida: só ícones */
+.side.mini{width:60px}
+.side.mini .si-tx,.side.mini .side-logo span:not(.dot),.side.mini .side-sec,
+.side.mini .si-caret,.side.mini .side-user-t{display:none}
+.side.mini .side-item{justify-content:center;padding:8px}
+.side.mini .side-sub{display:none}
+.side.mini .side-toggle{transform:rotate(180deg)}
+.side.mini .side-user{justify-content:center;padding:6px 0 10px}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--bdr);
+  padding:0 22px;height:54px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:300}
+.topbar-title{font-size:15px;font-weight:600;letter-spacing:-.01em}
+/* no desktop a sidebar ja marca a pagina; a barra so existe no mobile */
+@media(min-width:881px){.topbar{display:none}}
+.side-open{display:none;background:transparent;border:1px solid var(--bdr);border-radius:var(--r3);
+  color:var(--tx2);width:32px;height:32px;cursor:pointer;font-size:15px}
+.side-scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);border:none;z-index:399}
+
+@media(max-width:880px){
+  .side{position:fixed;left:0;top:0;z-index:400;transform:translateX(-100%);
+    transition:transform .24s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh2)}
+  .side.open{transform:translateX(0)}
+  .side.mini{width:236px}
+  .side.mini .si-tx,.side.mini .side-logo span:not(.dot),.side.mini .side-sec,
+  .side.mini .si-caret,.side.mini .side-user-t{display:block}
+  .side.mini .side-item{justify-content:flex-start;padding:8px 10px}
+  .side-open{display:flex;align-items:center;justify-content:center}
+  .side.open ~ .side-scrim{display:block}
+}
+@media(prefers-reduced-motion:reduce){
+  .side,.side-sub,.si-caret{transition:none}
+}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -461,24 +547,29 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 <!-- ══ APP ═════════════════════════════════════════════════════════════════════ -->
 <div id="app" style="display:none">
-  <div class="topbar">
-    <div class="topbar-logo"><span class="dot"></span>EVOLVE <span style="color:var(--mu);font-weight:400;font-size:12px">Financeiro 2026</span></div>
-    <div class="topbar-right">
-      <span id="sync-lbl" class="sync-badge">—</span>
-      <span id="user-name" style="font-size:11px;color:var(--mu);font-weight:500"></span>
-      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema"></button>
-      <button class="btn sm" onclick="openCatsModal()">Categorias</button>
-      <button class="btn sm pur" onclick="openRecurringModal()">Recorrentes</button>
-      <button class="btn sm" onclick="openGoalsModal()">Metas</button>
-      <button class="btn sm pur" onclick="openBonusModal()">Bônus</button>
-      <button class="btn sm" onclick="doBackup()" title="Baixar backup JSON">Backup</button>
-      <button class="btn sm" id="restore-btn-topbar" onclick="openRestoreModal()" style="display:none" title="Restaurar backup">Restaurar</button>
-      <button class="btn sm" onclick="openPwModal()">🔑</button>
-      <button class="btn sm red" onclick="doLogout()">Sair</button>
+  <div class="shell">
+    <aside class="side" id="side">
+      <div class="side-head">
+        <div class="side-logo"><span class="dot"></span>Evolve <span>Financeiro</span></div>
+        <button class="side-toggle" onclick="toggleSidebar()" title="Recolher menu" aria-label="Recolher menu">‹</button>
+      </div>
+      <nav class="side-nav" id="main-nav"></nav>
+      <div class="side-foot">
+        <div class="side-user">
+          <div class="side-avatar" id="side-avatar">—</div>
+          <div class="side-user-t"><div id="user-name">—</div><div id="sync-lbl" class="side-sync">—</div></div>
+          <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema"></button>
+        </div>
+        <button class="side-item ghost" onclick="doLogout()"><span class="si-ic"><svg class="si-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5h3.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H15"/><path d="M10 8l-4 4 4 4M6 12h9"/></svg></span><span class="si-tx">Sair</span></button>
+      </div>
+    </aside>
+    <button class="side-scrim" onclick="toggleSidebar()" aria-hidden="true"></button>
+    <main class="main">
+    <div class="topbar">
+      <button class="side-open" onclick="toggleSidebar()" aria-label="Abrir menu">☰</button>
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
     </div>
-  </div>
-  <div class="nav" id="main-nav"></div>
-  <div class="body">
+    <div class="body">
     <div id="tab-dashboard" class="tab active"></div>
     <div id="tab-cashflow" class="tab"></div>
     <div id="tab-contas" class="tab"></div>
@@ -486,6 +577,9 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
+    </div>
+    </main>
+  </div>
 
 <div id="sim-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeSim()">
   <div class="modal rel-modal">
@@ -530,8 +624,6 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
   </div>
 </div>
 
-  </div>
-</div>
 
 <!-- ══ MODALS ══════════════════════════════════════════════════════════════════ -->
 
@@ -898,7 +990,7 @@ const catLabel    = c => CAT_LABEL[c] || c;
 
 function syncLabel(msg, cls='') {
   const el=e('sync-lbl'); if(!el) return;
-  el.textContent=msg; el.className='sync-badge '+cls;
+  el.textContent=msg; el.className='side-sync '+cls;
 }
 function fmtSync() {
   const n=new Date(); return `Sync ${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`;
@@ -2215,7 +2307,7 @@ function renderDashboard() {
       </div>
       <div class="prog-track"><div class="prog-fill" style="width:${prog}%;background:${color}"></div></div>
     </div>`;
-  }).join(''):'<div style="font-size:12px;color:var(--mu)">Nenhuma meta cadastrada. Clique em Metas no topo.</div>';
+  }).join(''):'<div style="font-size:12px;color:var(--mu)">Nenhuma meta cadastrada. Use <strong>Metas</strong> no menu lateral.</div>';
 
   el.innerHTML=`
   <div class="sh-title">
@@ -2488,21 +2580,107 @@ async function renderAuditTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════════════════════════════════════
+
+// Ícones de traço único, no mesmo peso — caracteres geométricos ficavam
+// desalinhados e alguns quase invisíveis.
+const IC = (d, extra='') => `<svg class="si-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}${extra}</svg>`;
+const ICONS = {
+  dashboard:  IC('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'),
+  meses:      IC('<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/>'),
+  fluxo:      IC('<path d="M3 16.5c3.5 0 4-9 8-9s4.5 6 8 6"/><path d="M17.5 11l3 2.5-3 2.5"/>'),
+  contas:     IC('<rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6.5 14.5h4"/>'),
+  projecao:   IC('<path d="M3 20V4M3 20h18"/><path d="M7 15l4-4 3 3 5-6"/><path d="M19 8h-3.5M19 8v3.5"/>'),
+  relatorios: IC('<path d="M6 2.5h8l5 5v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-18a1 1 0 0 1 1-1z"/><path d="M14 2.5v5h5M8.5 13h7M8.5 17h4"/>'),
+  busca:      IC('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'),
+  historico:  IC('<circle cx="12" cy="12" r="9"/><path d="M12 6.5V12l3.5 2"/>'),
+  categorias: IC('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v8.5h8.5"/>'),
+  recorrentes:IC('<path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20.5 5.5V11H15"/>'),
+  metas:      IC('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>'),
+  bonus:      IC('<path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 16.8 6.6 19.7l1.2-6.1L3.3 9.4l6.1-.8z"/>'),
+  backup:     IC('<path d="M12 3.5v11M8 11l4 4 4-4"/><path d="M4 17v2.5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V17"/>'),
+  restaurar:  IC('<path d="M12 20.5v-11M8 13l4-4 4 4"/><path d="M4 7V4.5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1V7"/>'),
+  senha:      IC('<rect x="4" y="10" width="16" height="10.5" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+  sair:       IC('<path d="M15 4.5h3.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H15"/><path d="M10 8l-4 4 4 4M6 12h9"/>'),
+};
+
 function buildNav() {
   const nav=e('main-nav'); if(!nav) return;
-  let html=`<button class="mn active" id="nav-dashboard" onclick="goTab('dashboard')">Dashboard</button>`;
-  S.months.forEach(m=>{
-    const label=MONTHS_PT[m.month-1]+(m.year===2027?`'27`:`'26`);
-    html+=`<button class="mn" id="nav-m${m.id}" onclick="goTab('m${m.id}')">${label}</button>`;
-  });
-  html+=`<button class="mn" id="nav-cashflow" onclick="goTab('cashflow')">Fluxo</button>`;
-  html+=`<button class="mn" id="nav-contas" onclick="goTab('contas')">Contas</button>`;
-  html+=`<button class="mn" id="nav-projecao" onclick="goTab('projecao')">Projeção</button>`;
-  html+=`<button class="mn" id="nav-search" onclick="goTab('search')">Busca</button>`;
-  html+=`<button class="mn" id="nav-audit" onclick="goTab('audit')">Histórico</button>`;
-  html+=`<button class="mn" id="nav-relatorios" onclick="goTab('relatorios')">Relatórios</button>`;
-  nav.innerHTML=html;
+  if(S.mesesOpen===undefined) S.mesesOpen = String(S.tab||'').startsWith('m');
+
+  const item = (id, ic, label, extra='') =>
+    `<button class="side-item" id="nav-${id}" onclick="goTab('${id}')" ${extra}>
+       <span class="si-ic">${ic}</span><span class="si-tx">${label}</span></button>`;
+
+  const meses = S.months.map(m=>{
+    const label = MONTHS_FULL[m.month-1] + (m.year===2027 ? " 2027" : "");
+    return `<button class="side-item" id="nav-m${m.id}" onclick="goTab('m${m.id}')">
+              <span class="si-tx">${label}</span></button>`;
+  }).join('');
+
+  nav.innerHTML = `
+    <div class="side-sec">Menu</div>
+    ${item('dashboard',ICONS.dashboard,'Dashboard')}
+
+    <div class="side-group ${S.mesesOpen?'open':''}" id="grupo-meses">
+      <button class="side-item" onclick="toggleMeses()" aria-expanded="${S.mesesOpen}" aria-controls="sub-meses">
+        <span class="si-ic">${ICONS.meses}</span><span class="si-tx">Meses</span><span class="si-caret">›</span>
+      </button>
+      <div class="side-sub" id="sub-meses"><div class="side-sub-in">${meses}</div></div>
+    </div>
+
+    ${item('cashflow',ICONS.fluxo,'Fluxo de caixa')}
+    ${item('contas',ICONS.contas,'Contas')}
+    ${item('projecao',ICONS.projecao,'Projeção')}
+    ${item('relatorios',ICONS.relatorios,'Relatórios')}
+
+    <div class="side-sec">Ferramentas</div>
+    ${item('search',ICONS.busca,'Busca')}
+    ${item('audit',ICONS.historico,'Histórico')}
+    <button class="side-item" onclick="openCatsModal()"><span class="si-ic">${ICONS.categorias}</span><span class="si-tx">Categorias</span></button>
+    <button class="side-item" onclick="openRecurringModal()"><span class="si-ic">${ICONS.recorrentes}</span><span class="si-tx">Recorrentes</span></button>
+    <button class="side-item" onclick="openGoalsModal()"><span class="si-ic">${ICONS.metas}</span><span class="si-tx">Metas</span></button>
+    <button class="side-item" onclick="openBonusModal()"><span class="si-ic">${ICONS.bonus}</span><span class="si-tx">Bônus</span></button>
+
+    <div class="side-sec">Conta</div>
+    <button class="side-item" onclick="doBackup()"><span class="si-ic">${ICONS.backup}</span><span class="si-tx">Backup</span></button>
+    <button class="side-item" id="restore-btn-topbar" onclick="openRestoreModal()" style="display:none"><span class="si-ic">${ICONS.restaurar}</span><span class="si-tx">Restaurar</span></button>
+    <button class="side-item" onclick="openPwModal()"><span class="si-ic">${ICONS.senha}</span><span class="si-tx">Senha</span></button>`;
+
+  marcarNavAtiva();
 }
+
+// abre/fecha o grupo de meses; a altura anima via grid-template-rows
+function toggleMeses(){
+  S.mesesOpen = !S.mesesOpen;
+  const g = e('grupo-meses'); if(!g) return;
+  g.classList.toggle('open', S.mesesOpen);
+  const btn = g.querySelector('button[aria-controls]');
+  if(btn) btn.setAttribute('aria-expanded', String(S.mesesOpen));
+  try{ localStorage.setItem('ef_meses_open', S.mesesOpen?'1':'0'); }catch(_){}
+}
+
+function toggleSidebar(){
+  const el = e('side'); if(!el) return;
+  if(window.matchMedia('(max-width:880px)').matches) el.classList.toggle('open');
+  else {
+    el.classList.toggle('mini');
+    try{ localStorage.setItem('ef_side_mini', el.classList.contains('mini')?'1':'0'); }catch(_){}
+  }
+}
+
+// destaca o item da aba corrente e mantem o grupo de meses aberto quando um mes esta ativo
+function marcarNavAtiva(){
+  document.querySelectorAll('.side-item').forEach(b=>b.classList.remove('active'));
+  const at = e('nav-'+S.tab); if(at) at.classList.add('active');
+  if(String(S.tab||'').startsWith('m') && !S.mesesOpen){
+    S.mesesOpen = true;
+    const g=e('grupo-meses'); if(g) g.classList.add('open');
+  }
+  const t = e('topbar-title');
+  if(t) t.textContent = at ? at.querySelector('.si-tx').textContent : 'Dashboard';
+}
+
 function buildTabs() {
   const body=document.querySelector('.body'); if(!body) return;
   S.months.forEach(m=>{
@@ -3395,10 +3573,11 @@ function drawSim(){
 
 function goTab(id) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.mn').forEach(b=>b.classList.remove('active'));
   const tabEl=e('tab-'+id); if(tabEl) tabEl.classList.add('active');
-  const navEl=e('nav-'+id); if(navEl) navEl.classList.add('active');
   S.tab=id;
+  marcarNavAtiva();
+  // no celular a sidebar e sobreposta: fecha ao navegar
+  const sd=e('side'); if(sd && window.matchMedia('(max-width:880px)').matches) sd.classList.remove('open');
   if(id==='dashboard') renderDashboard();
   else if(id==='cashflow') renderCashflowTab();
   else if(id==='contas') renderContasTab();
@@ -4572,12 +4751,22 @@ async function deleteRecurring(id) {
 function showApp() {
   e('login-screen').style.display='none';
   e('app').style.display='block';
-  if(S.user) e('user-name').textContent=S.user.name;
-  // Restore button só para sócios
+  if(S.user){
+    e('user-name').textContent=S.user.name;
+    const av=e('side-avatar'); if(av) av.textContent=(S.user.name||'?').trim().charAt(0).toUpperCase();
+  }
+  // preferencias da sidebar guardadas entre sessoes
+  try{
+    if(localStorage.getItem('ef_side_mini')==='1') e('side').classList.add('mini');
+    const mo=localStorage.getItem('ef_meses_open');
+    if(mo!==null) S.mesesOpen = mo==='1';
+  }catch(_){}
+  buildNav(); buildTabs();
+  // Restaurar só para sócios — o botão nasce dentro da sidebar, então vem depois do buildNav
   const isSocio=S.user&&S.user.role==='admin';
   const restoreBtn=document.getElementById('restore-btn-topbar');
-  if(restoreBtn) restoreBtn.style.display=isSocio?'inline-flex':'none';
-  buildNav(); buildTabs(); renderDashboard();
+  if(restoreBtn) restoreBtn.style.display=isSocio?'flex':'none';
+  renderDashboard();
   syncLabel(fmtSync(),'');
   S.polling=setInterval(pollSync,30000);
 }
