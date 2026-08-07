@@ -340,6 +340,13 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .s-vencido{background:rgba(255,87,87,.12);color:var(--rd)}
 
 /* ══ CONTAS SUB-TABS ════════════════════════════════════════════════════════ */
+.fold-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-bottom:1px solid transparent}
+.fold-head:hover .fold-caret{color:var(--ac)}
+.fold-count{display:inline-block;background:var(--s3);color:var(--mu);border-radius:999px;padding:0 7px;font-size:11px;margin-left:5px;font-weight:500}
+.fold-caret{font-size:12px;color:var(--mu)}
+.fold-body{display:none}
+.fold.open .fold-body{display:block}
+.fold.open .fold-head{border-bottom-color:var(--bdr)}
 .ctab-bar{display:flex;gap:6px;margin-bottom:16px}
 .ctab{padding:8px 18px;border:1.5px solid var(--bdr);background:transparent;color:var(--mu);font-family:var(--ff);font-size:11px;font-weight:700;cursor:pointer;border-radius:8px;transition:.15s}
 .ctab:hover{color:var(--tx);border-color:var(--mu)}
@@ -679,7 +686,64 @@ const e   = id => document.getElementById(id);
 const brl = v => 'R$\u00a0' + (parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct = v => (v||0).toFixed(1)+'%';
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-const fmtAmt = v => { const n=parseFloat(v)||0; return n===0?'':n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+const fmtAmt = v => { const n=parseAmt(v); return n===0?'':n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+
+// ── Dinheiro: um parser só, tolerante ao formato ─────────────────────────────
+// Aceita "2.000,00" (exibição pt-BR), "2000,00", "2000.00" (bruto) e número.
+// Antes havia duas conversões encadeadas que se desfaziam: focar num campo e
+// sair sem digitar nada multiplicava o valor por 100 e salvava no banco.
+function parseAmt(v){
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  let s = String(v ?? '').trim().replace(/[^\d.,-]/g,'');
+  if (!s) return 0;
+  const c = s.lastIndexOf(','), d = s.lastIndexOf('.');
+  if (c > -1 && d > -1)  s = c > d ? s.replace(/\./g,'').replace(',','.') : s.replace(/,/g,'');
+  else if (c > -1)       s = s.replace(/\./g,'').replace(',','.');
+  else if (d > -1) {
+    const dots = (s.match(/\./g)||[]).length;
+    const dec  = s.length - d - 1;
+    // ponto só é decimal quando aparece uma vez e não separa 3 casas
+    if (dots > 1 || dec === 3) s = s.replace(/\./g,'');
+  }
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+// forma editável: sem separador de milhar, vírgula decimal
+const amtEdit = v => { const n=parseAmt(v); return n===0?'':String(n).replace('.',','); };
+
+// ── Datas: o campo é texto livre, então aceita "03/08", "15/07/2026" e ISO ───
+// Devolve um número comparável; null quando não dá para ler.
+function dateKey(str, fallbackYear){
+  const s = String(str||'').trim();
+  if(!s) return null;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);          // 2026-07-01
+  if(m) return (+m[1])*10000 + (+m[2])*100 + (+m[3]);
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); // 15/07/2026
+  if(m){ let y=+m[3]; if(y<100) y+=2000; return y*10000 + (+m[2])*100 + (+m[1]); }
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);                // 03/08
+  if(m) return (fallbackYear||new Date().getFullYear())*10000 + (+m[2])*100 + (+m[1]);
+  return null;
+}
+// mais recente primeiro; sem data vai para o fim, para não atrapalhar quem está preenchendo
+function byDateDesc(field, year){
+  return (a,b)=>{
+    const ka=dateKey(a[field],year), kb=dateKey(b[field],year);
+    if(ka===null && kb===null) return (a.sort_order||0)-(b.sort_order||0) || a.id-b.id;
+    if(ka===null) return 1;
+    if(kb===null) return -1;
+    return kb-ka || a.id-b.id;
+  };
+}
+
+function onAmtFocus(el){ el.value = amtEdit(el.value); el.select(); }
+function onAmtInput(kind, mid, id, el){
+  (kind==='revenue'?onRevChange:onCostChange)(mid, id, 'amount', parseAmt(el.value));
+}
+function onAmtBlur(kind, mid, id, el){
+  const n = parseAmt(el.value);
+  el.value = fmtAmt(n);
+  (kind==='revenue'?onRevChange:onCostChange)(mid, id, 'amount', n);
+}
 const marginClass = m => m>=45?'g':m>=25?'a':'r';
 const marginPill  = m => `<span class="pill ${marginClass(m)}">${pct(m)}</span>`;
 const catColor    = c => CAT_COLORS[c] || '#9A96B8';
@@ -1283,14 +1347,14 @@ function buildMonthReport(mid) {
   const revDist=catDistribution(m.revenues);
   const cosDist=catDistribution(m.costs);
 
-  const revRows=m.revenues.map(r=>`<tr>
+  const revRows=[...m.revenues].sort(byDateDesc('received_date',m.year)).map(r=>`<tr>
     <td>${esc(r.client_name)}${r.is_new_client?' <span style="color:var(--mu);font-size:11px">★ novo</span>':''}</td>
     <td class="r">${brl(r.amount)}</td>
     <td>${esc(r.received_date)||'—'}</td>
     <td>${catLabel(r.category)}</td>
   </tr>`).join('');
 
-  const costRows=m.costs.map(c=>`<tr>
+  const costRows=[...m.costs].sort(byDateDesc('payment_date',m.year)).map(c=>`<tr>
     <td>${esc(c.name)}</td>
     <td class="r" style="color:${tx}">${brl(c.amount)}</td>
     <td>${esc(c.payment_date)||'—'}</td>
@@ -1696,7 +1760,7 @@ function renderMonthTab(mid) {
   const costCatSel=`<select class="cell-select" style="width:110px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
     ${COST_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
 
-  const revRows=m.revenues.map(r=>{
+  const revRows=[...m.revenues].sort(byDateDesc('received_date',m.year)).map(r=>{
     const isProj=r.status==='projetado';
     const hasRec=!!r.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
@@ -1723,9 +1787,9 @@ function renderMonthTab(mid) {
         </div>
       </td>
       <td><input class="cell-input amount" type="text" value="${fmtAmt(r.amount)}" placeholder="0,00"
-        onfocus="this.value=this.value.replace(/\\./g,'').replace(',','.')"
-        onblur="this.value=fmtAmt(this.value.replace(/\\./g,'').replace(',','.'));onRevChange(${mid},${r.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"
-        oninput="onRevChange(${mid},${r.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"></td>
+        onfocus="onAmtFocus(this)"
+        onblur="onAmtBlur('revenue',${mid},${r.id},this)"
+        oninput="onAmtInput('revenue',${mid},${r.id},this)"></td>
       <td><input class="cell-input date" value="${esc(r.received_date)}" placeholder="DD/MM" oninput="onRevChange(${mid},${r.id},'received_date',this.value)"></td>
       <td>
         <select class="cell-select" onchange="onRevChange(${mid},${r.id},'category',this.value)">
@@ -1740,7 +1804,7 @@ function renderMonthTab(mid) {
     </tr>`;
   }).join('');
 
-  const costRows=m.costs.map(c=>{
+  const costRows=[...m.costs].sort(byDateDesc('payment_date',m.year)).map(c=>{
     const isProj=c.status==='projetado';
     const hasRec=!!c.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
@@ -1767,9 +1831,9 @@ function renderMonthTab(mid) {
         </div>
       </td>
       <td><input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
-        onfocus="this.value=this.value.replace(/\\./g,'').replace(',','.')"
-        onblur="this.value=fmtAmt(this.value.replace(/\\./g,'').replace(',','.'));onCostChange(${mid},${c.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"
-        oninput="onCostChange(${mid},${c.id},'amount',this.value.replace(/\\./g,'').replace(',','.'))"></td>
+        onfocus="onAmtFocus(this)"
+        onblur="onAmtBlur('cost',${mid},${c.id},this)"
+        oninput="onAmtInput('cost',${mid},${c.id},this)"></td>
       <td><input class="cell-input date" value="${esc(c.payment_date)}" placeholder="DD/MM" oninput="onCostChange(${mid},${c.id},'payment_date',this.value)"></td>
       <td>
         <select class="cell-select" onchange="onCostChange(${mid},${c.id},'category',this.value)">
@@ -2952,19 +3016,19 @@ function drawContasTab() {
   </div>
 
   <div class="g3" style="margin-bottom:16px">
-    <div class="mc ${isRecv?'green':'red'}">
+    <div class="mc">
       <div class="ml">${isRecv?'A receber':'A pagar'} (pendente)</div>
-      <div class="mv ${isRecv?'g':'r'}">${brl(totalPend)}</div>
+      <div class="mv">${brl(totalPend)}</div>
       <div class="mv-sub">${pending.length} conta${pending.length!==1?'s':''}</div>
     </div>
-    <div class="mc ${overdue.length?'red':'green'}">
+    <div class="mc">
       <div class="ml">Vencidas / atrasadas</div>
-      <div class="mv ${overdue.length?'r':'g'}">${overdue.length}</div>
+      <div class="mv ${overdue.length?'r':''}">${overdue.length}</div>
       <div class="mv-sub">${overdue.length?'Atenção necessária':'Em dia ✓'}</div>
     </div>
-    <div class="mc purple">
+    <div class="mc">
       <div class="ml">${isRecv?'Total recebido':'Total pago'}</div>
-      <div class="mv p">${brl(totalDone)}</div>
+      <div class="mv">${brl(totalDone)}</div>
       <div class="mv-sub">${done.length} conta${done.length!==1?'s':''}</div>
     </div>
   </div>
@@ -2972,11 +3036,12 @@ function drawContasTab() {
   ${pendingHtml}
 
   ${done.length?`
-  <div class="card" style="padding:0;overflow:hidden;margin-top:4px">
-    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr)">
-      <div class="ct" style="margin-bottom:0;color:var(--mu)">${isRecv?'✓ Recebidas':'✓ Pagas'} — histórico (${done.length})</div>
+  <div class="card fold ${S.contasHistOpen?'open':''}" style="padding:0;overflow:hidden;margin-top:4px">
+    <div class="fold-head" onclick="S.contasHistOpen=!S.contasHistOpen;drawContasTab()">
+      <span class="ct" style="margin-bottom:0">${isRecv?'Recebidas':'Pagas'} <span class="fold-count">${done.length}</span></span>
+      <span class="fold-caret">${S.contasHistOpen?'Ocultar':'Mostrar'}</span>
     </div>
-    <div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${doneRows}</tbody></table></div>
+    <div class="fold-body"><div style="overflow-x:auto"><table class="etable"><thead><tr>${thCols}</tr></thead><tbody>${doneRows}</tbody></table></div></div>
   </div>`:''}
 
   ${buildRecurringContasSection(isRecv)}`;
