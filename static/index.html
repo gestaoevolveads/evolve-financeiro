@@ -522,6 +522,13 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .prev-nota{font-size:11px;color:var(--mu);line-height:1.6;margin-top:12px;padding-top:11px;border-top:1px solid var(--bdr)}
 @media(max-width:820px){.prev-g{grid-template-columns:1fr}}
 
+
+.prev-res{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--s2);border-radius:var(--r3);
+  padding:9px 13px;margin-bottom:13px;font-size:12px;color:var(--tx2)}
+.prev-res b{color:var(--tx);font-weight:600;font-variant-numeric:tabular-nums;margin-left:4px}
+.prev-res .op{color:var(--mu)}
+.prev-n2{color:var(--mu);font-size:11px;margin-left:auto}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -4717,12 +4724,29 @@ function renderProjecaoTab() {
   // Regras de custo mandam no futuro: o lancamento projetado de um item que
   // tem regra e ignorado, para o valor nao entrar duas vezes.
   const comRegra = (S.costRules||[]).length>0;
-  const custoRegras = {};   // chave ano*100+mes -> {total, linhas}
+  const custoRegras = {};      // custo do CONTRATADO: usa a carteira lançada
+  const custoRegrasPrev = {};  // custo do PREVISTO: usa a carteira projetada
   if(comRegra){
+    // Contratado usa o número de clientes que de fato tem lançamento no mês.
+    // Usar a carteira prevista aqui contaminaria a linha que deve ser
+    // defensável com uma estimativa.
+    const nomesDoMes = m => new Set((m.revenues||[])
+      .filter(r=>r.nonrecurring!=1 && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim())
+      .map(r=>semAcento(r.client_name)));
+    let anterior = null;
+    rows.forEach(r=>{
+      const atual = nomesDoMes(r.m);
+      if(r.isFuture || r.isCurrent){
+        const novos = anterior ? [...atual].filter(x=>!anterior.has(x)).length : 0;
+        custoRegras[r.m.year*100+r.m.month] = custoPorRegras(atual.size, novos, mcRegras.ticket);
+      }
+      anterior = atual;
+    });
+    // Previsto rola a carteira com churn e entrada
     let nCli = mcRegras.baseCli;
     futureRows.forEach(r=>{
       const novos = mcRegras.entramMes;
-      custoRegras[r.m.year*100+r.m.month] = custoPorRegras(Math.round(nCli), novos, mcRegras.ticket);
+      custoRegrasPrev[r.m.year*100+r.m.month] = custoPorRegras(Math.round(nCli), novos, mcRegras.ticket);
       nCli = nCli - (nCli*mcRegras.churnPct) + novos;
     });
   }
@@ -4765,6 +4789,15 @@ function renderProjecaoTab() {
   });
   const totalPrev = futureRows.reduce((s,r)=>s+(prevPorMes[r.m.year*100+r.m.month]||0),0);
   const difPrev = totalPrev - totalProjRev;
+  // custo do cenário previsto: mesmas regras, carteira projetada
+  const totalPrevCos = comRegra
+    ? futureRows.reduce((s,r)=>{
+        const k=r.m.year*100+r.m.month;
+        const fixoNaoCoberto = (r.m.costs||[]).filter(c=>!temRegra(c.name))
+          .reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
+        return s + fixoNaoCoberto + (custoRegrasPrev[k]?custoRegrasPrev[k].total:0);
+      },0)
+    : totalProjCos;
   const cliEquiv = mc.baseCli ? churnUso*mc.baseCli : 0;
 
   const blocoPrevisto = `
@@ -4784,10 +4817,16 @@ function renderProjecaoTab() {
         <div class="prev-n">soma dos lançamentos</div></div>
       <div class="prev-c hi"><div class="prev-l">Previsto no período</div><div class="prev-v">${brl(totalPrev)}</div>
         <div class="prev-n">com churn e venda nova</div></div>
-      <div class="prev-c"><div class="prev-l">Diferença</div>
+      <div class="prev-c"><div class="prev-l">Diferença na receita</div>
         <div class="prev-v ${difPrev>=0?'up':'down'}">${difPrev>=0?'+':'−'} ${brl(Math.abs(difPrev))}</div>
         <div class="prev-n">${difPrev>=0?'o contratado ignora venda nova':'o contratado ignora quem sai'}</div></div>
     </div>
+    ${comRegra?`<div class="prev-res">
+      <span>Resultado contratado <b>${brl(totalProjRev-totalProjCos)}</b></span>
+      <span class="op">·</span>
+      <span>Resultado previsto <b>${brl(totalPrev-totalPrevCos)}</b></span>
+      <span class="prev-n2">as regras de custo escalam junto com a carteira nos dois</span>
+    </div>`:''}
     <div class="prev-prem">
       <label>Churn ao mês
         <input value="${(churnUso*100).toFixed(1).replace('.',',')}" onchange="S.projChurn=parseFloat(this.value.replace(',','.'))/${cen.churn};renderProjecaoTab()">
