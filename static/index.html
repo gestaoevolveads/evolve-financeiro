@@ -1585,12 +1585,18 @@ function rbt12De(m, prevPorMes){
       ? carteiraProjetada(x).receita
       : (x.revenues||[]).filter(r => !r.status || r.status==='realizado')
           .reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
-  return (S.months||[]).reduce((s,x)=>{
+  let soma = 0, n = 0;
+  (S.months||[]).forEach(x=>{
     const k = x.year*12 + x.month;
-    if(k > fim || k <= fim-12) return s;
+    if(k > fim || k <= fim-12) return;
     const prev = prevPorMes && prevPorMes[x.year*100+x.month];
-    return s + (prev!=null ? prev : somaRev(x));
-  }, 0);
+    soma += (prev!=null ? prev : somaRev(x)); n++;
+  });
+  // Num horizonte longo, o mes projetado pode cair fora do periodo cadastrado e
+  // a janela de 12 meses vir incompleta. Anualizar o que existe evita devolver
+  // um RBT12 baixo demais, que jogaria a aliquota de volta para a 1a faixa.
+  if(n > 0 && n < 12) return soma * 12 / n;
+  return soma;
 }
 
 // Imposto do mes: receita do mes × aliquota efetiva sobre o RBT12.
@@ -4321,14 +4327,24 @@ function simular(ajustes, anoRef, horizonte){
   const nMeses = horizonte || 0;
   if(nMeses>0){
     const ult = reg.length ? reg[reg.length-1] : {year:aAtual, month:mAtual};
-    const base = baseSintetica();
+    // O mes alem do cadastrado repete a ESTRUTURA do ultimo mes, linha a linha,
+    // e nao um valor agregado. Antes era uma unica linha "(base historica)" com
+    // a media dos 3 ultimos meses — e como nenhum nome batia, as regras de custo
+    // nao substituiam nada e eram somadas por cima de uma base que ja continha
+    // pro-labore, Adriano e comissao. A despesa explodia e a carteira virava
+    // "2 clientes", porque so havia uma linha de receita para contar.
+    // Repetindo a estrutura, o roll-forward, as regras, a reserva e o imposto
+    // funcionam nesses meses exatamente como nos meses cadastrados.
+    const recorrente = x => x.nonrecurring!=1 && (parseFloat(x.amount)||0)>0;
+    const moldeRev = (ult.revenues||[]).filter(recorrente);
+    const moldeCos = (ult.costs||[]).filter(recorrente);
     let y=ult.year, mo=ult.month;
     const alvoIdx = (aAtual*12+mAtual) + nMeses;
     while((y*12+mo) < alvoIdx){
       mo++; if(mo>12){ mo=1; y++; }
-      serie.push({ sintetico:true, m:{year:y, month:mo,
-        revenues:[{client_name:'(base histórica)', amount:base.rev, category:'servico'}],
-        costs:[{name:'(base histórica)', amount:base.cos, category:'operacional'}]} });
+      serie.push({ sintetico:true, m:{ year:y, month:mo, id:null,
+        revenues: moldeRev.map(r=>({...r, id:null, status:'projetado'})),
+        costs:    moldeCos.map(c=>({...c, id:null, status:'projetado'})) } });
     }
   }
   // corta o passado distante: mostra do mês atual em diante quando há horizonte
@@ -4434,7 +4450,7 @@ function simular(ajustes, anoRef, horizonte){
     });
 
     acumOf += ((ofRev+ofRevAj)-ofCos); acumSim += (sRev-sCos);
-    return {mes:m.month, ano:m.year, sintetico, ofRev: ofRev+ofRevAj, ofCos, ofBal:(ofRev+ofRevAj)-ofCos, ofAcum:acumOf,
+    return {mes:m.month, ano:m.year, sintetico, mesId:m.id||null, ofRev: ofRev+ofRevAj, ofCos, ofBal:(ofRev+ofRevAj)-ofCos, ofAcum:acumOf,
             sRev, sCos, sBal:sRev-sCos, sAcum:acumSim, efeitos, nCli, cart};
   });
   return {linhas, finalOf:acumOf, finalSim:acumSim, delta:acumSim-acumOf,
@@ -5342,9 +5358,16 @@ function drawSim(){
               <td>${MONTHS_PT[l.mes-1]}${(S.simHorizonte||0)?`/${String(l.ano).slice(2)}`:''}${l.sintetico?' <span class="sim-tag-b">base</span>':''}</td>
               <td class="pj-cli pj-sep" style="font-weight:600;color:var(--tx)">${cli}</td>
               <td class="pj-in">${c.entram==null?'<span class="pj-zero">—</span>':numCli(Math.round(c.entram*10)/10)}</td>
-              <td class="pj-out">${c.saem==null?'<span class="pj-zero">—</span>':numCli(Math.round(c.saem*10)/10)}</td>
-              <td class="pj-money pj-sep">${brl(l.sRev)}</td>
-              <td class="pj-money">${brl(l.sCos)}</td>
+              <td class="pj-out ${c.saem?'clicavel':''}"
+                ${c.saem?`title="${esc(cadencia(c.saem,'sai')+' — clique para entender')}"
+                onclick="event.stopPropagation();abrirInfoSaidas(${c.saem},${Math.round(c.cliSim)},${c.ticket||0})"`:''}
+                >${c.saem==null?'<span class="pj-zero">—</span>':numCli(Math.round(c.saem*10)/10)}</td>
+              <td class="pj-money pj-sep ${l.mesId?'clicavel':''}"
+                ${l.mesId?`title="Ver as receitas deste mês, uma a uma"
+                onclick="event.stopPropagation();abrirDetalhe(${l.mesId},'rev')"`:''}>${brl(l.sRev)}</td>
+              <td class="pj-money ${l.mesId?'clicavel':''}"
+                ${l.mesId?`title="Ver as despesas deste mês, uma a uma"
+                onclick="event.stopPropagation();abrirDetalhe(${l.mesId},'cos')"`:''}>${brl(l.sCos)}</td>
               <td class="pj-big" style="color:${l.sBal>=0?'var(--tx)':'var(--rd)'}">${brl(l.sBal)}</td>
               <td class="pj-mu" style="color:${l.sRev>0&&l.sBal/l.sRev<0?'var(--rd)':'var(--mu)'}">${
                 l.sRev>0 ? (l.sBal/l.sRev*100).toFixed(1).replace('.',',')+'%' : '—'}</td>
@@ -6426,6 +6449,52 @@ function renderCaixinhaTab(){
   </div>`;
 }
 
+// "0,8 saída por mês" nao existe no mundo. A caixa traduz a taxa para o que
+// ela significa na pratica.
+function abrirInfoSaidas(taxa, clientes, ticket){
+  const mc = metricasCarteira();
+  const meses = taxa>0 ? 1/taxa : null;
+  const n1 = v => v.toFixed(1).replace('.',',');
+  const pct = clientes>0 ? taxa/clientes*100 : 0;
+  abrirInfo('O que significa sair ' + n1(taxa) + ' cliente por mês', `
+    <div class="rel-hint">Ninguém perde oito décimos de cliente. Esse número é uma
+      <b>taxa</b>: o ritmo com que a carteira encolhe quando nada é feito para segurá-la.</div>
+
+    <div class="nrr-q">Na prática: <b>${cadencia(taxa,'sai')}</b>.</div>
+
+    <div class="info-passo">
+      <div class="info-n">%</div>
+      <div><div class="info-t">Em percentual da carteira</div>
+        <div class="info-d">Com <b>${clientes} clientes</b>, sair ${n1(taxa)} por mês é perder
+          <b>${pct.toFixed(1).replace('.',',')}%</b> da base a cada mês.
+          ${ticket?`Em dinheiro, são cerca de <b>${brl(taxa*ticket)}</b> de receita recorrente
+            saindo por mês.`:''}</div></div>
+    </div>
+
+    <div class="info-passo">
+      <div class="info-n">↺</div>
+      <div><div class="info-t">O que isso exige da venda</div>
+        <div class="info-d">Só para a carteira ficar do mesmo tamanho, é preciso que
+          <b>${cadencia(taxa,'entre')}</b>. Abaixo disso ela encolhe sozinha; acima, cresce.</div></div>
+    </div>
+
+    <div class="info-passo">
+      <div class="info-n">?</div>
+      <div><div class="info-t">De onde vem esse número</div>
+        <div class="info-d">Do histórico: em ${mc.transicoes} transições de mês,
+          saíram ${n1(mc.saemMes)} clientes por mês em média, e a receita perdida foi
+          ${(mc.churnPct*100).toFixed(1).replace('.',',')}% da base.
+          O cenário aplica essa taxa sobre a carteira projetada de cada mês —
+          por isso ela muda de mês para mês conforme a carteira cresce ou encolhe.</div></div>
+    </div>
+
+    <div class="info-nota">
+      Um mês pode passar sem nenhuma saída e o seguinte perder dois. A taxa não prevê
+      <i>quando</i>, só <i>quanto</i>, distribuído ao longo do tempo. É por isso que ela aparece
+      quebrada — e é o jeito certo de projetar, porque esperar "zero ou um" subestima o risco.
+    </div>`);
+}
+
 function blocoCaixinha(){
   const c = metricasCaixinha();
   const n1 = v => v.toFixed(1).replace('.',',');
@@ -7124,9 +7193,12 @@ function renderProjecaoTab() {
               <td class="pj-in" title="${c.projetado&&c.entram!=null
                 ? esc(`${cadencia(c.entram,'entra')} — em ${MONTHS_FULL[r.m.month-1]} a projeção conta com isso`)
                 : 'Clientes que entraram de fato neste mês'}">${sinal(c.entram,'pj-in')}</td>
-              <td class="pj-out" title="${c.projetado&&c.saem!=null
-                ? esc(`${cadencia(c.saem,'sai')} — ${(c.saem*100/(c.clientes||1)).toFixed(0)}% da carteira por mês. Não é um cliente pela metade: é a chance de perder um, distribuída no tempo.`)
-                : 'Clientes que saíram de fato neste mês'}">${sinal(c.saem,'pj-out')}</td>
+              <td class="pj-out ${c.projetado&&c.saem?'clicavel':''}"
+                title="${c.projetado&&c.saem!=null
+                  ? esc(cadencia(c.saem,'sai')+' — clique para entender')
+                  : 'Clientes que saíram de fato neste mês'}"
+                ${c.projetado&&c.saem?`onclick="abrirInfoSaidas(${c.saem},${c.clientes},${c.ticket||0})"`:''}
+                >${sinal(c.saem,'pj-out')}</td>
               <td class="pj-mu">${c.ticket? brl(c.ticket) : '—'}</td>`:''}
               <td class="pj-money pj-sep clicavel" title="Ver as receitas deste mês, uma a uma"
                   onclick="abrirDetalhe(${r.m.id},'rev')">${brl(r.projRev)}${
