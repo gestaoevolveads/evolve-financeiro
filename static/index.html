@@ -1300,20 +1300,29 @@ function mesEhFuturo(m){
 // Custos EFETIVOS do mês, em um lugar só, para não existirem duas verdades.
 // Num mês futuro, o item coberto por regra sai da lista e entra a linha
 // calculada pela regra — nunca os dois, senão o valor duplicaria.
+// Tamanho da carteira num mes futuro, pelo mesmo roll-forward de MRR que a aba
+// Projecao usa. Contar as linhas de receita nao serve aqui: mes futuro e copia
+// do atual, entao a carteira ficaria parada para sempre — o degrau do Adriano
+// nunca dispararia e a comissao do Diego daria zero por "nenhum cliente novo",
+// justo enquanto a receita projetada cresce. Custo tem de crescer junto.
+function carteiraProjetada(m){
+  const mc = metricasCarteira();
+  const tk = mc.ticket || 0;
+  const h = new Date();
+  const k = (m.year*12+m.month) - (h.getFullYear()*12 + (h.getMonth()+1));
+  let mrr = mc.baseMRR;
+  for(let i=0; i<Math.max(k,0); i++) mrr = mrr - mrr*mc.churnPct + mc.novoMRR;
+  return {
+    nClientes: tk ? Math.round(mrr/tk) : mc.baseCli,
+    novos:     tk ? mc.novoMRR/tk : 0,
+    tk
+  };
+}
+
 function custosEfetivos(m){
   const base=(m.costs||[]).map(c=>({...c, viaRegra:false}));
   if(!mesEhFuturo(m) || !(S.costRules||[]).length) return base;
-  const nClientes=(m.revenues||[]).filter(r=>r.nonrecurring!=1
-      && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim()).length;
-  const prev=mesAnterior(m);
-  const nomesPrev=prev? new Set((prev.revenues||[]).filter(r=>r.nonrecurring!=1
-      && (parseFloat(r.amount)||0)>0).map(r=>semAcento(r.client_name))) : null;
-  const novos=nomesPrev
-    ? (m.revenues||[]).filter(r=>r.nonrecurring!=1 && (parseFloat(r.amount)||0)>0
-        && !nomesPrev.has(semAcento(r.client_name))).length
-    : 0;
-  const tk=nClientes? (m.revenues||[]).filter(r=>r.nonrecurring!=1)
-        .reduce((s,r)=>s+(parseFloat(r.amount)||0),0)/nClientes : 0;
+  const {nClientes, novos, tk} = carteiraProjetada(m);
   const semCobertos=base.filter(c=>!temRegra(c.name));
   const calc=custoPorRegras(nClientes, novos, tk).linhas.map(l=>({
     id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
