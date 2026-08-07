@@ -313,6 +313,20 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .sim-calc-note{font-size:11px;color:var(--mu);margin-top:8px;line-height:1.5}
 @media(max-width:900px){.sim-grid{grid-template-columns:1fr}.sim-cmp{grid-template-columns:1fr}}
 
+
+/* ══ ONDE O MÊS ESTÁ ═════════════════════════════════════════════════════════ */
+.pxr-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.pxr-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:7px}
+.pxr-lbl{font-size:12px;color:var(--tx2);font-weight:500}
+.pxr-val{font-size:13px;font-variant-numeric:tabular-nums}
+.pxr-val b{font-size:15px;font-weight:600}
+.pxr-de{color:var(--mu);font-size:12px}
+.pxr-track{height:8px;background:var(--s3);border-radius:4px;overflow:hidden}
+.pxr-fill{height:100%;background:var(--ac);border-radius:0 4px 4px 0;transition:width .35s cubic-bezier(.4,0,.2,1)}
+.pxr-sub{font-size:11px;color:var(--mu);margin-top:6px}
+.pxr-nota{font-size:11px;color:var(--mu);margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr)}
+@media(max-width:720px){.pxr-grid{grid-template-columns:1fr;gap:16px}}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -3706,7 +3720,10 @@ function renderProjecaoTab() {
   const endCash = rows.length ? rows[rows.length-1].cumCashEnd : saldoInicial;
 
   // Projetado x Realizado: months with pending projected items (revProj !== rev or cosProj !== cos)
-  const pxrRows = rows.filter(r => r.isCurrent || (r.isFuture && (r.sc.revProj !== r.sc.rev || r.sc.cosProj !== r.sc.cos)));
+  // Só o mês corrente: em mês futuro nada foi realizado por definição, entao
+  // repetir o bloco para cada um enchia a tela com 0% e nenhuma informacao.
+  const pxrAtual   = rows.find(r => r.isCurrent);
+  const pxrFuturos = rows.filter(r => r.isFuture && (r.sc.revProj > 0 || r.sc.cosProj > 0));
 
   const horizonOpts = [
     {v:0, l:'Ano 2026'}, {v:1, l:'1 mês'}, {v:2, l:'2 meses'},
@@ -3726,37 +3743,42 @@ function renderProjecaoTab() {
     </div>`;
   };
 
-  const pxrSection = pxrRows.length ? `
-    <div class="card" style="padding:20px;margin-bottom:18px">
-      <div class="ct" style="margin-bottom:16px">Projetado × Realizado</div>
-      ${pxrRows.map(r => {
-        const revPct = r.sc.revProj > 0 ? Math.min(r.sc.rev / r.sc.revProj * 100, 100) : 100;
-        const cosPct = r.sc.cosProj > 0 ? Math.min(r.sc.cos / r.sc.cosProj * 100, 100) : 100;
-        const label = r.isCurrent ? `${MONTHS_FULL[r.m.month-1]} ${r.m.year} <span style="font-size:11px;color:var(--ac);background:var(--ac-soft);border-radius:10px;padding:1px 7px;margin-left:6px">Mês atual</span>` : `${MONTHS_FULL[r.m.month-1]} ${r.m.year}`;
-        return `<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bdr)">
-          <div style="font-size:12px;font-weight:600;margin-bottom:10px">${label}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mu)">
-                <span>Receita confirmada</span>
-                <span><span style="color:var(--g);font-weight:700">${brl(r.sc.rev)}</span> <span style="color:var(--mu)">/ ${brl(r.sc.revProj)}</span></span>
-              </div>
-              ${progressBar(r.sc.rev, r.sc.revProj, 'var(--g)')}
-              <div style="font-size:11px;color:var(--mu);margin-top:3px">${revPct.toFixed(0)}% confirmado${r.sc.revProj > r.sc.rev ? ` · faltam ${brl(r.sc.revProj - r.sc.rev)}` : ' ✓'}</div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mu)">
-                <span>Despesa confirmada</span>
-                <span><span style="color:var(--rd);font-weight:700">${brl(r.sc.cos)}</span> <span style="color:var(--mu)">/ ${brl(r.sc.cosProj)}</span></span>
-              </div>
-              ${progressBar(r.sc.cos, r.sc.cosProj, 'var(--rd)')}
-              <div style="font-size:11px;color:var(--mu);margin-top:3px">${cosPct.toFixed(0)}% confirmado${r.sc.cosProj > r.sc.cos ? ` · faltam ${brl(r.sc.cosProj - r.sc.cos)}` : ' ✓'}</div>
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
-      <div style="font-size:11px;color:var(--mu)">* "Confirmado" = itens marcados como realizados. "/ total" = todos os lançamentos do mês incluindo projetados pendentes.</div>
-    </div>` : '';
+  const pxrSection = pxrAtual ? (() => {
+    const sc = pxrAtual.sc;
+    const m  = pxrAtual.m;
+    const revAbertos = (m.revenues||[]).filter(x=>x.status==='projetado').length;
+    const cosAbertos = (m.costs||[]).filter(x=>x.status==='projetado').length;
+    const pctCos = sc.cosProj>0 ? Math.min(sc.cos/sc.cosProj*100,100) : 0;
+    const pctRev = sc.revProj>0 ? Math.min(sc.rev/sc.revProj*100,100) : 0;
+
+    const linha = (rotulo, feito, total, pct, abertos, verbo) => `
+      <div class="pxr-item">
+        <div class="pxr-top">
+          <span class="pxr-lbl">${rotulo}</span>
+          <span class="pxr-val"><b>${brl(feito)}</b> <span class="pxr-de">de ${brl(total)} lançados</span></span>
+        </div>
+        <div class="pxr-track"><div class="pxr-fill" style="width:${pct}%"></div></div>
+        <div class="pxr-sub">${abertos===0
+            ? (total>0 ? `tudo ${verbo}` : 'nada lançado neste mês')
+            : (feito===0 ? `nenhum item marcado como ${verbo} ainda · ${abertos} em aberto`
+                         : `${abertos} ${abertos===1?'item ainda em aberto':'itens ainda em aberto'}`)}</div>
+      </div>`;
+
+    const futuros = pxrFuturos.length
+      ? `<div class="pxr-nota">${MONTHS_PT[pxrFuturos[0].m.month-1]} a ${MONTHS_PT[pxrFuturos[pxrFuturos.length-1].m.month-1]}
+           ainda não têm nada marcado — esperado, são meses que não chegaram.</div>`
+      : '';
+
+    return `
+    <div class="card">
+      <div class="ct">Onde ${MONTHS_FULL[m.month-1]} está</div>
+      <div class="pxr-grid">
+        ${linha('Receita', sc.rev, sc.revProj, pctRev, revAbertos, 'recebido')}
+        ${linha('Despesa', sc.cos, sc.cosProj, pctCos, cosAbertos, 'pago')}
+      </div>
+      ${futuros}
+    </div>`;
+  })() : '';
 
   const alertHtml = negativoMonths.length ? `
     <div style="background:rgba(255,87,87,.08);border:1px solid rgba(255,87,87,.25);border-radius:10px;padding:10px 14px;margin-bottom:18px;display:flex;align-items:center;gap:10px">
