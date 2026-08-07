@@ -3781,6 +3781,7 @@ function simular(ajustes, anoRef, horizonte){
 
   const saldoIni = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
   let acumOf = saldoIni, acumSim = saldoIni, mesesRodados = 0;
+  let mrrOf = null, mrrSim = null;   // roll-forward de MRR, igual ao da aba Projeção
 
   const linhas = serie.map(({m, sintetico})=>{
     const revs = (m.revenues||[]).map(r=>({cat:r.category, nome:(r.client_name||''), v:parseFloat(r.amount)||0}));
@@ -3790,21 +3791,32 @@ function simular(ajustes, anoRef, horizonte){
     const futuro = (m.year*12+m.month) >= (aAtual*12+mAtual);
 
     let sRev = ofRev, sCos = ofCos;
+    let ofRevAj = 0;   // efeito do observado na linha oficial
     const efeitos = [];
     const anota = (txt,val)=>efeitos.push({txt,val});
 
-    // premissas de carteira: contam a partir do mês escolhido
+    // Roll-forward de MRR, exatamente como a aba Projeção: cada mês parte da
+    // receita já projetada do mês anterior, perde o churn e ganha o MRR novo.
+    // Antes aqui havia um modelo de contagem de clientes × ticket — outro
+    // cálculo — e por isso a linha "oficial" do simulador nunca batia com a
+    // Projeção nem quando não havia nenhum ajuste.
     const inicioPrem = (prem.desde || (mAtual+1));
-    const vigente = (m.year*12+m.month) >= (aAtual*12 + inicioPrem);
-    if(futuro) mesesRodados++;
-    if(vigente){
-      const nRod = (m.year*12+m.month) - (aAtual*12 + inicioPrem) + 1;
-      const liq = (prem.entram - prem.saem) * nRod;   // saldo acumulado de clientes
-      if(liq && prem.ticket){
-        const d = liq * prem.ticket;
-        sRev += d;
-        anota(`${liq>0?'+':''}${(Math.round(liq*10)/10)} cliente(s) × ${brl(prem.ticket)}`, d);
-      }
+    if(futuro){
+      mesesRodados++;
+      const obs = prem.observado;
+      const bOf = (mrrOf==null) ? ofRev : Math.max(mrrOf, 0);
+      mrrOf   = bOf - bOf*obs.churnPct + obs.novoMRR;
+      ofRevAj = mrrOf - ofRev;
+
+      const vigente = (m.year*12+m.month) >= (aAtual*12 + inicioPrem);
+      const cP = vigente ? prem.churnPct : obs.churnPct;
+      const nM = vigente ? prem.novoMRR  : obs.novoMRR;
+      const bSim = (mrrSim==null) ? ofRev : Math.max(mrrSim, 0);
+      mrrSim = bSim - bSim*cP + nM;
+      const d = mrrSim - ofRev;
+      sRev += d;
+      if(Math.abs(d) > 0.5)
+        anota(`carteira: ${brl(nM)} de MRR novo · churn ${(cP*100).toFixed(1).replace('.',',')}%`, d);
     }
 
     ajustes.forEach(a=>{
@@ -3845,8 +3857,8 @@ function simular(ajustes, anoRef, horizonte){
       }
     });
 
-    acumOf += (ofRev-ofCos); acumSim += (sRev-sCos);
-    return {mes:m.month, ano:m.year, sintetico, ofRev, ofCos, ofBal:ofRev-ofCos, ofAcum:acumOf,
+    acumOf += ((ofRev+ofRevAj)-ofCos); acumSim += (sRev-sCos);
+    return {mes:m.month, ano:m.year, sintetico, ofRev: ofRev+ofRevAj, ofCos, ofBal:(ofRev+ofRevAj)-ofCos, ofAcum:acumOf,
             sRev, sCos, sBal:sRev-sCos, sAcum:acumSim, efeitos, nCli};
   });
   return {linhas, finalOf:acumOf, finalSim:acumSim, delta:acumSim-acumOf,
@@ -3875,12 +3887,14 @@ function resolveConflitos(lista){
 
 // ── Histórico: desfazer e refazer (ajustes + premissas juntos) ───────────────
 function estadoSim(){ const p=premissasAtuais();
-  return JSON.stringify({aj:S.simAjustes||[], pr:{ticket:p.ticket, entram:p.entram, saem:p.saem, desde:p.desde}}); }
+  return JSON.stringify({aj:S.simAjustes||[], pr:{ticket:p.ticket, churnPct:p.churnPct, novoMRR:p.novoMRR, desde:p.desde}}); }
 function aplicaEstado(str){
   const e = JSON.parse(str);
   S.simAjustes = e.aj;
-  const p = premissasAtuais(); p.ticket=e.pr.ticket; p.entram=e.pr.entram; p.saem=e.pr.saem;
-  if(e.pr.desde!==undefined) p.desde=e.pr.desde;
+  const p = premissasAtuais(); p.ticket=e.pr.ticket;
+  if(e.pr.churnPct!==undefined) p.churnPct=e.pr.churnPct;
+  if(e.pr.novoMRR!==undefined)  p.novoMRR =e.pr.novoMRR;
+  if(e.pr.desde!==undefined)    p.desde   =e.pr.desde;
 }
 function simPush(novos){
   S.simUndo = S.simUndo || [];
@@ -4141,28 +4155,46 @@ const CENARIOS = {
   otimista:   {rot:'Otimista',   churn:0.5, novo:1.5},
 };
 
+// O simulador guarda EXATAMENTE os dois numeros que a Projecao usa: churn em
+// percentual da receita e novo MRR em reais. Os campos em quantidade de
+// clientes sao apenas outra forma de olhar para eles, convertida pelo ticket.
+// Antes eram dois modelos diferentes, e por isso o simulador nunca batia com a
+// aba Projecao nem no estado inicial.
 function premissasAtuais(){
   if(!S.simPrem){
-    const o = premissasObservadas();
-    S.simPrem = {ticket:o.ticket, entram:0, saem:0, desde:(new Date().getMonth()+2), observado:o};
+    const o  = premissasObservadas();
+    const mc = metricasCarteira();
+    S.simPrem = {
+      ticket: o.ticket || mc.ticket,
+      churnPct: mc.churnPct,       // fracao da receita que sai por mes
+      novoMRR:  mc.novoMRR,        // reais de receita nova por mes
+      desde: (new Date().getMonth()+2),
+      observado: {...o, churnPct: mc.churnPct, novoMRR: mc.novoMRR, baseCli: mc.baseCli}
+    };
   }
   return S.simPrem;
 }
+// conversoes entre as duas formas de ver a mesma alavanca
+const premEntram = p => p.ticket ? p.novoMRR / p.ticket : 0;
+const premSaem   = p => (p.observado.baseCli||0) * p.churnPct;
 function setPremissa(campo, valor){
   const p = premissasAtuais();
   S.simUndo = S.simUndo||[];
   S.simUndo.push(estadoSim());
   if(S.simUndo.length>50) S.simUndo.shift();
   S.simRedo = [];
-  p[campo] = campo==='ticket' ? parseAmt(valor)
-           : campo==='desde' ? (parseInt(valor,10)||1)
-           : (parseFloat(String(valor).replace(',','.'))||0);
+  const num = () => parseFloat(String(valor).replace(',','.'))||0;
+  if(campo==='ticket')      p.ticket = parseAmt(valor);
+  else if(campo==='desde')  p.desde  = parseInt(valor,10)||1;
+  else if(campo==='entram') p.novoMRR  = num() * (p.ticket||0);      // clientes -> reais
+  else if(campo==='saem')   p.churnPct = (p.observado.baseCli||1) ? num()/(p.observado.baseCli||1) : 0;
+  else p[campo] = num();
   drawSim();
 }
 function usarObservado(){
-  const o = premissasAtuais().observado;
+  const p = premissasAtuais(), o = p.observado;
   setPremissa('ticket', o.ticket);
-  S.simPrem.entram = o.entram; S.simPrem.saem = o.saem;
+  S.simPrem.churnPct = o.churnPct; S.simPrem.novoMRR = o.novoMRR;
   drawSim();
 }
 
@@ -4248,8 +4280,8 @@ function exportarCenario(){
 <h2>Premissas da carteira</h2>
 <div class="prem">
   <span>Ticket médio <b>${brl(prem.ticket)}</b></span>
-  <span>Entram por mês <b>${String(prem.entram).replace('.',',')}</b></span>
-  <span>Saem por mês <b>${String(prem.saem).replace('.',',')}</b></span>
+  <span>MRR novo por mês <b>${brl(prem.novoMRR)}</b> (~${premEntram(prem).toFixed(1).replace('.',',')} cliente)</span>
+  <span>Churn <b>${(prem.churnPct*100).toFixed(1).replace('.',',')}%</b> (~${premSaem(prem).toFixed(1).replace('.',',')} cliente)</span>
   <span>Horizonte <b>${(S.simHorizonte||0)? (S.simHorizonte+' meses') : 'ano corrente'}</b></span>
 </div>
 
@@ -4373,7 +4405,12 @@ function drawSim(){
     ? S.simAjustes.map((a,i)=>`<span class="sim-chip" title="${esc(a.frase||a.rotulo)}">${esc(a.rotulo)}
         <span class="sim-chip-m">desde ${MONTHS_PT[(a.desde||1)-1]}</span>
         <button onclick="removeAjuste(${i})" title="Remover">✕</button></span>`).join('')
-    : '<span class="sim-vazio">Nenhum ajuste. A simulação está igual à projeção oficial.</span>';
+    : (()=>{ const o=prem.observado;
+        const igual = Math.abs(prem.novoMRR-o.novoMRR)<1 && Math.abs(prem.churnPct-o.churnPct)<0.001
+                   && Math.abs(prem.ticket-o.ticket)<1;
+        return `<span class="sim-vazio">${igual
+          ? 'Nenhum ajuste. A simulação está igual à aba Projeção.'
+          : 'Sem ajustes na lista, mas as premissas acima foram alteradas — por isso o cenário difere da Projeção.'}</span>`; })();
 
   const det = linhas.find(l=>l.mes===sel);
   const caixa = det ? `
@@ -4406,13 +4443,13 @@ function drawSim(){
         <div class="sim-prem-h">
           <span>Premissas da carteira</span>
           <span class="sim-prem-obs">observado na carteira recorrente: ticket ${brl(prem.observado.ticket)} ·
-            entram ${prem.observado.entram}/mês · saem ${prem.observado.saem}/mês
+            MRR novo ${brl(prem.observado.novoMRR)}/mês · churn ${(prem.observado.churnPct*100).toFixed(1).replace('.',',')}%
             <button class="sim-limpar" onclick="usarObservado()">usar o observado</button></span>
         </div>
         <div class="sim-prem-g">
           <label>Ticket médio<input value="${brl(prem.ticket).replace('R$ ','')}" onchange="setPremissa('ticket',this.value)"></label>
-          <label>Entram por mês<input value="${String(prem.entram).replace('.',',')}" onchange="setPremissa('entram',this.value)"></label>
-          <label>Saem por mês<input value="${String(prem.saem).replace('.',',')}" onchange="setPremissa('saem',this.value)"></label>
+          <label>Entram por mês (clientes)<input value="${premEntram(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('entram',this.value)"></label>
+          <label>Saem por mês (clientes)<input value="${premSaem(prem).toFixed(1).replace('.',',')}" onchange="setPremissa('saem',this.value)"></label>
           <label>A partir de<select onchange="setPremissa('desde',this.value)">
             ${mesOpts(prem.desde||desdePadrao)}</select></label>
           <label>Horizonte<select onchange="S.simHorizonte=+this.value;drawSim()">
