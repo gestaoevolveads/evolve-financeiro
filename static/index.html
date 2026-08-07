@@ -440,6 +440,37 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .proj-calc .fin b{color:var(--ac)}
 @media(max-width:900px){.proj-hero-wrap{grid-template-columns:1fr}.proj-sec{grid-template-columns:1fr}}
 
+
+.sim-modos{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sim-modos .sim-entrada{flex:1;min-width:280px}
+.sim-hist{display:flex;gap:4px}
+.sim-hist .btn[disabled]{opacity:.35;cursor:default}
+.sim-manual{background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px 14px;margin-top:10px}
+.sim-man-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px}
+.sim-man-row:last-child{margin-bottom:0;padding-top:10px;border-top:1px solid var(--bdr)}
+.sim-man-row label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--mu)}
+.sim-man-row select,.sim-man-row input{background:var(--input-bg);border:1px solid var(--bdr);border-radius:var(--r3);
+  padding:7px 9px;color:var(--tx);font-family:var(--ff);font-size:12.5px;outline:none;min-width:110px}
+.sim-man-row select:focus,.sim-man-row input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+
+
+.proj-como{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);margin-bottom:14px}
+.proj-como summary{cursor:pointer;padding:11px 16px;font-size:12.5px;font-weight:500;color:var(--tx2);list-style:none;display:flex;align-items:center;gap:7px}
+.proj-como summary::-webkit-details-marker{display:none}
+.proj-como summary::before{content:'›';color:var(--mu);transition:transform .2s;display:inline-block}
+.proj-como[open] summary::before{transform:rotate(90deg)}
+.proj-como summary:hover{color:var(--ac)}
+.proj-como-in{padding:2px 16px 14px;font-size:12px;color:var(--tx2);line-height:1.65;border-top:1px solid var(--bdr);margin-top:2px;padding-top:12px}
+.proj-como-in p{margin-bottom:10px}
+.proj-como-g{display:grid;gap:6px;margin:10px 0}
+.proj-como-g > div{display:grid;grid-template-columns:minmax(130px,180px) 1fr;gap:12px;font-size:12px;
+  padding:6px 0;border-bottom:1px solid var(--bdr)}
+.proj-como-g > div:last-child{border-bottom:none}
+.proj-como-g .k{color:var(--tx);font-weight:600}
+.proj-como-g .v{color:var(--mu)}
+.proj-como-n{font-size:11.5px;color:var(--mu);margin-top:6px !important}
+@media(max-width:640px){.proj-como-g > div{grid-template-columns:1fr;gap:2px}}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -2627,6 +2658,25 @@ async function renderAuditTab() {
 // NAVIGATION
 // ══════════════════════════════════════════════════════════════════════════════
 
+function goTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  const tabEl=e('tab-'+id); if(tabEl) tabEl.classList.add('active');
+  S.tab=id;
+  marcarNavAtiva();
+  // no celular a sidebar e sobreposta: fecha ao navegar
+  const sd=e('side'); if(sd && window.matchMedia('(max-width:880px)').matches) sd.classList.remove('open');
+  if(id==='dashboard') renderDashboard();
+  else if(id==='cashflow') renderCashflowTab();
+  else if(id==='contas') renderContasTab();
+  else if(id==='projecao') renderProjecaoTab();
+  else if(id==='search') renderSearchTab();
+  else if(id==='audit') renderAuditTab();
+  else if(id==='relatorios') renderRelatoriosTab();
+  else { const mid=parseInt(id.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+
 // Ícones de traço único, no mesmo peso — caracteres geométricos ficavam
 // desalinhados e alguns quase invisíveis.
 const IC = (d, extra='') => `<svg class="si-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -3411,10 +3461,11 @@ const MES_NOMES = {janeiro:1,fevereiro:2,marco:3,'março':3,abril:4,maio:5,junho
 
 const semAcento = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 
-// encontra a categoria pelo texto: aceita o label ("Pró-labore") ou o slug
+// Resolve o alvo do ajuste. O simulador antes so conhecia CATEGORIA, mas as
+// despesas reais tem nome proprio ("Adriano", "Prolabore Diego") e existem
+// alavancas que nao sao nem categoria nem item, como ticket medio.
 function achaCategoria(txt){
-  const t = semAcento(txt).trim();
-  if(!t) return null;
+  const t = semAcento(txt).trim(); if(!t) return null;
   const todas = [...(S.revCats||[]), ...(S.costCats||[])];
   let hit = todas.find(c=>semAcento(c.label)===t || semAcento(c.slug)===t);
   if(hit) return hit.slug;
@@ -3422,110 +3473,224 @@ function achaCategoria(txt){
   return hit ? hit.slug : null;
 }
 
+// nomes de lancamento que existem nos meses (receita e despesa)
+function itensConhecidos(){
+  const out = new Map();
+  (S.months||[]).forEach(m=>{
+    (m.revenues||[]).forEach(r=>{ const n=(r.client_name||'').trim(); if(n) out.set(semAcento(n), {nome:n, receita:true}); });
+    (m.costs||[]).forEach(c=>{ const n=(c.name||'').trim(); if(n) out.set(semAcento(n), {nome:n, receita:false}); });
+  });
+  return out;
+}
+function achaItem(txt){
+  const t = semAcento(txt).trim(); if(t.length < 3) return null;
+  const itens = itensConhecidos();
+  if(itens.has(t)) return itens.get(t);
+  // casamento parcial: "adriano" encontra "Adriano - (150 por cliente)"
+  let melhor=null, melhorLen=1e9;
+  for(const [k,v] of itens){
+    if(k.includes(t) || t.includes(k)){ if(k.length<melhorLen){ melhor=v; melhorLen=k.length; } }
+  }
+  return melhor;
+}
+// alavancas derivadas
+function achaDriver(txt){
+  const t = semAcento(txt);
+  if(/ticket/.test(t)) return 'ticket';
+  if(/\bclientes?\b/.test(t) && !/por mes/.test(t)) return 'clientes';
+  return null;
+}
+// resolve na ordem: driver -> item -> categoria
+function achaAlvo(txt){
+  const d = achaDriver(txt);   if(d) return {tipoAlvo:'driver', driver:d, rotulo: d==='ticket'?'Ticket médio':'Clientes'};
+  const i = achaItem(txt);     if(i) return {tipoAlvo:'item', item:i.nome, receita:i.receita, rotulo:i.nome};
+  const c = achaCategoria(txt);if(c) return {tipoAlvo:'categoria', cat:c, rotulo:catLabel(c)};
+  return null;
+}
+
 // "a partir de setembro", "de setembro em diante", "em agosto", "a partir do mes que vem"
 function achaMes(txt, mesAtual){
   const t = semAcento(txt);
   if(/(mes que vem|proximo mes)/.test(t)) return Math.min(12, mesAtual+1);
   for(const [nome,num] of Object.entries(MES_NOMES)){
-    const re = new RegExp(`\\b${semAcento(nome)}\\b`);
-    if(re.test(t)) return num;
+    if(new RegExp(`\\b${semAcento(nome)}\\b`).test(t)) return num;
   }
   const m = t.match(/\b(0?[1-9]|1[0-2])\/(\d{2,4})\b/);
-  if(m) return +m[1];
-  return null;
+  return m ? +m[1] : null;
 }
 
 // Devolve {tipo, ...} ou {erro} — nunca lança
 function parseAjuste(frase, mesAtual){
   const t = semAcento(frase).replace(/\s+/g,' ').trim();
   if(!t) return {erro:'Escreva o ajuste que quer testar.'};
+  const desde = () => achaMes(t,mesAtual) || mesAtual+1;
 
   // 1) +N clientes por mes [a R$ X]
   let m = t.match(/([+]?\d+)\s*(?:novos?\s*)?clientes?\s*(?:por|\/)\s*mes/);
   if(m){
     const tk = t.match(/(?:a|de|ticket|com ticket)\s*(?:r\$)?\s*([\d.,]+)/);
     const qtd = Math.abs(+m[1]);
-    return {tipo:'clientes', qtd, ticket: tk? parseAmt(tk[1]) : 0,
-            desde: achaMes(t,mesAtual) || mesAtual+1,
+    return {tipo:'clientes', qtd, ticket: tk? parseAmt(tk[1]) : 0, desde: desde(),
             rotulo:`+${qtd} cliente${qtd>1?'s':''}/mês${tk?` a ${brl(parseAmt(tk[1]))}`:''}`};
   }
 
-  // 2) aumentar/reduzir <categoria> em N% ou R$ N
-  m = t.match(/(aumentar|aumento|subir|reduzir|diminuir|baixar)\s+(?:o |a |os |as |de |do |da )?(.+?)\s+em\s+(r\$\s*)?([\d.,]+)\s*(%|por cento|reais)?/);
+  // 2) definir/mudar <alvo> para R$ N
+  m = t.match(/(definir|mudar|colocar|ajustar|passar)\s+(?:o |a |os |as |de |do |da |salario do |salario da |valor do |valor da )*(.+?)\s+(?:para|em|=)\s+(?:r\$\s*)?([\d.,]+)/);
   if(m){
-    const sobe = /aument|subir/.test(m[1]);
-    const alvoTxt = m[2].replace(/\b(nosso|nossa|nossos|nossas)\b/g,'').trim();
-    const cat = achaCategoria(alvoTxt);
-    if(!cat) return {erro:`Não reconheci "${alvoTxt}" como categoria.`, sugereCategoria:alvoTxt};
-    // "R$ 300" ou "300 reais" = valor absoluto; o resto e percentual
-    const abs  = !!m[3] || m[5]==='reais';
-    const perc = !abs;
-    const val = parseAmt(m[4]);
-    return {tipo: perc?'pct':'abs', cat, delta: (sobe?1:-1)*val,
-            desde: achaMes(t,mesAtual) || mesAtual+1,
-            rotulo:`${catLabel(cat)} ${sobe?'+':'−'}${perc?String(val).replace('.',',')+'%':brl(val)}`};
+    const alvo = achaAlvo(limpaAlvo(m[3-1] !== undefined ? m[2] : m[2]));
+    if(!alvo) return {erro:`Não reconheci "${limpaAlvo(m[2])}". Use o modo manual para escolher da lista.`};
+    const val = parseAmt(m[3]);
+    return {...alvo, tipo:'definir', valor:val, desde: desde(),
+            rotulo:`${alvo.rotulo} = ${brl(val)}`};
   }
 
-  // 3) adicionar despesa/receita "nome" de R$ N [em mes]
+  // 3) aumentar/reduzir <alvo> em N% ou R$ N
+  m = t.match(/(aumentar|aumento|subir|reduzir|diminuir|baixar|cortar)\s+(?:o |a |os |as |de |do |da |salario do |salario da )*(.+?)\s+em\s+(r\$\s*)?([\d.,]+)\s*(%|por cento|reais)?/);
+  if(m){
+    const sobe = /aument|subir/.test(m[1]);
+    const alvo = achaAlvo(limpaAlvo(m[2]));
+    if(!alvo) return {erro:`Não reconheci "${limpaAlvo(m[2])}". Use o modo manual para escolher da lista.`};
+    const abs = !!m[3] || m[5]==='reais';
+    const val = parseAmt(m[4]);
+    return {...alvo, tipo: abs?'abs':'pct', delta:(sobe?1:-1)*val, desde: desde(),
+            rotulo:`${alvo.rotulo} ${sobe?'+':'−'}${abs?brl(val):String(val).replace('.',',')+'%'}`};
+  }
+
+  // 4) adicionar despesa/receita "nome" de R$ N
   m = t.match(/(adicionar|incluir|criar|nova|novo)\s+(despesa|receita|custo)\s+(?:["\u201c'][^"\u201d']*["\u201d']\s*)?(?:de\s+)?(?:r\$\s*)?([\d.,]+)/);
   if(m){
-    const nomeM = frase.match(/["“']([^"”']+)["”']/);
-    const val = parseAmt(m[3]);   // o grupo do nome entre aspas e nao-capturante
+    const nomeM = frase.match(/["\u201c']([^"\u201d']+)["\u201d']/);
+    const val = parseAmt(m[3]);
     const receita = /receita/.test(m[2]);
-    return {tipo:'lancamento', receita, valor:val,
+    return {tipo:'lancamento', tipoAlvo:'novo', receita, valor:val,
             nome: nomeM? nomeM[1] : (receita?'Receita extra':'Despesa extra'),
-            desde: achaMes(t,mesAtual) || mesAtual+1, unico: /uma vez|pontual|apenas em|so em/.test(t),
+            desde: desde(), unico:/uma vez|pontual|apenas em|so em/.test(t),
             rotulo:`${receita?'+':'−'}${brl(val)} ${nomeM?nomeM[1]:''}`.trim()};
   }
 
-  // 4) remover <categoria>
-  m = t.match(/(remover|zerar|tirar|cortar)\s+(?:o |a |os |as |de |do |da )?(.+)/);
+  // 5) remover/zerar <alvo>
+  m = t.match(/(remover|zerar|tirar|cortar)\s+(?:o |a |os |as |de |do |da )*(.+)/);
   if(m){
-    const alvo = m[2].replace(/\s+a partir.*$/,'').replace(/\s+(de|do|da|em)\s+\w+$/,'').trim();
-    const cat = achaCategoria(alvo);
-    if(cat) return {tipo:'pct', cat, delta:-100, desde: achaMes(t,mesAtual) || mesAtual+1,
-                    rotulo:`${catLabel(cat)} zerado`};
-    return {erro:`Não reconheci "${alvo}" como categoria.`, sugereCategoria:alvo};
+    const alvo = achaAlvo(limpaAlvo(m[2]));
+    if(alvo) return {...alvo, tipo:'pct', delta:-100, desde: desde(), rotulo:`${alvo.rotulo} zerado`};
+    return {erro:`Não reconheci "${limpaAlvo(m[2])}". Use o modo manual para escolher da lista.`};
   }
 
-  return {erro:'Não entendi a frase. Use o formulário ao lado para montar o ajuste.'};
+  return {erro:'Não entendi a frase. Use o modo manual, ao lado, para montar o ajuste.'};
+}
+// tira o rabo de tempo e os possessivos do texto do alvo
+function limpaAlvo(txt){
+  return String(txt||'')
+    .replace(/\s+a partir.*$/,'').replace(/\s+(a|de|do|da|em)\s+\w+\s*$/,'')
+    .replace(/\b(nosso|nossa|nossos|nossas|meu|minha)\b/g,'').trim();
 }
 
-// Aplica os ajustes sobre uma cópia dos meses e devolve a série projetada
+// Aplica os ajustes sobre uma cópia dos meses e devolve a série projetada.
+// Nada aqui toca o banco.
 function simular(ajustes, anoRef){
   const meses = (S.months||[]).filter(m=>m.year===anoRef).sort((a,b)=>a.month-b.month);
   const saldoIni = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
   let acumOf = saldoIni, acumSim = saldoIni;
+
   const linhas = meses.map(m=>{
-    const revs = (m.revenues||[]).map(r=>({cat:r.category, v:parseFloat(r.amount)||0}));
-    const cos  = (m.costs||[]).map(c=>({cat:c.category, v:parseFloat(c.amount)||0}));
+    const revs = (m.revenues||[]).map(r=>({cat:r.category, nome:(r.client_name||''), v:parseFloat(r.amount)||0}));
+    const cos  = (m.costs||[]).map(c=>({cat:c.category, nome:(c.name||''),        v:parseFloat(c.amount)||0}));
     const ofRev = revs.reduce((s,x)=>s+x.v,0), ofCos = cos.reduce((s,x)=>s+x.v,0);
+    const nCli  = revs.filter(x=>x.v>0).length;
 
     let sRev = ofRev, sCos = ofCos;
+    const efeitos = [];   // memoria do calculo, para a caixa explicativa
+
     ajustes.forEach(a=>{
       if(m.month < a.desde) return;
+      const reg = (txt,val)=>{ efeitos.push({txt,val}); };
+
+      // base sobre a qual o ajuste incide
+      let base = 0, emReceita = false;
+      if(a.tipoAlvo==='categoria'){
+        emReceita = (S.revCats||[]).some(c=>c.slug===a.cat);
+        base = (emReceita?revs:cos).filter(x=>x.cat===a.cat).reduce((s,x)=>s+x.v,0);
+      } else if(a.tipoAlvo==='item'){
+        emReceita = !!a.receita;
+        base = (emReceita?revs:cos).filter(x=>semAcento(x.nome)===semAcento(a.item)
+                 || semAcento(x.nome).includes(semAcento(a.item))).reduce((s,x)=>s+x.v,0);
+      } else if(a.tipoAlvo==='driver' && a.driver==='ticket'){
+        emReceita = true; base = ofRev;   // ticket medio move a receita inteira
+      }
+
       if(a.tipo==='pct' || a.tipo==='abs'){
-        const emRev = (S.revCats||[]).some(c=>c.slug===a.cat);
-        const base  = emRev ? revs : cos;
-        const soma  = base.filter(x=>x.cat===a.cat).reduce((s,x)=>s+x.v,0);
-        const d = a.tipo==='pct' ? soma*(a.delta/100) : a.delta;
-        if(emRev) sRev += d; else sCos += d;
+        if(a.tipoAlvo==='driver' && a.driver==='ticket'){
+          const d = a.tipo==='pct' ? ofRev*(a.delta/100) : a.delta*nCli;
+          sRev += d; reg(`${a.rotulo}`, d);
+        } else {
+          const d = a.tipo==='pct' ? base*(a.delta/100) : a.delta;
+          if(emReceita) sRev += d; else sCos += d;
+          reg(`${a.rotulo}`, emReceita? d : -d);
+        }
+      } else if(a.tipo==='definir'){
+        const d = a.valor - base;                  // leva a linha ao valor alvo
+        if(emReceita) sRev += d; else sCos += d;
+        reg(`${a.rotulo}`, emReceita? d : -d);
       } else if(a.tipo==='lancamento'){
         if(a.unico && m.month !== a.desde) return;
-        if(a.receita) sRev += a.valor; else sCos += a.valor;
+        if(a.receita){ sRev += a.valor; reg(a.rotulo, a.valor); }
+        else { sCos += a.valor; reg(a.rotulo, -a.valor); }
       } else if(a.tipo==='clientes'){
         const n = (m.month - a.desde + 1) * a.qtd;
-        sRev += n * (a.ticket || 0);
+        const d = n * (a.ticket || 0);
+        sRev += d; reg(`${a.rotulo} (${n} acumulado${n>1?'s':''})`, d);
       }
     });
+
     acumOf += (ofRev-ofCos); acumSim += (sRev-sCos);
     return {mes:m.month, ofRev, ofCos, ofBal:ofRev-ofCos, ofAcum:acumOf,
-            sRev, sCos, sBal:sRev-sCos, sAcum:acumSim};
+            sRev, sCos, sBal:sRev-sCos, sAcum:acumSim, efeitos, nCli};
   });
   return {linhas, finalOf:acumOf, finalSim:acumSim, delta:acumSim-acumOf};
 }
 
+// ── Histórico de ajustes: desfazer e refazer ─────────────────────────────────
+// dois ajustes no mesmo alvo se somavam: "+10%" seguido de "definir 1200"
+// resultava em 1.305. Definir um valor substitui o que havia naquele alvo.
+function mesmoAlvo(a,b){
+  if(a.tipoAlvo !== b.tipoAlvo) return false;
+  if(a.tipoAlvo==='item')      return semAcento(a.item||'') === semAcento(b.item||'');
+  if(a.tipoAlvo==='categoria') return a.cat === b.cat;
+  if(a.tipoAlvo==='driver')    return a.driver === b.driver;
+  return false;
+}
+function resolveConflitos(lista){
+  const out=[];
+  lista.forEach(a=>{
+    if(a.tipo==='definir'){
+      for(let i=out.length-1;i>=0;i--) if(mesmoAlvo(out[i],a)) out.splice(i,1);
+    }
+    out.push(a);
+  });
+  return out;
+}
 
+function simPush(novos){
+  S.simUndo = S.simUndo || [];
+  S.simUndo.push(JSON.stringify(S.simAjustes||[]));
+  if(S.simUndo.length>50) S.simUndo.shift();
+  S.simRedo = [];
+  S.simAjustes = resolveConflitos(novos);
+}
+function simUndo(){
+  if(!S.simUndo || !S.simUndo.length) return;
+  S.simRedo = S.simRedo || [];
+  S.simRedo.push(JSON.stringify(S.simAjustes||[]));
+  S.simAjustes = JSON.parse(S.simUndo.pop());
+  drawSim();
+}
+function simRedo(){
+  if(!S.simRedo || !S.simRedo.length) return;
+  S.simUndo = S.simUndo || [];
+  S.simUndo.push(JSON.stringify(S.simAjustes||[]));
+  S.simAjustes = JSON.parse(S.simRedo.pop());
+  drawSim();
+}
 
 // ── Simulador: tela ───────────────────────────────────────────────────────────
 function openSim(){
@@ -3543,20 +3708,76 @@ function addAjusteFrase(){
   const err = e('sim-erro');
   if(r.erro){ err.textContent = r.erro; err.style.display='block'; return; }
   err.style.display='none';
-  S.simAjustes.push({...r, frase: inp.value});
-  inp.value='';
+  simPush([...(S.simAjustes||[]), {...r, frase: inp.value}]);
+  inp.value=''; drawSim();
+}
+function removeAjuste(i){
+  const novos=[...(S.simAjustes||[])]; novos.splice(i,1); simPush(novos); drawSim();
+}
+function limparSim(){ simPush([]); drawSim(); }
+function toggleManual(){ S.simManual=!S.simManual; drawSim(); }
+
+// ── Modo manual: escolhe da lista, sem depender de acertar a frase ──────────
+function opcoesAlvo(){
+  const itens = [...itensConhecidos().values()];
+  const uniq = (arr) => [...new Map(arr.map(x=>[x.v,x])).values()];
+  return {
+    driver: [{v:'ticket', l:'Ticket médio'}],
+    categoria: uniq([...(S.costCats||[]),...(S.revCats||[])].map(c=>({v:c.slug, l:c.label}))),
+    item: uniq(itens.map(i=>({v:i.nome, l:i.nome, receita:i.receita}))).sort((a,b)=>a.l.localeCompare(b.l)),
+  };
+}
+function aplicarManual(){
+  const alvoRaw = e('man-alvo').value;         // "tipo::valor"
+  const op      = e('man-op').value;
+  const valor   = parseAmt(e('man-valor').value);
+  const desde   = parseInt(e('man-desde').value,10);
+  const err     = e('sim-erro');
+  if(!alvoRaw){ err.textContent='Escolha o que você quer mexer.'; err.style.display='block'; return; }
+  if(!valor && op!=='zerar'){ err.textContent='Informe um valor.'; err.style.display='block'; return; }
+  err.style.display='none';
+
+  const [tipoAlvo, val] = alvoRaw.split('::');
+  let alvo;
+  if(tipoAlvo==='driver')         alvo = {tipoAlvo:'driver', driver:val, rotulo:'Ticket médio'};
+  else if(tipoAlvo==='categoria') alvo = {tipoAlvo:'categoria', cat:val, rotulo:catLabel(val)};
+  else {
+    const it = itensConhecidos().get(semAcento(val));
+    alvo = {tipoAlvo:'item', item:val, receita: it?it.receita:false, rotulo:val};
+  }
+  let aj;
+  if(op==='mais_pct')       aj = {...alvo, tipo:'pct', delta: valor,  rotulo:`${alvo.rotulo} +${String(valor).replace('.',',')}%`};
+  else if(op==='menos_pct') aj = {...alvo, tipo:'pct', delta:-valor,  rotulo:`${alvo.rotulo} −${String(valor).replace('.',',')}%`};
+  else if(op==='mais_rs')   aj = {...alvo, tipo:'abs', delta: valor,  rotulo:`${alvo.rotulo} +${brl(valor)}`};
+  else if(op==='menos_rs')  aj = {...alvo, tipo:'abs', delta:-valor,  rotulo:`${alvo.rotulo} −${brl(valor)}`};
+  else if(op==='definir')   aj = {...alvo, tipo:'definir', valor,     rotulo:`${alvo.rotulo} = ${brl(valor)}`};
+  else                      aj = {...alvo, tipo:'pct', delta:-100,    rotulo:`${alvo.rotulo} zerado`};
+  aj.desde = desde;
+  simPush([...(S.simAjustes||[]), aj]);
+  e('man-valor').value='';
   drawSim();
 }
-function removeAjuste(i){ S.simAjustes.splice(i,1); drawSim(); }
-function limparSim(){ S.simAjustes=[]; drawSim(); }
+function addClientesManual(){
+  const qtd = parseInt(e('cli-qtd').value,10)||0;
+  const tk  = parseAmt(e('cli-ticket').value);
+  const desde = parseInt(e('cli-desde').value,10);
+  if(!qtd){ const err=e('sim-erro'); err.textContent='Informe quantos clientes por mês.'; err.style.display='block'; return; }
+  e('sim-erro').style.display='none';
+  simPush([...(S.simAjustes||[]), {tipo:'clientes', tipoAlvo:'driver', qtd, ticket:tk, desde,
+    rotulo:`+${qtd} cliente${qtd>1?'s':''}/mês${tk?` a ${brl(tk)}`:''}`}]);
+  drawSim();
+}
 
 function drawSim(){
-  const r = simular(S.simAjustes, S.simAno);
+  const r = simular(S.simAjustes||[], S.simAno);
   const linhas = r.linhas;
   const sel = S.simMesDetalhe || (linhas.length? linhas[linhas.length-1].mes : 1);
+  const o = opcoesAlvo();
+  const mesOpts = (v) => linhas.map(l=>`<option value="${l.mes}" ${l.mes===v?'selected':''}>${MONTHS_FULL[l.mes-1]}</option>`).join('');
+  const desdePadrao = S.simMesAtual+1 <= 12 ? S.simMesAtual+1 : 12;
 
-  const chips = S.simAjustes.length
-    ? S.simAjustes.map((a,i)=>`<span class="sim-chip" title="${esc(a.frase||'')}">${esc(a.rotulo)}
+  const chips = (S.simAjustes||[]).length
+    ? S.simAjustes.map((a,i)=>`<span class="sim-chip" title="${esc(a.frase||a.rotulo)}">${esc(a.rotulo)}
         <span class="sim-chip-m">desde ${MONTHS_PT[(a.desde||1)-1]}</span>
         <button onclick="removeAjuste(${i})" title="Remover">✕</button></span>`).join('')
     : '<span class="sim-vazio">Nenhum ajuste. A simulação está igual à projeção oficial.</span>';
@@ -3565,14 +3786,17 @@ function drawSim(){
   const caixa = det ? `
     <div class="sim-calc">
       <div class="sim-calc-h">Como ${MONTHS_FULL[det.mes-1]} foi calculado</div>
-      <div class="sim-calc-row"><span>Receita oficial</span><b>${brl(det.ofRev)}</b></div>
-      ${det.sRev!==det.ofRev?`<div class="sim-calc-row alt"><span>Efeito dos ajustes na receita</span><b>${det.sRev-det.ofRev>=0?'+':'−'} ${brl(Math.abs(det.sRev-det.ofRev))}</b></div>`:''}
-      <div class="sim-calc-row"><span>Despesa oficial</span><b>${brl(det.ofCos)}</b></div>
-      ${det.sCos!==det.ofCos?`<div class="sim-calc-row alt"><span>Efeito dos ajustes na despesa</span><b>${det.sCos-det.ofCos>=0?'+':'−'} ${brl(Math.abs(det.sCos-det.ofCos))}</b></div>`:''}
-      <div class="sim-calc-row tot"><span>Resultado do mês no cenário</span><b>${brl(det.sBal)}</b></div>
-      <div class="sim-calc-row tot"><span>Caixa acumulado no cenário</span><b>${brl(det.sAcum)}</b></div>
+      <div class="sim-calc-row"><span>Receita lançada</span><b>${brl(det.ofRev)}</b></div>
+      <div class="sim-calc-row"><span>Despesa lançada</span><b>−${brl(det.ofCos)}</b></div>
+      ${det.efeitos.length? det.efeitos.map(ef=>
+        `<div class="sim-calc-row alt"><span>${esc(ef.txt)}</span><b>${ef.val>=0?'+':'−'}${brl(Math.abs(ef.val))}</b></div>`).join('')
+        : '<div class="sim-calc-row alt"><span>Nenhum ajuste incide neste mês</span><b>—</b></div>'}
+      <div class="sim-calc-row tot"><span>Resultado do mês</span><b>${brl(det.sBal)}</b></div>
+      <div class="sim-calc-row tot"><span>Caixa acumulado</span><b>${brl(det.sAcum)}</b></div>
       <div class="sim-calc-note">Receita − Despesa = Resultado. O caixa acumulado soma o resultado de cada mês ao saldo inicial.</div>
     </div>` : '';
+
+  const podeUndo = (S.simUndo||[]).length>0, podeRedo = (S.simRedo||[]).length>0;
 
   e('sim-body').innerHTML = `
     <div class="sim-top">
@@ -3584,14 +3808,51 @@ function drawSim(){
         <div class="sim-cmp-c"><div class="sim-cmp-l">Diferença</div>
           <div class="sim-cmp-v ${r.delta>=0?'up':'down'}">${r.delta>=0?'+':'−'} ${brl(Math.abs(r.delta))}</div></div>
       </div>
-      <div class="sim-entrada">
-        <input id="sim-frase" placeholder='Ex.: aumentar pró-labore em 10% a partir de setembro'
-          onkeydown="if(event.key==='Enter')addAjusteFrase()">
-        <button class="btn filled-g" onclick="addAjusteFrase()">Aplicar</button>
+
+      <div class="sim-modos">
+        <div class="sim-entrada">
+          <input id="sim-frase" placeholder='Escreva: aumentar Adriano em 10% a partir de setembro'
+            onkeydown="if(event.key==='Enter')addAjusteFrase()">
+          <button class="btn filled-g" onclick="addAjusteFrase()">Aplicar</button>
+        </div>
+        <button class="btn" onclick="toggleManual()">${S.simManual?'Ocultar':'Modo manual'}</button>
+        <span class="sim-hist">
+          <button class="btn sm" onclick="simUndo()" ${podeUndo?'':'disabled'} title="Desfazer">↶</button>
+          <button class="btn sm" onclick="simRedo()" ${podeRedo?'':'disabled'} title="Refazer">↷</button>
+        </span>
       </div>
       <div id="sim-erro" class="sim-erro" style="display:none"></div>
+
+      ${S.simManual?`
+      <div class="sim-manual">
+        <div class="sim-man-row">
+          <label>O que mexer
+            <select id="man-alvo">
+              <option value="">Escolha…</option>
+              <optgroup label="Alavancas">${o.driver.map(d=>`<option value="driver::${d.v}">${d.l}</option>`).join('')}</optgroup>
+              <optgroup label="Lançamentos">${o.item.map(i=>`<option value="item::${esc(i.v)}">${esc(i.l)}</option>`).join('')}</optgroup>
+              <optgroup label="Categorias">${o.categoria.map(c=>`<option value="categoria::${c.v}">${esc(c.l)}</option>`).join('')}</optgroup>
+            </select></label>
+          <label>Como
+            <select id="man-op">
+              <option value="mais_pct">Aumentar %</option><option value="menos_pct">Reduzir %</option>
+              <option value="mais_rs">Somar R$</option><option value="menos_rs">Subtrair R$</option>
+              <option value="definir">Definir valor</option><option value="zerar">Zerar</option>
+            </select></label>
+          <label>Valor<input id="man-valor" placeholder="10"></label>
+          <label>A partir de<select id="man-desde">${mesOpts(desdePadrao)}</select></label>
+          <button class="btn filled-g" onclick="aplicarManual()">Adicionar</button>
+        </div>
+        <div class="sim-man-row">
+          <label>Novos clientes por mês<input id="cli-qtd" placeholder="1" style="width:70px"></label>
+          <label>Ticket<input id="cli-ticket" placeholder="1.997,00"></label>
+          <label>A partir de<select id="cli-desde">${mesOpts(desdePadrao)}</select></label>
+          <button class="btn" onclick="addClientesManual()">Adicionar entrada de clientes</button>
+        </div>
+      </div>`:''}
+
       <div class="sim-chips">${chips}
-        ${S.simAjustes.length?`<button class="sim-limpar" onclick="limparSim()">Limpar tudo</button>`:''}</div>
+        ${(S.simAjustes||[]).length?`<button class="sim-limpar" onclick="limparSim()">Limpar tudo</button>`:''}</div>
     </div>
 
     <div class="sim-grid">
@@ -3614,25 +3875,6 @@ function drawSim(){
       </div>
       ${caixa}
     </div>`;
-}
-
-
-function goTab(id) {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  const tabEl=e('tab-'+id); if(tabEl) tabEl.classList.add('active');
-  S.tab=id;
-  marcarNavAtiva();
-  // no celular a sidebar e sobreposta: fecha ao navegar
-  const sd=e('side'); if(sd && window.matchMedia('(max-width:880px)').matches) sd.classList.remove('open');
-  if(id==='dashboard') renderDashboard();
-  else if(id==='cashflow') renderCashflowTab();
-  else if(id==='contas') renderContasTab();
-  else if(id==='projecao') renderProjecaoTab();
-  else if(id==='search') renderSearchTab();
-  else if(id==='audit') renderAuditTab();
-  else if(id==='relatorios') renderRelatoriosTab();
-  else { const mid=parseInt(id.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
-  window.scrollTo({top:0,behavior:'smooth'});
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -4057,7 +4299,27 @@ function renderProjecaoTab() {
     </div>
   </div>
 
-  <!-- (4) a conta que liga resultado a caixa, que antes ninguem explicava -->
+  <!-- como a projecao e montada: a duvida "de onde vem esse numero" -->
+  <details class="proj-como">
+    <summary>Como esta projeção é calculada</summary>
+    <div class="proj-como-in">
+      <p><b>Entradas e saídas vêm só do que já está cadastrado.</b> A ferramenta não usa média,
+      tendência nem estimativa automática. Cada mês futuro soma exatamente os lançamentos
+      que existem nele — inclusive os gerados pelas recorrências.</p>
+      <div class="proj-como-g">
+        <div><span class="k">Entradas de um mês</span><span class="v">soma das receitas lançadas naquele mês</span></div>
+        <div><span class="k">Saídas de um mês</span><span class="v">soma das despesas lançadas naquele mês</span></div>
+        <div><span class="k">Resultado</span><span class="v">entradas − saídas</span></div>
+        <div><span class="k">Caixa acumulado</span><span class="v">saldo do mês anterior + resultado do mês</span></div>
+        <div><span class="k">Saldo hoje</span><span class="v">saldo inicial configurado + tudo que já foi realizado</span></div>
+      </div>
+      <p class="proj-como-n">Consequência prática: um mês sem lançamento aparece zerado, e não com a média
+      dos anteriores. Para projetar algo que ainda não existe, cadastre como recorrente
+      ou teste em <b>Simular cenário</b>, que não altera esta projeção.</p>
+    </div>
+  </details>
+
+  <!-- a conta que liga resultado a caixa, que antes ninguem explicava -->
   <div class="proj-calc">
     <span>Saldo hoje <b>${brl(saldoHoje)}</b></span><span class="op">+</span>
     <span>Resultado projetado <b>${brl(totalProjBal)}</b></span><span class="op">=</span>
