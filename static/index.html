@@ -159,7 +159,30 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 /* ══ TABLES ═══════════════════════════════════════════════════════════════════ */
 .etable-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bdr);background:var(--s1)}
-.etable{width:100%;border-collapse:collapse;font-size:12px;--td-x:12px;--ink:9.5px}
+/* Nome e marcação disputavam a célula como dois spans soltos: nome longo
+   empurrava a tag para a linha de baixo e a altura da linha variava de uma para
+   outra. Agora são um flex — o nome encolhe com reticências, a tag nunca quebra. */
+.cell-nome{display:flex;align-items:center;gap:7px;min-width:0;min-height:26px}
+.cell-nome .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.tg{flex-shrink:0;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:5px;
+  white-space:nowrap;line-height:1.5}
+.tg-proj{background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring)}
+.tg-calc{background:rgba(167,139,250,.13);color:var(--pu);border:1px solid rgba(167,139,250,.28)}
+/* A reserva nao e uma linha da tabela: fica logo abaixo, com peso visual menor
+   que um lancamento e sem os botoes que ela nao tem como oferecer. */
+.res-box{display:flex;align-items:center;gap:11px;padding:11px 14px;
+  border-top:1px dashed var(--bdr);background:rgba(167,139,250,.045)}
+.res-ic{flex-shrink:0;width:24px;height:24px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;background:rgba(167,139,250,.14);color:var(--pu);font-size:13px;font-weight:700}
+.res-tx{flex:1;min-width:0}
+.res-t{font-size:12px;font-weight:600}
+.res-s{font-size:10.5px;color:var(--mu);line-height:1.45;margin-top:1px}
+/* width:100% forcava a tabela a caber no container, e ai os min-width das
+   colunas cediam: "2.000,00" virava "2.000,..." e "Operacional" virava
+   "Operacic". Com min-width a tabela mantem as colunas e o wrapper rola os
+   poucos pixels que faltam, que e o comportamento certo. */
+.etable{width:100%;min-width:600px;border-collapse:collapse;font-size:12px;--td-x:12px;--ink:9.5px}
+.etable .cell-input.date{min-width:66px}
 .etable th{background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;padding:8px calc(var(--td-x) + var(--ink));text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
 .etable th.r{text-align:right}
 /* colunas sem controle dentro (texto puro) usam só o padding da célula */
@@ -2701,9 +2724,9 @@ function renderMonthTab(mid) {
   const sc=calcMonth(m);
   const mName=MONTHS_FULL[m.month-1]+'/'+String(m.year).slice(2);
 
-  const revCatSel=`<select class="cell-select" style="width:110px" onchange="onRevChange(${mid},ROWID,'category',this.value)">
+  const revCatSel=`<select class="cell-select" style="width:100%;min-width:118px" onchange="onRevChange(${mid},ROWID,'category',this.value)">
     ${REV_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
-  const costCatSel=`<select class="cell-select" style="width:110px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
+  const costCatSel=`<select class="cell-select" style="width:100%;min-width:118px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
     ${COST_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
 
   const revRows=[...m.revenues].sort(byDateDesc('received_date',m.year)).map(r=>{
@@ -2713,10 +2736,10 @@ function renderMonthTab(mid) {
     if(isProj){
       return `<tr style="${rowStyle}">
         ${selTd('revenue',mid,r.id)}
-        <td>
-          <span style="font-size:12px;color:var(--tx2)">${esc(r.client_name)||'—'}</span>
-          <span class="status-badge s-pendente" style="margin-left:6px;background:var(--ac-soft);color:var(--ac)">Projetado</span>
-        </td>
+        <td><div class="cell-nome">
+          <span class="nm" style="color:var(--tx2)" title="${esc(r.client_name)}">${esc(r.client_name)||'—'}</span>
+          <span class="tg tg-proj">Projetado</span>
+        </div></td>
         <td><span style="font-family:var(--ff);font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(r.amount)||'0,00'}</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(r.category)}</span></td>
@@ -2757,7 +2780,13 @@ function renderMonthTab(mid) {
     </tr>`;
   }).join('');
 
-  const costRows=[...custosEfetivos(m)].sort(byDateDesc('payment_date',m.year)).map(c=>{
+  // A reserva de imprevistos nao e um lancamento: nao da para confirmar nem
+  // excluir, e no meio da lista parece uma despesa que alguem esqueceu de
+  // resolver. Sai da tabela e vira um aviso proprio embaixo dela — o valor
+  // continua dentro do total projetado, so muda onde aparece.
+  const custosDoMes = custosEfetivos(m);
+  const reservaMes  = custosDoMes.find(c=>c.viaImprevisto);
+  const costRows=[...custosDoMes.filter(c=>!c.viaImprevisto)].sort(byDateDesc('payment_date',m.year)).map(c=>{
     const isProj=c.status==='projetado';
     const hasRec=!!c.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
@@ -2774,8 +2803,10 @@ function renderMonthTab(mid) {
     if(calc){
       return `<tr class="linha-regra">
         <td class="sel-col"></td>
-        <td><span style="font-size:12px">${esc(c.name)}</span>
-            <span class="tag-regra" title="${esc(calc.dica)}">${calc.tag}</span></td>
+        <td><div class="cell-nome">
+          <span class="nm" title="${esc(c.name)}">${esc(c.name)}</span>
+          <span class="tg tg-calc" title="${esc(calc.dica)}">${calc.tag}</span>
+        </div></td>
         <td class="r"><span style="font-weight:600;font-size:12px">${fmtAmt(c.amount)}</span></td>
         <td><span style="font-size:11px;color:var(--mu)">—</span></td>
         <td><span style="font-size:11px;color:var(--mu)">${catLabel(c.category)}</span></td>
@@ -2790,10 +2821,10 @@ function renderMonthTab(mid) {
     if(isProj){
       return `<tr style="${rowStyle}">
         ${selTd('cost',mid,c.id)}
-        <td>
-          <span style="font-size:12px;color:var(--tx2)">${esc(c.name)||'—'}</span>
-          <span class="status-badge s-pendente" style="margin-left:6px;background:var(--ac-soft);color:var(--ac)">Projetado</span>
-        </td>
+        <td><div class="cell-nome">
+          <span class="nm" style="color:var(--tx2)" title="${esc(c.name)}">${esc(c.name)||'—'}</span>
+          <span class="tg tg-proj">Projetado</span>
+        </div></td>
         <td><span style="font-family:var(--ff);font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(c.amount)||'0,00'}</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(c.category)}</span></td>
@@ -2882,10 +2913,10 @@ function renderMonthTab(mid) {
           <table class="etable">
             <thead><tr>
               ${selTh('revenue',mid)}
-              <th style="min-width:130px">Cliente</th>
-              <th class="r" style="min-width:95px">R$</th>
-              <th style="min-width:70px">Data</th>
-              <th style="min-width:105px">Categoria</th>
+              <th style="min-width:150px">Cliente</th>
+              <th class="r" style="min-width:112px">R$</th>
+              <th style="min-width:82px">Data</th>
+              <th style="min-width:132px">Categoria</th>
               <th style="min-width:80px"></th>
               <th style="width:28px"></th>
             </tr></thead>
@@ -2912,16 +2943,25 @@ function renderMonthTab(mid) {
           <table class="etable">
             <thead><tr>
               ${selTh('cost',mid)}
-              <th style="min-width:130px">Item</th>
-              <th class="r" style="min-width:90px">R$</th>
-              <th style="min-width:70px">Data</th>
-              <th style="min-width:105px">Categoria</th>
+              <th style="min-width:150px">Item</th>
+              <th class="r" style="min-width:112px">R$</th>
+              <th style="min-width:82px">Data</th>
+              <th style="min-width:132px">Categoria</th>
               <th style="min-width:36px"></th>
               <th style="width:28px"></th>
             </tr></thead>
             <tbody>${costRows}</tbody>
           </table>
         </div>
+        ${reservaMes ? `<div class="res-box">
+          <span class="res-ic">≈</span>
+          <div class="res-tx">
+            <div class="res-t">Reserva para imprevistos · ${brl(reservaMes.amount)}</div>
+            <div class="res-s">Já somada à despesa projetada do mês. Não é um lançamento —
+              não precisa confirmar nem pagar. É espaço reservado para o que costuma aparecer.</div>
+          </div>
+          <button class="btn sm" onclick="abrirInfoImprevistos(${mid})">Como é calculada</button>
+        </div>` : ''}
         <div class="add-row" onclick="addCost(${mid})"><span class="icon">+</span>Adicionar despesa</div>
         ${selBarHTML('cost',mid)}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--bdr);background:var(--s2)">
