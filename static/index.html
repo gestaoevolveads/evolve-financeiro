@@ -471,6 +471,18 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .proj-como-n{font-size:11.5px;color:var(--mu);margin-top:6px !important}
 @media(max-width:640px){.proj-como-g > div{grid-template-columns:1fr;gap:2px}}
 
+
+.sim-prem{background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px 14px;margin-bottom:12px}
+.sim-prem-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;font-weight:600}
+.sim-prem-obs{font-weight:400;font-size:11px;color:var(--mu)}
+.sim-prem-g{display:flex;gap:12px;flex-wrap:wrap}
+.sim-prem-g label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--mu)}
+.sim-prem-g input,.sim-prem-g select{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r3);
+  padding:7px 9px;color:var(--tx);font-family:var(--ff);font-size:12.5px;outline:none;width:130px;font-variant-numeric:tabular-nums}
+.sim-prem-g input:focus,.sim-prem-g select:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.sim-prem-n{font-size:11px;color:var(--mu);margin-top:9px;padding-top:9px;border-top:1px solid var(--bdr)}
+.sim-tag-b{font-size:9.5px;color:var(--mu);background:var(--s3);border-radius:999px;padding:1px 6px;margin-left:4px}
+
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
 .chart-sm{position:relative;height:160px}
@@ -3587,25 +3599,71 @@ function limpaAlvo(txt){
 
 // Aplica os ajustes sobre uma cópia dos meses e devolve a série projetada.
 // Nada aqui toca o banco.
-function simular(ajustes, anoRef){
-  const meses = (S.months||[]).filter(m=>m.year===anoRef).sort((a,b)=>a.month-b.month);
-  const saldoIni = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
-  let acumOf = saldoIni, acumSim = saldoIni;
+//
+// Horizonte pode passar do último mês cadastrado. Nesse caso os meses extras
+// são sintéticos e usam como base a média dos últimos 3 meses com dados — o
+// que fica declarado na tela, em vez de escondido no cálculo.
+function baseSintetica(){
+  const comDados = (S.months||[]).filter(m=>{ const sc=calcMonth(m); return sc.rev>0||sc.cos>0; })
+    .sort((a,b)=>(a.year-b.year)||(a.month-b.month)).slice(-3);
+  if(!comDados.length) return {rev:0, cos:0, nCli:0};
+  const t = comDados.reduce((acc,m)=>{ const sc=calcMonth(m);
+    acc.rev+=sc.rev; acc.cos+=sc.cos; acc.nCli+=sc.clients; return acc; }, {rev:0,cos:0,nCli:0});
+  return {rev:t.rev/comDados.length, cos:t.cos/comDados.length, nCli:Math.round(t.nCli/comDados.length)};
+}
 
-  const linhas = meses.map(m=>{
+function simular(ajustes, anoRef, horizonte){
+  const prem = premissasAtuais();
+  const reg = (S.months||[]).slice().sort((a,b)=>(a.year-b.year)||(a.month-b.month));
+  const hoje = new Date(); const mAtual = hoje.getMonth()+1, aAtual = hoje.getFullYear();
+
+  // linha do tempo: meses cadastrados + sintéticos até completar o horizonte
+  let serie = reg.map(m=>({m, sintetico:false}));
+  const nMeses = horizonte || 0;
+  if(nMeses>0){
+    const ult = reg.length ? reg[reg.length-1] : {year:aAtual, month:mAtual};
+    const base = baseSintetica();
+    let y=ult.year, mo=ult.month;
+    const alvoIdx = (aAtual*12+mAtual) + nMeses;
+    while((y*12+mo) < alvoIdx){
+      mo++; if(mo>12){ mo=1; y++; }
+      serie.push({ sintetico:true, m:{year:y, month:mo,
+        revenues:[{client_name:'(base histórica)', amount:base.rev, category:'servico'}],
+        costs:[{name:'(base histórica)', amount:base.cos, category:'operacional'}]} });
+    }
+  }
+  // corta o passado distante: mostra do mês atual em diante quando há horizonte
+  if(nMeses>0) serie = serie.filter(x=> (x.m.year*12+x.m.month) >= (aAtual*12+mAtual));
+  else serie = serie.filter(x=> x.m.year===anoRef);
+
+  const saldoIni = parseFloat((S.settings&&S.settings.saldo_inicial)||0)||0;
+  let acumOf = saldoIni, acumSim = saldoIni, mesesRodados = 0;
+
+  const linhas = serie.map(({m, sintetico})=>{
     const revs = (m.revenues||[]).map(r=>({cat:r.category, nome:(r.client_name||''), v:parseFloat(r.amount)||0}));
     const cos  = (m.costs||[]).map(c=>({cat:c.category, nome:(c.name||''),        v:parseFloat(c.amount)||0}));
     const ofRev = revs.reduce((s,x)=>s+x.v,0), ofCos = cos.reduce((s,x)=>s+x.v,0);
     const nCli  = revs.filter(x=>x.v>0).length;
+    const futuro = (m.year*12+m.month) >= (aAtual*12+mAtual);
 
     let sRev = ofRev, sCos = ofCos;
-    const efeitos = [];   // memoria do calculo, para a caixa explicativa
+    const efeitos = [];
+    const anota = (txt,val)=>efeitos.push({txt,val});
+
+    // premissas de carteira: só valem daqui para frente
+    if(futuro){
+      mesesRodados++;
+      const liq = (prem.entram - prem.saem) * mesesRodados;   // saldo acumulado de clientes
+      if(liq && prem.ticket){
+        const d = liq * prem.ticket;
+        sRev += d;
+        anota(`${liq>0?'+':''}${(Math.round(liq*10)/10)} cliente(s) × ${brl(prem.ticket)}`, d);
+      }
+    }
 
     ajustes.forEach(a=>{
-      if(m.month < a.desde) return;
-      const reg = (txt,val)=>{ efeitos.push({txt,val}); };
-
-      // base sobre a qual o ajuste incide
+      if(m.month < a.desde && (m.year*12+m.month) < (aAtual*12+a.desde)) return;
+      if((m.year*12+m.month) < (aAtual*12 + a.desde)) return;
       let base = 0, emReceita = false;
       if(a.tipoAlvo==='categoria'){
         emReceita = (S.revCats||[]).some(c=>c.slug===a.cat);
@@ -3615,41 +3673,40 @@ function simular(ajustes, anoRef){
         base = (emReceita?revs:cos).filter(x=>semAcento(x.nome)===semAcento(a.item)
                  || semAcento(x.nome).includes(semAcento(a.item))).reduce((s,x)=>s+x.v,0);
       } else if(a.tipoAlvo==='driver' && a.driver==='ticket'){
-        emReceita = true; base = ofRev;   // ticket medio move a receita inteira
+        emReceita = true; base = ofRev;
       }
-
       if(a.tipo==='pct' || a.tipo==='abs'){
         if(a.tipoAlvo==='driver' && a.driver==='ticket'){
           const d = a.tipo==='pct' ? ofRev*(a.delta/100) : a.delta*nCli;
-          sRev += d; reg(`${a.rotulo}`, d);
+          sRev += d; anota(a.rotulo, d);
         } else {
           const d = a.tipo==='pct' ? base*(a.delta/100) : a.delta;
           if(emReceita) sRev += d; else sCos += d;
-          reg(`${a.rotulo}`, emReceita? d : -d);
+          anota(a.rotulo, emReceita? d : -d);
         }
       } else if(a.tipo==='definir'){
-        const d = a.valor - base;                  // leva a linha ao valor alvo
+        const d = a.valor - base;
         if(emReceita) sRev += d; else sCos += d;
-        reg(`${a.rotulo}`, emReceita? d : -d);
+        anota(a.rotulo, emReceita? d : -d);
       } else if(a.tipo==='lancamento'){
-        if(a.unico && m.month !== a.desde) return;
-        if(a.receita){ sRev += a.valor; reg(a.rotulo, a.valor); }
-        else { sCos += a.valor; reg(a.rotulo, -a.valor); }
+        if(a.unico && !(m.month===a.desde)) return;
+        if(a.receita){ sRev += a.valor; anota(a.rotulo, a.valor); }
+        else { sCos += a.valor; anota(a.rotulo, -a.valor); }
       } else if(a.tipo==='clientes'){
-        const n = (m.month - a.desde + 1) * a.qtd;
+        const n = mesesRodados * a.qtd;
         const d = n * (a.ticket || 0);
-        sRev += d; reg(`${a.rotulo} (${n} acumulado${n>1?'s':''})`, d);
+        sRev += d; anota(`${a.rotulo} (${n} acumulado${n>1?'s':''})`, d);
       }
     });
 
     acumOf += (ofRev-ofCos); acumSim += (sRev-sCos);
-    return {mes:m.month, ofRev, ofCos, ofBal:ofRev-ofCos, ofAcum:acumOf,
+    return {mes:m.month, ano:m.year, sintetico, ofRev, ofCos, ofBal:ofRev-ofCos, ofAcum:acumOf,
             sRev, sCos, sBal:sRev-sCos, sAcum:acumSim, efeitos, nCli};
   });
-  return {linhas, finalOf:acumOf, finalSim:acumSim, delta:acumSim-acumOf};
+  return {linhas, finalOf:acumOf, finalSim:acumSim, delta:acumSim-acumOf,
+          temSintetico: linhas.some(l=>l.sintetico)};
 }
 
-// ── Histórico de ajustes: desfazer e refazer ─────────────────────────────────
 // dois ajustes no mesmo alvo se somavam: "+10%" seguido de "definir 1200"
 // resultava em 1.305. Definir um valor substitui o que havia naquele alvo.
 function mesmoAlvo(a,b){
@@ -3670,26 +3727,191 @@ function resolveConflitos(lista){
   return out;
 }
 
+// ── Histórico: desfazer e refazer (ajustes + premissas juntos) ───────────────
+function estadoSim(){ const p=premissasAtuais();
+  return JSON.stringify({aj:S.simAjustes||[], pr:{ticket:p.ticket, entram:p.entram, saem:p.saem}}); }
+function aplicaEstado(str){
+  const e = JSON.parse(str);
+  S.simAjustes = e.aj;
+  const p = premissasAtuais(); p.ticket=e.pr.ticket; p.entram=e.pr.entram; p.saem=e.pr.saem;
+}
 function simPush(novos){
   S.simUndo = S.simUndo || [];
-  S.simUndo.push(JSON.stringify(S.simAjustes||[]));
+  S.simUndo.push(estadoSim());
   if(S.simUndo.length>50) S.simUndo.shift();
   S.simRedo = [];
   S.simAjustes = resolveConflitos(novos);
 }
 function simUndo(){
-  if(!S.simUndo || !S.simUndo.length) return;
-  S.simRedo = S.simRedo || [];
-  S.simRedo.push(JSON.stringify(S.simAjustes||[]));
-  S.simAjustes = JSON.parse(S.simUndo.pop());
-  drawSim();
+  if(!(S.simUndo||[]).length) return;
+  S.simRedo = S.simRedo || []; S.simRedo.push(estadoSim());
+  aplicaEstado(S.simUndo.pop()); drawSim();
 }
 function simRedo(){
-  if(!S.simRedo || !S.simRedo.length) return;
-  S.simUndo = S.simUndo || [];
-  S.simUndo.push(JSON.stringify(S.simAjustes||[]));
-  S.simAjustes = JSON.parse(S.simRedo.pop());
+  if(!(S.simRedo||[]).length) return;
+  S.simUndo = S.simUndo || []; S.simUndo.push(estadoSim());
+  aplicaEstado(S.simRedo.pop()); drawSim();
+}
+
+// ── Premissas do cenário ─────────────────────────────────────────────────────
+// Lidas dos dados reais e depois editáveis. A projeção oficial NAO calcula
+// entrada nem saida de clientes: ela soma apenas os lancamentos existentes.
+// Aqui essas alavancas passam a existir, com o observado como ponto de partida.
+function premissasObservadas(){
+  const comDados = (S.months||[]).filter(m=>calcMonth(m).rev>0)
+    .sort((a,b)=>(a.year-b.year)||(a.month-b.month));
+
+  // ticket medio atual = media dos ultimos 3 meses com receita
+  const tickets = comDados.slice(-3).map(m=>calcMonth(m).avgTicket).filter(v=>v>0);
+  const ticket = tickets.length ? tickets.reduce((a,b)=>a+b,0)/tickets.length : 0;
+
+  // entrada e saida observadas: compara a carteira de nomes mes a mes
+  const carteira = m => new Set((m.revenues||[])
+      .filter(r=>(parseFloat(r.amount)||0)>0 && (r.client_name||'').trim())
+      .map(r=>semAcento(r.client_name)));
+  let entradas=0, saidas=0, pares=0;
+  for(let i=1;i<comDados.length;i++){
+    const a=carteira(comDados[i-1]), b=carteira(comDados[i]);
+    if(!a.size && !b.size) continue;
+    [...b].forEach(x=>{ if(!a.has(x)) entradas++; });
+    [...a].forEach(x=>{ if(!b.has(x)) saidas++; });
+    pares++;
+  }
+  return {
+    ticket: Math.round(ticket*100)/100,
+    entram: pares ? Math.round((entradas/pares)*10)/10 : 0,
+    saem:   pares ? Math.round((saidas/pares)*10)/10   : 0,
+    meses: comDados.length, pares
+  };
+}
+function premissasAtuais(){
+  if(!S.simPrem){
+    const o = premissasObservadas();
+    S.simPrem = {ticket:o.ticket, entram:0, saem:0, observado:o};
+  }
+  return S.simPrem;
+}
+function setPremissa(campo, valor){
+  const p = premissasAtuais();
+  S.simUndo = S.simUndo||[];
+  S.simUndo.push(JSON.stringify({aj:S.simAjustes||[], pr:{ticket:p.ticket, entram:p.entram, saem:p.saem}}));
+  if(S.simUndo.length>50) S.simUndo.shift();
+  S.simRedo = [];
+  p[campo] = campo==='ticket' ? parseAmt(valor) : (parseFloat(String(valor).replace(',','.'))||0);
   drawSim();
+}
+function usarObservado(){
+  const o = premissasAtuais().observado;
+  setPremissa('ticket', o.ticket);
+  S.simPrem.entram = o.entram; S.simPrem.saem = o.saem;
+  drawSim();
+}
+
+
+// ── Exportar o cenário em PDF ────────────────────────────────────────────────
+function exportarCenario(){
+  const prem = premissasAtuais();
+  const r = simular(S.simAjustes||[], S.simAno, S.simHorizonte||0);
+  const ajustes = S.simAjustes||[];
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const mesLbl = l => MONTHS_PT[l.mes-1]+'/'+String(l.ano).slice(2);
+
+  // quebra a tabela em blocos que cabem na pagina, para nao cortar linha ao meio
+  const POR_PAG = 18;
+  const blocos = [];
+  for(let i=0;i<r.linhas.length;i+=POR_PAG) blocos.push(r.linhas.slice(i,i+POR_PAG));
+
+  const linhaHTML = l => `<tr class="${l.sintetico?'base':''}">
+      <td>${mesLbl(l)}${l.sintetico?' <span class="tagb">base</span>':''}</td>
+      <td class="r">${brl(l.sRev)}</td><td class="r">${brl(l.sCos)}</td>
+      <td class="r ${l.sBal>=0?'':'neg'}">${brl(l.sBal)}</td>
+      <td class="r">${brl(l.sAcum)}</td>
+      <td class="r ${l.sAcum-l.ofAcum>0?'pos':(l.sAcum-l.ofAcum<0?'neg':'')}">${
+        l.sAcum-l.ofAcum===0?'—':(l.sAcum-l.ofAcum>0?'+':'−')+' '+brl(Math.abs(l.sAcum-l.ofAcum))}</td>
+    </tr>`;
+
+  const tabela = (bloco, i) => `
+    <table class="tb ${i>0?'cont':''}">
+      <thead><tr><th>Mês</th><th class="r">Receita</th><th class="r">Despesa</th>
+        <th class="r">Resultado</th><th class="r">Caixa acum.</th><th class="r">vs oficial</th></tr></thead>
+      <tbody>${bloco.map(linhaHTML).join('')}</tbody>
+    </table>`;
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Cenário · Evolve Financeiro</title>
+<style>
+  @page{size:A4;margin:14mm}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:${SYSFONT};font-size:10.5px;color:#1b1b22;background:#fff;line-height:1.5}
+  h1{font-size:19px;font-weight:700;letter-spacing:-.02em}
+  .sub{font-size:10px;color:#75758a;margin-top:2px}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;
+    border-bottom:2px solid #6D5CE7;padding-bottom:10px;margin-bottom:14px}
+  .kpis{display:flex;gap:10px;margin-bottom:14px}
+  .kpi{flex:1;border:1px solid #e2e2ec;border-radius:8px;padding:10px 12px}
+  .kpi.hi{background:#6D5CE7;color:#fff;border-color:#6D5CE7}
+  .kpi .l{font-size:8.5px;color:#75758a} .kpi.hi .l{color:#ded9ff}
+  .kpi .v{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+  h2{font-size:12px;font-weight:700;margin:14px 0 7px;padding-bottom:4px;border-bottom:1px solid #e2e2ec}
+  .lst{list-style:none} .lst li{padding:5px 0;border-bottom:1px solid #f0f0f6;font-size:10px;display:flex;justify-content:space-between;gap:10px}
+  .lst li:last-child{border-bottom:none}
+  .lst .q{color:#75758a}
+  .prem{display:flex;gap:20px;font-size:10px;color:#4a4a5c;background:#f6f6fa;border-radius:8px;padding:9px 12px}
+  .prem b{font-variant-numeric:tabular-nums}
+  table.tb{width:100%;border-collapse:collapse;margin-top:8px}
+  th{background:#22223a;color:#fff;font-size:8.5px;font-weight:600;padding:6px 8px;text-align:left}
+  th.r,td.r{text-align:right}
+  td{padding:5.5px 8px;border-bottom:1px solid #eeeef4;font-size:9.5px;font-variant-numeric:tabular-nums}
+  tr.base td{color:#75758a;font-style:italic}
+  .tagb{font-size:8px;background:#eeeef4;color:#75758a;border-radius:20px;padding:1px 5px;font-style:normal}
+  .pos{color:#0A7A55} .neg{color:#C42D25}
+  /* cada bloco extra comeca em pagina nova, sem cortar linha ao meio */
+  table.cont{page-break-before:always}
+  thead{display:table-header-group}
+  tr{page-break-inside:avoid}
+  .foot{margin-top:16px;padding-top:8px;border-top:1px solid #e2e2ec;font-size:8.5px;color:#8a8a9c;
+    display:flex;justify-content:space-between}
+  .aviso{background:#fff8e6;border-left:3px solid #B5730B;padding:8px 11px;font-size:9.5px;color:#7a5a10;margin-top:10px;border-radius:0 6px 6px 0}
+</style></head><body>
+<div class="head">
+  <div><h1>Cenário simulado</h1>
+    <div class="sub">Evolve Financeiro · gerado em ${hoje}</div></div>
+  <div class="sub" style="text-align:right">Este documento é uma simulação.<br>Não altera a projeção oficial.</div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Projeção oficial</div><div class="v">${brl(r.finalOf)}</div></div>
+  <div class="kpi hi"><div class="l">Neste cenário</div><div class="v">${brl(r.finalSim)}</div></div>
+  <div class="kpi"><div class="l">Diferença</div><div class="v" style="color:${r.delta>=0?'#0A7A55':'#C42D25'}">${
+    r.delta>=0?'+':'−'} ${brl(Math.abs(r.delta))}</div></div>
+</div>
+
+<h2>Premissas da carteira</h2>
+<div class="prem">
+  <span>Ticket médio <b>${brl(prem.ticket)}</b></span>
+  <span>Entram por mês <b>${String(prem.entram).replace('.',',')}</b></span>
+  <span>Saem por mês <b>${String(prem.saem).replace('.',',')}</b></span>
+  <span>Horizonte <b>${(S.simHorizonte||0)? (S.simHorizonte+' meses') : 'ano corrente'}</b></span>
+</div>
+
+<h2>Ajustes aplicados (${ajustes.length})</h2>
+${ajustes.length? `<ul class="lst">${ajustes.map(a=>
+  `<li><span>${esc(a.rotulo)}</span><span class="q">a partir de ${MONTHS_PT[(a.desde||1)-1]}</span></li>`).join('')}</ul>`
+  : '<div class="sub">Nenhum ajuste — o cenário reflete apenas as premissas acima.</div>'}
+
+<h2>Mês a mês</h2>
+${blocos.map(tabela).join('')}
+
+${r.temSintetico? `<div class="aviso"><b>Meses marcados como “base”</b> estão além do último mês cadastrado.
+  Eles usam a média dos três últimos meses com dados como ponto de partida, e não lançamentos reais.</div>`:''}
+
+<div class="foot"><span>Evolve Financeiro · cenário simulado</span><span>Documento confidencial · ${hoje}</span></div>
+<script>window.onload=()=>{setTimeout(()=>window.print(),400)}<\/script>
+</body></html>`;
+
+  const win = window.open('','_blank');
+  if(!win){ alert('O navegador bloqueou a janela. Libere pop-ups para este site.'); return; }
+  win.document.write(html); win.document.close();
 }
 
 // ── Simulador: tela ───────────────────────────────────────────────────────────
@@ -3757,6 +3979,26 @@ function aplicarManual(){
   e('man-valor').value='';
   drawSim();
 }
+function addLancamentoNovo(){
+  const nome  = e('nov-nome').value.trim();
+  const val   = parseAmt(e('nov-valor').value);
+  const tipo  = e('nov-tipo').value;         // receita | despesa
+  const rec   = e('nov-rec').value;          // todos | uma
+  const desde = parseInt(e('nov-desde').value,10);
+  const err   = e('sim-erro');
+  if(!val){ err.textContent='Informe o valor do lançamento.'; err.style.display='block'; return; }
+  err.style.display='none';
+  const receita = tipo==='receita';
+  simPush([...(S.simAjustes||[]), {
+    tipo:'lancamento', tipoAlvo:'novo', receita, valor:val,
+    nome: nome || (receita?'Receita nova':'Despesa nova'),
+    desde, unico: rec==='uma',
+    rotulo:`${receita?'+':'−'}${brl(val)} ${nome||(receita?'Receita nova':'Despesa nova')}${rec==='uma'?' (uma vez)':''}`
+  }]);
+  e('nov-nome').value=''; e('nov-valor').value='';
+  drawSim();
+}
+
 function addClientesManual(){
   const qtd = parseInt(e('cli-qtd').value,10)||0;
   const tk  = parseAmt(e('cli-ticket').value);
@@ -3769,7 +4011,8 @@ function addClientesManual(){
 }
 
 function drawSim(){
-  const r = simular(S.simAjustes||[], S.simAno);
+  const prem = premissasAtuais();
+  const r = simular(S.simAjustes||[], S.simAno, S.simHorizonte||0);
   const linhas = r.linhas;
   const sel = S.simMesDetalhe || (linhas.length? linhas[linhas.length-1].mes : 1);
   const o = opcoesAlvo();
@@ -3809,6 +4052,24 @@ function drawSim(){
           <div class="sim-cmp-v ${r.delta>=0?'up':'down'}">${r.delta>=0?'+':'−'} ${brl(Math.abs(r.delta))}</div></div>
       </div>
 
+      <div class="sim-prem">
+        <div class="sim-prem-h">
+          <span>Premissas da carteira</span>
+          <span class="sim-prem-obs">observado nos seus dados: ticket ${brl(prem.observado.ticket)} ·
+            entram ${prem.observado.entram}/mês · saem ${prem.observado.saem}/mês
+            <button class="sim-limpar" onclick="usarObservado()">usar o observado</button></span>
+        </div>
+        <div class="sim-prem-g">
+          <label>Ticket médio<input value="${brl(prem.ticket).replace('R$ ','')}" onchange="setPremissa('ticket',this.value)"></label>
+          <label>Entram por mês<input value="${String(prem.entram).replace('.',',')}" onchange="setPremissa('entram',this.value)"></label>
+          <label>Saem por mês<input value="${String(prem.saem).replace('.',',')}" onchange="setPremissa('saem',this.value)"></label>
+          <label>Horizonte<select onchange="S.simHorizonte=+this.value;drawSim()">
+            ${[0,6,12,24,36].map(h=>`<option value="${h}" ${(S.simHorizonte||0)===h?'selected':''}>${h?h+' meses':'ano corrente'}</option>`).join('')}
+          </select></label>
+        </div>
+        ${r.temSintetico?`<div class="sim-prem-n">Além do último mês cadastrado a base é a média dos 3 últimos meses com dados. Esses meses aparecem marcados.</div>`:''}
+      </div>
+
       <div class="sim-modos">
         <div class="sim-entrada">
           <input id="sim-frase" placeholder='Escreva: aumentar Adriano em 10% a partir de setembro'
@@ -3819,6 +4080,7 @@ function drawSim(){
         <span class="sim-hist">
           <button class="btn sm" onclick="simUndo()" ${podeUndo?'':'disabled'} title="Desfazer">↶</button>
           <button class="btn sm" onclick="simRedo()" ${podeRedo?'':'disabled'} title="Refazer">↷</button>
+          <button class="btn sm" onclick="exportarCenario()" title="Exportar cenário em PDF">Exportar PDF</button>
         </span>
       </div>
       <div id="sim-erro" class="sim-erro" style="display:none"></div>
@@ -3844,6 +4106,14 @@ function drawSim(){
           <button class="btn filled-g" onclick="aplicarManual()">Adicionar</button>
         </div>
         <div class="sim-man-row">
+          <label>Descrição<input id="nov-nome" placeholder="Ex.: Contador"></label>
+          <label>Tipo<select id="nov-tipo"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></label>
+          <label>Valor<input id="nov-valor" placeholder="450,00"></label>
+          <label>Repetir<select id="nov-rec"><option value="todos">Todo mês</option><option value="uma">Só uma vez</option></select></label>
+          <label>A partir de<select id="nov-desde">${mesOpts(desdePadrao)}</select></label>
+          <button class="btn filled-g" onclick="addLancamentoNovo()">Criar lançamento</button>
+        </div>
+        <div class="sim-man-row">
           <label>Novos clientes por mês<input id="cli-qtd" placeholder="1" style="width:70px"></label>
           <label>Ticket<input id="cli-ticket" placeholder="1.997,00"></label>
           <label>A partir de<select id="cli-desde">${mesOpts(desdePadrao)}</select></label>
@@ -3864,7 +4134,7 @@ function drawSim(){
           ${linhas.map(l=>{
             const dif = l.sAcum - l.ofAcum;
             return `<tr class="${l.mes===sel?'sel':''}" onclick="S.simMesDetalhe=${l.mes};drawSim()" style="cursor:pointer">
-              <td>${MONTHS_PT[l.mes-1]}</td>
+              <td>${MONTHS_PT[l.mes-1]}${(S.simHorizonte||0)?`/${String(l.ano).slice(2)}`:''}${l.sintetico?' <span class="sim-tag-b">base</span>':''}</td>
               <td class="r">${brl(l.sRev)}</td><td class="r">${brl(l.sCos)}</td>
               <td class="r" style="color:${l.sBal>=0?'var(--tx)':'var(--rd)'}">${brl(l.sBal)}</td>
               <td class="r">${brl(l.sAcum)}</td>
@@ -4381,7 +4651,9 @@ function renderProjecaoTab() {
   </div>
 
   <div style="font-size:11px;color:var(--mu);text-align:center;margin-bottom:8px">
-    Meses passados: valores realizados. Mês atual e futuros: total registrado (confirmados + pendentes). Sem estimativas automáticas.
+    Meses passados: valores realizados. Mês atual e futuros: total registrado (confirmados + pendentes).
+    <b>Atenção:</b> meses sem nenhum lançamento usam aqui a média dos 3 últimos meses com dados — por isso esta aba
+    pode divergir da aba Projeção, que só soma o que está cadastrado.
   </div>`;
 
   requestAnimationFrame(() => {
