@@ -375,6 +375,11 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .pj-zero{color:var(--mu);opacity:.45}
 .pj-money{text-align:right;font-weight:600;font-size:12.5px}
 .pj-big{text-align:right;font-family:var(--ff);font-weight:700;font-size:12.5px}
+.cat-imprev{display:flex;flex-wrap:wrap;gap:6px;padding:4px 14px 8px}
+.cat-chip{font:inherit;font-size:11px;padding:5px 10px;border-radius:99px;cursor:pointer;
+  border:1px solid var(--bdr);background:var(--s1);color:var(--mu);transition:.15s}
+.cat-chip:hover{border-color:var(--mu);color:var(--tx2)}
+.cat-chip.on{background:var(--ac-soft);border-color:var(--ac-ring);color:var(--ac);font-weight:600}
 .info-passo{display:flex;gap:12px;margin:14px 0}
 .info-n{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--ac-soft);
   color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
@@ -1607,6 +1612,17 @@ function parcelaDoMes(m){
 const MESES_BASE_IMPREV = 6;
 function imprevistosLigado(){ return (S.settings||{}).imprevistos === '1'; }
 
+// Distribuicao de lucro e repasse a socio sao saida de caixa, mas nao sao
+// imprevisto: acontecem porque houve resultado. Deixa-las na base inflava a
+// mediana e, pior, faziam a reserva subir justamente quando o negocio foi bem.
+// Ficam de fora por padrao, e a lista e editavel na aba de regras.
+const IMPREV_FORA_PADRAO = ['pessoal','repasse-socios'];
+function categoriasForaImprev(){
+  try { const v = JSON.parse((S.settings||{}).imprev_fora || 'null');
+        return Array.isArray(v) ? v : IMPREV_FORA_PADRAO; }
+  catch(_){ return IMPREV_FORA_PADRAO; }
+}
+
 // Mede o que de fato NAO se repete: as despesas marcadas como NR nos meses
 // fechados. E a medida direta do que a reserva quer cobrir.
 //
@@ -1619,13 +1635,15 @@ function imprevistosLigado(){ return (S.settings||{}).imprevistos === '1'; }
 // Mediana e nao media: junho e julho tiveram distribuicao de lucro e rateio de
 // projeto, valores altos que a media transformaria em regra.
 function baseImprevistos(){
+  const fora = categoriasForaImprev();
   const hoje = new Date(), atual = hoje.getFullYear()*12 + (hoje.getMonth()+1);
   const fechados = (S.months||[])
     .filter(m => (m.year*12+m.month) < atual)
     .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
     .map(m => {
       const itens = (m.costs||[]).filter(c => c.nonrecurring==1
-          && (!c.status || c.status==='realizado') && c.category!=='imposto');
+          && (!c.status || c.status==='realizado') && c.category!=='imposto'
+          && !fora.includes(c.category));
       const cli = (m.revenues||[]).filter(r => r.nonrecurring!=1
           && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim()
           && (!r.status || r.status==='realizado')).length;
@@ -1639,7 +1657,12 @@ function baseImprevistos(){
   const vs = ult.map(x=>x.v);
   const mediana = med(vs);
   const cliRef = ult[ult.length-1].cli || 1;   // carteira do ultimo mes fechado
-  return { mediana, cliRef, meses: ult.length,
+  // quanto ficou de fora, para a explicacao poder mostrar
+  const excluido = ult.reduce((acc,x)=> acc + (x.m.costs||[])
+      .filter(c=>c.nonrecurring==1 && (!c.status||c.status==='realizado')
+        && fora.includes(c.category))
+      .reduce((a,c)=>a+(parseFloat(c.amount)||0),0), 0);
+  return { mediana, cliRef, meses: ult.length, fora, excluido,
            menor: Math.min(...vs), maior: Math.max(...vs),
            media: vs.reduce((a,b)=>a+b,0)/vs.length,
            detalhe: ult.map(x=>({mes:x.m.month, ano:x.m.year, v:x.v, cli:x.cli,
@@ -4617,6 +4640,29 @@ function blocoFiscal(){
   </div>
 
   <div class="sim-card" style="margin-top:12px">
+    <div class="sim-card-h">Base dos imprevistos</div>
+    <div class="rel-help" style="padding:10px 14px 4px">
+      A reserva mede as despesas marcadas como <b>NR</b> nos meses fechados. Categorias
+      desmarcadas abaixo ficam de fora dessa medição — é onde entram os pagamentos que
+      acontecem <i>porque houve resultado</i>, e não por imprevisto.
+    </div>
+    <div class="cat-imprev">
+      ${(S.costCats||[]).filter(c=>c.slug!=='imposto').map(c=>{
+        const dentro = !categoriasForaImprev().includes(c.slug);
+        return `<button class="cat-chip ${dentro?'on':''}"
+          title="${dentro?'Conta na base da reserva':'Fora da base da reserva'}"
+          onclick="alternarCatImprev('${c.slug}')">${dentro?'✓':'○'} ${esc(c.label)}</button>`;
+      }).join('')}
+    </div>
+    ${(()=>{ const b=baseImprevistos(); return b
+      ? `<div class="rel-help" style="padding:4px 14px 12px">
+          Com esta seleção: mediana de <b>${brl(b.mediana)}</b> por mês em ${b.meses} meses.
+          ${b.excluido>0?`Ficaram de fora ${brl(b.excluido)} no período.`:''}</div>`
+      : `<div class="rel-help" style="padding:4px 14px 12px">
+          Ainda não há 3 meses fechados com despesa marcada como NR nas categorias selecionadas.</div>`; })()}
+  </div>
+
+  <div class="sim-card" style="margin-top:12px">
     <div class="sim-card-h">Parcelamento de imposto retroativo</div>
     <div class="sim-card-b" style="flex-wrap:wrap">
       <label style="flex-direction:row;align-items:center;gap:6px;padding-top:14px">
@@ -4640,6 +4686,17 @@ function blocoFiscal(){
   </div>`;
 }
 
+async function alternarCatImprev(slug){
+  const fora = categoriasForaImprev().slice();
+  const i = fora.indexOf(slug);
+  if(i>=0) fora.splice(i,1); else fora.push(slug);
+  const txt = JSON.stringify(fora);
+  S.settings.imprev_fora = txt;
+  try { await api('PUT','/api/settings',{imprev_fora:txt}); syncLabel(fmtSync(),'saved'); }
+  catch(err){ alert(err.message); }
+  renderRules();
+  if(S.tab==='projecao') renderProjecaoTab(); else updateDashboard();
+}
 async function setFiscal(chave, valor){
   S.settings[chave] = valor;
   try { await api('PUT','/api/settings',{[chave]:valor}); syncLabel(fmtSync(),'saved'); }
@@ -5958,9 +6015,22 @@ function abrirInfoImprevistos(mesId){
       <div class="info-n">1</div>
       <div><div class="info-t">O que entra na conta</div>
         <div class="info-d">Só o que está marcado <b>NR</b> nos meses já fechados, confirmado.
-          Fica de fora tudo que é estrutura — pró-labore, Adriano, ferramentas — e também o
-          imposto, que tem cálculo próprio pela alíquota.</div></div>
+          Fica de fora tudo que é estrutura — pró-labore, Adriano, ferramentas — e o imposto,
+          que tem cálculo próprio pela alíquota.</div></div>
     </div>
+
+    ${b.fora && b.fora.length ? `<div class="info-passo">
+      <div class="info-n">−</div>
+      <div><div class="info-t">E o que sai de propósito</div>
+        <div class="info-d">
+          ${b.fora.map(f=>{const c=(S.costCats||[]).find(x=>x.slug===f);
+            return '<b>'+esc(c?c.label:f)+'</b>';}).join(' e ')}
+          ${b.fora.length>1?'ficam':'fica'} fora da medição.
+          São <b>${brl(b.excluido)}</b> no período — dinheiro que saiu de verdade, mas
+          <i>porque houve resultado</i>, não por imprevisto. Mantê-los na base fazia a reserva
+          subir justamente nos meses em que o negócio foi bem, e puxava a mediana para cima.
+          Editável na aba de regras.</div></div>
+    </div>` : ''}
 
     <div class="info-tab">
       ${b.detalhe.map(d=>`<div class="info-l">
