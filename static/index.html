@@ -201,12 +201,29 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .pill.a{background:rgba(245,166,35,.12);color:var(--am)}
 .pill.r{background:rgba(255,87,87,.12);color:var(--rd)}
 
-/* ══ DISTRIBUTION BAR ════════════════════════════════════════════════════════ */
-.dist-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:1px;margin:6px 0}
-.dist-seg{height:100%;transition:flex .3s}
-.dist-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.dist-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)}
-.dist-item .dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+/* ══ DISTRIBUIÇÃO — lista ranqueada ══════════════════════════════════════════
+   Uma cor só: a ordem e o comprimento da barra codificam a magnitude.
+   Nome e valor são texto (nunca cor sozinha carregando identidade).          */
+.dist-list{display:flex;flex-direction:column;gap:1px;margin-top:2px}
+.dist-row{display:grid;grid-template-columns:minmax(88px,1.35fr) minmax(60px,2fr) 104px 46px;
+  align-items:center;gap:10px;padding:5px 0;font-size:12px}
+.dist-name{color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dist-track{height:8px;background:var(--s3);border-radius:4px;overflow:hidden}
+.dist-fill{height:100%;background:var(--ac);border-radius:0 4px 4px 0;transition:width .35s cubic-bezier(.4,0,.2,1)}
+.dist-fill.muted{background:var(--mu);opacity:.55}
+.dist-val{color:var(--tx);font-weight:600;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dist-pct{color:var(--mu);text-align:right;font-variant-numeric:tabular-nums}
+/* rabo dobrado */
+.dist-more{cursor:pointer;border-top:1px solid var(--bdr);margin-top:3px;padding-top:8px}
+.dist-more:hover .dist-name{color:var(--ac)}
+.dist-count{display:inline-block;background:var(--s3);color:var(--mu);border-radius:999px;
+  padding:0 6px;font-size:11px;margin-left:4px}
+.dist-tail{display:none;padding-left:0;border-left:2px solid var(--bdr);margin-left:2px;padding-left:8px}
+.dist-list.open .dist-tail{display:block}
+.dist-list.open .dist-more .dist-name{color:var(--ac)}
+@media(max-width:640px){
+  .dist-row{grid-template-columns:minmax(66px,1fr) minmax(36px,1.1fr) 84px 40px;gap:7px;font-size:11px}
+}
 
 /* ══ CHART WRAP ══════════════════════════════════════════════════════════════ */
 .chart-wrap{position:relative;height:220px}
@@ -1388,11 +1405,18 @@ function exportReportPDF() {
     tfoot tr{font-weight:700}
     .al{padding:8px 12px;border-radius:8px;font-size:11px;margin-bottom:12px;border-left:3px solid}
     .alb{background:${s2};border-color:${ac}}
-    .dist-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:1px;margin:6px 0}
-    .dist-seg{height:100%}
-    .dist-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-    .dist-item{display:flex;align-items:center;gap:5px;font-size:11px}
-    .dist-item .dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+    .dist-list{display:flex;flex-direction:column;gap:1px;margin-top:2px}
+    .dist-row{display:grid;grid-template-columns:minmax(88px,1.35fr) minmax(60px,2fr) 96px 44px;align-items:center;gap:10px;padding:4px 0;font-size:11px}
+    .dist-name{color:${tx};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dist-track{height:8px;background:${s2};border-radius:4px;overflow:hidden}
+    .dist-fill{height:100%;background:${ac};border-radius:0 4px 4px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .dist-fill.muted{background:${mu};opacity:.55}
+    .dist-val{color:${tx};font-weight:600;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .dist-pct{color:${mu};text-align:right;font-variant-numeric:tabular-nums}
+    .dist-more{border-top:1px solid ${bdr};margin-top:3px;padding-top:7px}
+    .dist-count{display:inline-block;background:${s2};color:${mu};border-radius:999px;padding:0 6px;font-size:10px;margin-left:4px}
+    /* no papel o rabo vem sempre aberto — não dá para clicar num PDF */
+    .dist-tail{display:block;border-left:2px solid ${bdr};margin-left:2px;padding-left:8px}
     @media print{body{padding:16px 20px}@page{margin:12mm}}
   </style></head><body>
   ${content}
@@ -1540,11 +1564,38 @@ async function doSearch() {
 // ══════════════════════════════════════════════════════════════════════════════
 // DISTRIBUTION BAR
 // ══════════════════════════════════════════════════════════════════════════════
-function renderDistBar(dist, isCost=false) {
-  if(!dist.length) return '<div style="color:var(--mu);font-size:11px">Sem dados</div>';
-  const segs=dist.map(d=>`<div class="dist-seg" style="flex:${d.pct};background:${catColor(d.cat)}" title="${catLabel(d.cat)}: ${brl(d.val)} (${pct(d.pct)})"></div>`).join('');
-  const legend=dist.map(d=>`<div class="dist-item"><div class="dot" style="background:${catColor(d.cat)}"></div><span>${catLabel(d.cat)}</span><span style="color:var(--tx);font-weight:600">${pct(d.pct)}</span></div>`).join('');
-  return `<div class="dist-bar">${segs}</div><div class="dist-legend">${legend}</div>`;
+// Lista ranqueada: comprimento da barra + ordem já codificam a magnitude, então a
+// cor é única (rampa seria codificação redundante e derrubaria o contraste).
+// Acima de TOP_N o rabo vira "Outros" — nunca se resolve excesso de séries com mais cores.
+const DIST_TOP_N = 7;
+function renderDistBar(dist, isCost=false, id='') {
+  if(!dist.length) return '<div style="color:var(--mu);font-size:12px">Sem dados</div>';
+  const rows=[...dist].sort((a,b)=>b.val-a.val);
+  const head=rows.slice(0,DIST_TOP_N), tail=rows.slice(DIST_TOP_N);
+  const max=rows[0]?.val||1;
+  const uid = id || ('d'+Math.random().toString(36).slice(2,8));
+
+  const row=(d,muted)=>`
+    <div class="dist-row">
+      <div class="dist-name" title="${esc(catLabel(d.cat))}">${esc(catLabel(d.cat))}</div>
+      <div class="dist-track"><div class="dist-fill${muted?' muted':''}" style="width:${Math.max((d.val/max)*100,1.5)}%"></div></div>
+      <div class="dist-val">${brl(d.val)}</div>
+      <div class="dist-pct">${pct(d.pct)}</div>
+    </div>`;
+
+  let html=head.map(d=>row(d,false)).join('');
+  if(tail.length){
+    const tv=tail.reduce((s,d)=>s+d.val,0), tp=tail.reduce((s,d)=>s+d.pct,0);
+    html+=`
+    <div class="dist-row dist-more" onclick="this.parentNode.classList.toggle('open')" title="Mostrar as outras ${tail.length} categorias">
+      <div class="dist-name">Demais categorias <span class="dist-count">${tail.length}</span></div>
+      <div class="dist-track"><div class="dist-fill muted" style="width:${Math.max((tv/max)*100,1.5)}%"></div></div>
+      <div class="dist-val">${brl(tv)}</div>
+      <div class="dist-pct">${pct(tp)}</div>
+    </div>
+    <div class="dist-tail">${tail.map(d=>row(d,true)).join('')}</div>`;
+  }
+  return `<div class="dist-list" id="${uid}">${html}</div>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
