@@ -266,6 +266,31 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 /* ══ RELATÓRIOS ══════════════════════════════════════════════════════════════ */
 .modal.rel-modal{max-width:1080px;width:96vw;max-height:92vh;overflow-y:auto}
 .rel-hint{font-size:11px;color:var(--mu);background:var(--s2);border-radius:var(--r3);padding:8px 11px;margin-bottom:14px}
+/* Detalhamento da Projecao: muitas colunas em pouca largura. Os grupos dao a
+   hierarquia — dinheiro em destaque, carteira em tom secundario — para a tabela
+   nao virar um paredao de numeros todos com o mesmo peso. */
+.pj-wrap{overflow-x:auto}
+.pj-tab{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.pj-tab th,.pj-tab td{padding:9px 10px;white-space:nowrap}
+.pj-grp{font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--mu);
+  font-weight:600;text-align:center;padding:7px 10px 3px!important;border-bottom:1px solid var(--bdr)}
+.pj-tab thead tr:last-child th{font-size:10.5px;color:var(--mu);font-weight:500;
+  text-align:right;border-bottom:1px solid var(--bdr)}
+.pj-tab thead tr:last-child th.l{text-align:left}
+.pj-tab tbody tr{border-bottom:1px solid var(--bdr-soft,rgba(128,128,140,.14))}
+.pj-tab tbody tr:last-child{border-bottom:none}
+.pj-sep{border-left:1px solid var(--bdr)}
+.pj-cli{text-align:right;font-size:12px;color:var(--tx2)}
+.pj-mu{text-align:right;font-size:11px;color:var(--mu)}
+.pj-in{color:var(--g);font-size:11.5px;text-align:right}
+.pj-out{color:var(--rd);font-size:11.5px;text-align:right}
+.pj-zero{color:var(--mu);opacity:.45}
+.pj-money{text-align:right;font-weight:600;font-size:12.5px}
+.pj-big{text-align:right;font-family:var(--ff);font-weight:700;font-size:12.5px}
+.pj-den{display:inline-flex;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:2px}
+.pj-den button{border:none;background:none;font:inherit;font-size:11px;color:var(--mu);
+  padding:4px 10px;border-radius:6px;cursor:pointer}
+.pj-den button.on{background:var(--s1);color:var(--tx);box-shadow:var(--sh)}
 .rel-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
 .rel-kpi{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px 14px}
 .rel-kpi-l{font-size:11px;color:var(--mu)}
@@ -1300,43 +1325,59 @@ function mesEhFuturo(m){
 // Custos EFETIVOS do mês, em um lugar só, para não existirem duas verdades.
 // Num mês futuro, o item coberto por regra sai da lista e entra a linha
 // calculada pela regra — nunca os dois, senão o valor duplicaria.
-// Tamanho da carteira num mes futuro, pelo mesmo roll-forward de MRR que a aba
-// Projecao usa. Contar as linhas de receita nao serve aqui: mes futuro e copia
-// do atual, entao a carteira ficaria parada para sempre — o degrau do Adriano
-// nunca dispararia e a comissao do Diego daria zero por "nenhum cliente novo",
-// justo enquanto a receita projetada cresce. Custo tem de crescer junto.
+// Tamanho da carteira num mes futuro. A ancora e a lista de clientes de fato
+// lancada no mes; sobre ela aplica-se o mesmo crescimento que a aba Projecao
+// aplica na receita, para que custo variavel e receita cresçam na mesma razao.
+// Contar so as linhas nao bastava (mes futuro e copia, entao "clientes novos"
+// dava zero e uma regra de % sobre o primeiro fee nunca cobrava nada);
+// derivar tudo de MRR/ticket tambem nao, porque a base fica no ultimo mes
+// fechado e ignorava clientes ja lancados a frente.
 function carteiraProjetada(m){
   const mc = metricasCarteira();
-  const tk = mc.ticket || 0;
+  const lanc = (m.revenues||[]).filter(r=>r.nonrecurring!=1
+      && (parseFloat(r.amount)||0)>0 && (r.client_name||'').trim());
+  const nLanc   = lanc.length;
+  const revLanc = lanc.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
   const h = new Date();
   const k = (m.year*12+m.month) - (h.getFullYear()*12 + (h.getMonth()+1));
-  let mrr = mc.baseMRR;
-  for(let i=0; i<Math.max(k,0); i++) mrr = mrr - mrr*mc.churnPct + mc.novoMRR;
+  let mrr = revLanc;
+  for(let i=0; i<=Math.max(k,0); i++) mrr = mrr - mrr*mc.churnPct + mc.novoMRR;
+  const razao = revLanc ? mrr/revLanc : 1;
+  const tk = mc.ticket || (nLanc ? revLanc/nLanc : 0);
   return {
-    nClientes: tk ? Math.round(mrr/tk) : mc.baseCli,
+    nClientes: Math.round(nLanc * razao),
     novos:     tk ? mc.novoMRR/tk : 0,
     tk
   };
 }
 
-function custosEfetivos(m){
+function custosEfetivos(m, paraProjecao){
   const base=(m.costs||[]).map(c=>({...c, viaRegra:false}));
   if(!mesEhFuturo(m) || !(S.costRules||[]).length) return base;
   const {nClientes, novos, tk} = carteiraProjetada(m);
-  const semCobertos=base.filter(c=>!temRegra(c.name));
-  const calc=custoPorRegras(nClientes, novos, tk).linhas.map(l=>({
-    id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
-    category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true, regra:l.regra
-  }));
+  // Um item ja confirmado no mes manda mais que a regra: se alguem lancou e
+  // confirmou "Adriano" ali, a regra nao pode somar uma segunda linha por cima.
+  const confirmados = new Set(base.filter(c=>c.status && c.status!=='projetado')
+      .map(c=>semAcento(c.name)));
+  const jaConfirmado = nome => {
+    const n = semAcento(nome||'');
+    for(const cf of confirmados){ if(n===cf || n.includes(cf) || cf.includes(n)) return true; }
+    return false;
+  };
+  // o lancamento projetado coberto por regra sai; o confirmado fica
+  const semCobertos=base.filter(c=>!temRegra(c.name) || jaConfirmado(c.name));
+  const calc=custoPorRegras(nClientes, novos, tk).linhas
+    .filter(l=>!jaConfirmado(l.nome))
+    .filter(l=>paraProjecao || !l.regra.so_projecao)
+    .map(l=>({
+      id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
+      category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true,
+      regra:l.regra, mes_id:m.id
+    }));
   return [...semCobertos, ...calc];
 }
-function mesAnterior(m){
-  const alvo = m.month===1 ? {y:m.year-1, mo:12} : {y:m.year, mo:m.month-1};
-  return (S.months||[]).find(x=>x.year===alvo.y && x.month===alvo.mo);
-}
-
-function calcMonth(m) {
-  const custos = custosEfetivos(m);
+function calcMonth(m, paraProjecao) {
+  const custos = custosEfetivos(m, paraProjecao);
   // Realizado = only status='realizado' or null (legacy rows)
   const realRevs=m.revenues.filter(r=>!r.status||r.status==='realizado');
   const realCoss=custos.filter(c=>!c.status||c.status==='realizado');
@@ -2260,7 +2301,7 @@ function renderMonthTab(mid) {
     const hasRec=!!c.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
     // linha vinda de regra vem antes: ela tambem tem status projetado, mas nao
-    // existe no banco, entao nao pode oferecer Confirmar nem Excluir
+    // existe no banco — confirmar aqui a materializa como despesa do mes
     if(c.viaRegra){
       return `<tr class="linha-regra">
         <td class="sel-col"></td>
@@ -2269,7 +2310,11 @@ function renderMonthTab(mid) {
         <td class="r"><span style="font-weight:600;font-size:12px">${fmtAmt(c.amount)}</span></td>
         <td><span style="font-size:11px;color:var(--mu)">—</span></td>
         <td><span style="font-size:11px;color:var(--mu)">${catLabel(c.category)}</span></td>
-        <td><button class="btn sm" onclick="openRulesModal()">Editar regra</button></td>
+        <td style="white-space:nowrap">
+          <button class="btn sm grn" title="Lançar este valor como despesa do mês"
+            onclick="confirmarRegra(${mid},'${esc(c.name).replace(/'/g,"\\'")}',${c.amount},'${c.category}')">✓ Confirmar</button>
+          <button class="btn sm" onclick="openRulesModal()">Regra</button>
+        </td>
         <td></td>
       </tr>`;
     }
@@ -2442,11 +2487,17 @@ function updateSummary(mid) {
   const sc=calcMonth(m);
   const mc=marginClass(sc.margin);
   const balCol=sc.bal>=0?'var(--tx)':'var(--rd)';
+  // so mostra o projetado quando ha algo pendente — senao seria o mesmo numero
+  // com dois nomes, que ja confundiu antes
+  const temPendente = sc.revProj!==sc.rev || sc.cosProj!==sc.cos;
   el.innerHTML=`
     <div class="sum-item"><div class="sum-lbl">Receita realizada</div><div class="sum-val">${brl(sc.rev)}</div><div class="sum-sub">${sc.clients} clientes ${deltaMesAnterior(mid,'rev')}</div></div>
     <div class="sum-item"><div class="sum-lbl">Ticket médio</div><div class="sum-val">${brl(sc.avgTicket)}</div><div class="sum-sub">por cliente</div></div>
     <div class="sum-item"><div class="sum-lbl">Despesas realizadas</div><div class="sum-val">${brl(sc.cos)}</div></div>
     <div class="sum-item"><div class="sum-lbl">Saldo realizado</div><div class="sum-val" style="color:${balCol}">${brl(sc.bal)}</div></div>
+    ${temPendente?`<div class="sum-item"><div class="sum-lbl">Saldo projetado</div>
+      <div class="sum-val" style="color:${sc.balProj>=0?'var(--pu)':'var(--rd)'}">${brl(sc.balProj)}</div>
+      <div class="sum-sub">${brl(sc.revProj)} − ${brl(sc.cosProj)}</div></div>`:''}
     <div class="sum-item"><div class="sum-lbl">Margem</div><div class="sum-val" style="color:${sc.margin<0?'var(--rd)':'var(--tx)'}">${pct(sc.margin)}</div></div>
     ${sc.newClients>0?`<div class="sum-item"><div class="sum-lbl">Entrada clientes</div><div class="sum-val">★ ${sc.newClients} novo${sc.newClients>1?'s':''}</div></div>`:''}
   `;
@@ -3801,13 +3852,15 @@ function simular(ajustes, anoRef, horizonte){
     const feito = x => futuro || !x.status || x.status==='realizado';
     const revs = (m.revenues||[]).filter(feito)
       .map(r=>({cat:r.category, nome:(r.client_name||''), v:parseFloat(r.amount)||0}));
-    const cos  = custosEfetivos(m).filter(feito)
+    const cos  = custosEfetivos(m, true).filter(feito)
       .map(c=>({cat:c.category, nome:(c.name||''),        v:parseFloat(c.amount)||0}));
     const ofRev = revs.reduce((s,x)=>s+x.v,0), ofCos = cos.reduce((s,x)=>s+x.v,0);
     const nCli  = revs.filter(x=>x.v>0).length;
 
     let sRev = ofRev, sCos = ofCos;
     let ofRevAj = 0;   // efeito do observado na linha oficial
+    let cart = { cliSim:nCli, cliOf:nCli, entram:null, entramOf:null,
+                 saem:null, saemOf:null, ticket: nCli?ofRev/nCli:0, proj:false };
     const efeitos = [];
     const anota = (txt,val)=>efeitos.push({txt,val});
 
@@ -3829,6 +3882,16 @@ function simular(ajustes, anoRef, horizonte){
       const nM = vigente ? prem.novoMRR  : obs.novoMRR;
       const bSim = (mrrSim==null) ? ofRev : Math.max(mrrSim, 0);
       mrrSim = bSim - bSim*cP + nM;
+      // carteira em clientes: cresce na mesma razao da receita, ancorada nos
+      // clientes de fato lancados no mes
+      const tkC = prem.ticket || 0;
+      cart = { cliSim: ofRev ? nCli*(mrrSim/ofRev) : nCli,
+               cliOf:  ofRev ? nCli*(mrrOf /ofRev) : nCli,
+               entram: tkC ? nM/tkC : 0,
+               entramOf: tkC ? obs.novoMRR/tkC : 0,
+               saem:   (ofRev ? nCli*(mrrSim/ofRev) : nCli) * cP,
+               saemOf: (ofRev ? nCli*(mrrOf /ofRev) : nCli) * obs.churnPct,
+               ticket: tkC, proj:true };
       const d = mrrSim - ofRev;
       sRev += d;
       if(Math.abs(d) > 0.5)
@@ -3875,7 +3938,7 @@ function simular(ajustes, anoRef, horizonte){
 
     acumOf += ((ofRev+ofRevAj)-ofCos); acumSim += (sRev-sCos);
     return {mes:m.month, ano:m.year, sintetico, ofRev: ofRev+ofRevAj, ofCos, ofBal:(ofRev+ofRevAj)-ofCos, ofAcum:acumOf,
-            sRev, sCos, sBal:sRev-sCos, sAcum:acumSim, efeitos, nCli};
+            sRev, sCos, sBal:sRev-sCos, sAcum:acumSim, efeitos, nCli, cart};
   });
   return {linhas, finalOf:acumOf, finalSim:acumSim, delta:acumSim-acumOf,
           temSintetico: linhas.some(l=>l.sintetico)};
@@ -4034,19 +4097,23 @@ function renderRules(){
 
     <table class="etable plain"><thead><tr>
       <th class="flush">Nome</th><th class="flush">Tipo</th><th class="r">Valor</th>
-      <th class="flush">Faixa de clientes</th><th class="r">Hoje</th><th style="width:34px"></th>
+      <th class="flush">Faixa de clientes</th><th class="flush">Onde aplica</th>
+      <th class="r">Hoje</th><th style="width:34px"></th>
     </tr></thead><tbody>
       ${rs.length? rs.map(r=>`<tr class="${vale(r)?'':'off'}">
         <td>${esc(r.nome)}</td>
         <td>${TIPO_ROT[r.tipo]||r.tipo}</td>
         <td class="r">${valorTxt(r)}</td>
         <td>${faixa(r)} ${vale(r)?'<span class="rg-on">vigente</span>':''}</td>
+        <td><button class="btn sm ${r.so_projecao?'':'filled-g'}" style="font-size:11px"
+              title="${r.so_projecao?'Só entra na Projeção e no simulador':'Também aparece lançada na aba do mês'}"
+              onclick="alternarEscopoRegra(${r.id},${r.so_projecao?0:1})">${r.so_projecao?'Só projeção':'Mês + projeção'}</button></td>
         <td class="r">${vale(r)? brl((hoje.linhas.find(l=>l.regra.id===r.id)||{valor:0}).valor) : '—'}</td>
         <td><button class="del-btn" onclick="removerRegra(${r.id})" title="Remover">✕</button></td>
       </tr>`).join('')
-      : '<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:18px">Nenhuma regra cadastrada</td></tr>'}
+      : '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:18px">Nenhuma regra cadastrada</td></tr>'}
     </tbody>
-    ${rs.length?`<tfoot><tr class="tot"><td colspan="4">Custo pelas regras, com ${mc.baseCli} clientes</td>
+    ${rs.length?`<tfoot><tr class="tot"><td colspan="5">Custo pelas regras, com ${mc.baseCli} clientes</td>
       <td class="r">${brl(hoje.total)}</td><td></td></tr></tfoot>`:''}
     </table>
 
@@ -4060,9 +4127,16 @@ function renderRules(){
         <label><span id="rg-lbl">Valor</span><input id="rg-valor" placeholder="1.500,00" style="width:110px"></label>
         <label>De<input id="rg-min" placeholder="0" style="width:66px"></label>
         <label>Até<input id="rg-max" placeholder="sem limite" style="width:96px"></label>
+        <label style="flex-direction:row;align-items:center;gap:6px;padding-top:14px">
+          <input type="checkbox" id="rg-soproj" style="width:auto;margin:0">
+          <span style="font-size:11px;color:var(--tx2)">Só na projeção</span></label>
         <button class="btn filled-g" onclick="criarRegra()">Adicionar</button>
       </div>
       <div class="rel-help" style="padding:0 14px 12px" id="rg-dica">Valor fixo por mês, independente do número de clientes.</div>
+      <div class="rel-help" style="padding:0 14px 12px">
+        <b>Só na projeção</b> para custo que depende de fechar venda, como comissão: ele entra
+        no cálculo da Projeção e do simulador, mas não aparece lançado na aba do mês como se
+        fosse compromisso certo.</div>
     </div>
     <div id="rg-erro" class="sim-erro" style="display:none"></div>`;
 }
@@ -4073,6 +4147,13 @@ function ajustaDicaRegra(){
              pct_primeiro:'Percentual sobre o primeiro pagamento de cada cliente novo.'};
   e('rg-dica').textContent = d[t]||'';
   e('rg-lbl').textContent = t==='pct_primeiro' ? 'Percentual' : 'Valor';
+}
+async function alternarEscopoRegra(id, valor){
+  try {
+    await api('PUT', `/api/cost-rules/${id}`, {so_projecao: valor});
+    await carregarRegras(true); renderRules();
+    if(S.tab==='projecao') renderProjecaoTab(); else updateDashboard();
+  } catch(err){ alert(err.message); }
 }
 async function criarRegra(){
   const err=e('rg-erro');
@@ -4087,7 +4168,8 @@ async function criarRegra(){
   if(max!=null && max<min){ err.textContent='A faixa termina antes de começar.'; err.style.display='block'; return; }
   err.style.display='none';
   try{
-    await api('POST','/api/cost-rules',{nome,tipo,valor,min_clientes:min,max_clientes:max});
+    await api('POST','/api/cost-rules',{nome,tipo,valor,min_clientes:min,max_clientes:max,
+      so_projecao: e('rg-soproj').checked ? 1 : 0});
     await carregarRegras(true); renderRules(); syncLabel(fmtSync(),'saved');
     if(S.tab==='projecao') renderProjecaoTab();
   }catch(ex){ err.textContent=ex.message; err.style.display='block'; }
@@ -4416,6 +4498,7 @@ function addLancamentoNovo(){
 
 
 function drawSim(){
+  const vista = S.simVista || 'cenario';
   const prem = premissasAtuais();
   const r = simular(S.simAjustes||[], S.simAno, S.simHorizonte||0);
   const linhas = r.linhas;
@@ -4543,27 +4626,148 @@ function drawSim(){
         ${(S.simAjustes||[]).length?`<button class="sim-limpar" onclick="limparSim()">Limpar tudo</button>`:''}</div>
     </div>
 
+    <div class="pj-den" style="margin-bottom:10px">
+      <button class="${vista==='cenario'?'on':''}" onclick="setVistaSim('cenario')">Cenário</button>
+      <button class="${vista==='comparar'?'on':''}" onclick="setVistaSim('comparar')">Comparar com a oficial</button>
+    </div>
+
+    ${vista==='comparar' ? tabelaComparacao(r, linhas) : `
     <div class="sim-grid">
       <div>
-        <table class="etable plain sim-tab"><thead><tr>
-          <th class="flush">Mês</th><th class="r">Receita</th><th class="r">Despesa</th>
-          <th class="r">Resultado</th><th class="r">Caixa acum.</th><th class="r">vs oficial</th>
-        </tr></thead><tbody>
+        <div class="pj-wrap">
+        <table class="pj-tab">
+          <thead>
+            <tr>
+              <th class="pj-grp" style="text-align:left"></th>
+              <th class="pj-grp pj-sep" colspan="3">Carteira</th>
+              <th class="pj-grp pj-sep" colspan="5">Resultado do cenário</th>
+            </tr>
+            <tr>
+              <th class="l" style="min-width:74px">Mês</th>
+              <th class="pj-sep" style="min-width:60px">Clientes</th>
+              <th style="min-width:56px">Entram</th>
+              <th style="min-width:50px">Saem</th>
+              <th class="pj-sep" style="min-width:104px">Receita</th>
+              <th style="min-width:96px">Despesa</th>
+              <th style="min-width:96px">Resultado</th>
+              <th style="min-width:104px">Caixa acum.</th>
+              <th style="min-width:96px">vs oficial</th>
+            </tr>
+          </thead>
+          <tbody>
           ${linhas.map(l=>{
             const dif = l.sAcum - l.ofAcum;
+            const c = l.cart;
+            // arredonda igual a Projecao: e o mesmo numero de clientes, e as
+            // regras de custo cobram por cliente inteiro
+            const cli = numCli(Math.round(c.cliSim));
             return `<tr class="${l.mes===sel?'sel':''}" onclick="S.simMesDetalhe=${l.mes};drawSim()" style="cursor:pointer">
               <td>${MONTHS_PT[l.mes-1]}${(S.simHorizonte||0)?`/${String(l.ano).slice(2)}`:''}${l.sintetico?' <span class="sim-tag-b">base</span>':''}</td>
-              <td class="r">${brl(l.sRev)}</td><td class="r">${brl(l.sCos)}</td>
-              <td class="r" style="color:${l.sBal>=0?'var(--tx)':'var(--rd)'}">${brl(l.sBal)}</td>
-              <td class="r">${brl(l.sAcum)}</td>
-              <td class="r" style="color:${dif===0?'var(--mu)':(dif>0?'var(--g)':'var(--rd)')}">${dif===0?'—':(dif>0?'+':'−')+' '+brl(Math.abs(dif))}</td>
+              <td class="pj-cli pj-sep" style="font-weight:600;color:var(--tx)">${cli}</td>
+              <td class="pj-in">${c.entram==null?'<span class="pj-zero">—</span>':numCli(Math.round(c.entram*10)/10)}</td>
+              <td class="pj-out">${c.saem==null?'<span class="pj-zero">—</span>':numCli(Math.round(c.saem*10)/10)}</td>
+              <td class="pj-money pj-sep">${brl(l.sRev)}</td>
+              <td class="pj-money">${brl(l.sCos)}</td>
+              <td class="pj-big" style="color:${l.sBal>=0?'var(--tx)':'var(--rd)'}">${brl(l.sBal)}</td>
+              <td class="pj-big">${brl(l.sAcum)}</td>
+              <td class="pj-mu" style="color:${Math.abs(dif)<0.5?'var(--mu)':(dif>0?'var(--g)':'var(--rd)')}">${
+                Math.abs(dif)<0.5?'—':(dif>0?'+':'−')+' '+brl(Math.abs(dif))}</td>
             </tr>`;}).join('')}
-        </tbody></table>
+          </tbody>
+        </table>
+        </div>
         <div class="rel-help">Clique num mês para ver a conta dele ao lado.</div>
       </div>
       ${caixa}
-    </div>`;
+    </div>`}`;
 }
+
+// Visao de comparacao: as mesmas metricas nas duas colunas, para nao ser
+// preciso segurar dois numeros de cabeça. O fechamento do periodo vem primeiro,
+// que e a pergunta que se faz ao abrir um simulador.
+function tabelaComparacao(r, linhas){
+  const somaOf = k => linhas.reduce((s,l)=>s+l[k],0);
+  const ultima = linhas[linhas.length-1] || {cart:{cliSim:0,cliOf:0}};
+  const ofRev = somaOf('ofRev'), sRev = somaOf('sRev');
+  const ofCos = somaOf('ofCos'), sCos = somaOf('sCos');
+  const ofBal = ofRev-ofCos,     sBal = sRev-sCos;
+  const mOf = ofRev? ofBal/ofRev*100 : 0, mSim = sRev? sBal/sRev*100 : 0;
+  const linha = (rot, vOf, vSim, fmt, dica) => {
+    const d = vSim - vOf;
+    const cor = Math.abs(d) < (fmt===brl?0.5:0.05) ? 'var(--mu)' : (d>0?'var(--g)':'var(--rd)');
+    return `<tr>
+      <td style="color:var(--tx2)">${rot}${dica?`<span class="lanc-ref">${dica}</span>`:''}</td>
+      <td class="pj-money" style="font-weight:500;color:var(--tx2)">${fmt(vOf)}</td>
+      <td class="pj-big pj-sep">${fmt(vSim)}</td>
+      <td class="pj-big" style="color:${cor}">${Math.abs(d)<(fmt===brl?0.5:0.05)?'—':(d>0?'+':'−')+' '+fmt(Math.abs(d))}</td>
+    </tr>`;
+  };
+  const num = v => numCli(Math.round(v*10)/10);
+  const pctf = v => v.toFixed(1).replace('.',',')+'%';
+  return `
+  <div class="pj-wrap" style="margin-bottom:14px">
+    <table class="pj-tab">
+      <thead><tr>
+        <th class="l" style="min-width:190px">Métrica no período</th>
+        <th style="min-width:118px">Projeção oficial</th>
+        <th class="pj-sep" style="min-width:118px">Neste cenário</th>
+        <th style="min-width:118px">Diferença</th>
+      </tr></thead>
+      <tbody>
+        ${linha('Caixa no fim do período', r.finalOf, r.finalSim, brl)}
+        ${linha('Receita somada', ofRev, sRev, brl)}
+        ${linha('Despesa somada', ofCos, sCos, brl)}
+        ${linha('Resultado', ofBal, sBal, brl)}
+        ${linha('Margem média', mOf, mSim, pctf)}
+        ${linha('Clientes no último mês', Math.round(ultima.cart.cliOf), Math.round(ultima.cart.cliSim), num)}
+        ${linha('Entram por mês', ultima.cart.entramOf||0, ultima.cart.entram||0, num)}
+        ${linha('Saem por mês', ultima.cart.saemOf||0, ultima.cart.saem||0, num)}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pj-wrap">
+    <table class="pj-tab">
+      <thead>
+        <tr>
+          <th class="pj-grp" style="text-align:left"></th>
+          <th class="pj-grp pj-sep" colspan="2">Receita</th>
+          <th class="pj-grp pj-sep" colspan="2">Resultado</th>
+          <th class="pj-grp pj-sep" colspan="3">Caixa acumulado</th>
+        </tr>
+        <tr>
+          <th class="l" style="min-width:74px">Mês</th>
+          <th class="pj-sep" style="min-width:100px">Oficial</th>
+          <th style="min-width:100px">Cenário</th>
+          <th class="pj-sep" style="min-width:100px">Oficial</th>
+          <th style="min-width:100px">Cenário</th>
+          <th class="pj-sep" style="min-width:104px">Oficial</th>
+          <th style="min-width:104px">Cenário</th>
+          <th style="min-width:96px">Diferença</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${linhas.map(l=>{
+          const d = l.sAcum - l.ofAcum;
+          const dim = 'color:var(--tx2);font-weight:500';
+          return `<tr>
+            <td>${MONTHS_PT[l.mes-1]}${(S.simHorizonte||0)?`/${String(l.ano).slice(2)}`:''}</td>
+            <td class="pj-money pj-sep" style="${dim}">${brl(l.ofRev)}</td>
+            <td class="pj-money">${brl(l.sRev)}</td>
+            <td class="pj-money pj-sep" style="${dim}">${brl(l.ofBal)}</td>
+            <td class="pj-money">${brl(l.sBal)}</td>
+            <td class="pj-money pj-sep" style="${dim}">${brl(l.ofAcum)}</td>
+            <td class="pj-big">${brl(l.sAcum)}</td>
+            <td class="pj-mu" style="color:${Math.abs(d)<0.5?'var(--mu)':(d>0?'var(--g)':'var(--rd)')}">${
+              Math.abs(d)<0.5?'—':(d>0?'+':'−')+' '+brl(Math.abs(d))}</td>
+          </tr>`;}).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div class="rel-help">A coluna Oficial é a aba Projeção, intacta. Mexer aqui não altera nada lá.</div>`;
+}
+
+function setVistaSim(v){ S.simVista = v; drawSim(); }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CATEGORIES MANAGEMENT
@@ -4842,6 +5046,38 @@ function setProjComo(aberto){
   try { localStorage.setItem('ef_proj_como', aberto ? '1' : '0'); } catch(_){}
 }
 
+// Metricas de carteira de uma linha da Projecao. Mes fechado usa a contagem
+// real das transicoes; mes futuro usa a mesma carteira projetada que alimenta
+// as regras de custo, para os dois nunca discordarem.
+function carteiraDaLinha(r, mc){
+  const m = r.m;
+  if(r.isFuture){
+    const cp = carteiraProjetada(m);
+    return { clientes: cp.nClientes, entram: cp.novos, saem: cp.nClientes*mc.churnPct,
+             ticket: cp.tk, projetado: true };
+  }
+  const recs = (m.revenues||[]).filter(x=>x.nonrecurring!=1 && (parseFloat(x.amount)||0)>0
+      && (x.client_name||'').trim() && (x.status||'realizado')==='realizado');
+  const ponte = (mc.pontes||[]).find(p=>p.ano===m.year && p.mes===m.month);
+  const rev = recs.reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
+  return { clientes: recs.length,
+           entram: ponte? ponte.nEnt : null,
+           saem:   ponte? ponte.nSai : null,
+           ticket: recs.length ? rev/recs.length : 0,
+           projetado: false };
+}
+// 0,4 nao existe em cliente: numero fracionario so faz sentido como media
+const numCli = v => v==null ? '—' : (Number.isInteger(v) ? String(v)
+                   : v.toFixed(1).replace('.',','));
+
+function densidadeProjCompleta(){
+  try { return localStorage.getItem('ef_proj_dens') !== '0'; } catch(_) { return true; }
+}
+function setDensidadeProj(v){
+  try { localStorage.setItem('ef_proj_dens', v ? '1' : '0'); } catch(_){}
+  renderProjecaoTab();
+}
+
 function renderProjecaoTab() {
   const el = e('tab-projecao'); if (!el) return;
   const horizon = S.projecaoHorizon ?? 0; // 0 = Ano 2026 (default)
@@ -4865,10 +5101,11 @@ function renderProjecaoTab() {
   const priorMonths = allMonths.filter(m => viewMonths.length && (
     (m.year < viewMonths[0].year) || (m.year === viewMonths[0].year && m.month < viewMonths[0].month)));
   let cc = saldoInicial;
-  priorMonths.forEach(m => { const sc = calcMonth(m); cc += sc.rev - sc.cos; });
+  priorMonths.forEach(m => { const sc = calcMonth(m, true); cc += sc.rev - sc.cos; });
 
+  const completo = densidadeProjCompleta();
   const rows = viewMonths.map(m => {
-    const sc = calcMonth(m);
+    const sc = calcMonth(m, true);   // projeção enxerga também as regras só-projeção
     const isPast = (m.year < curYear) || (m.year === curYear && m.month < curMonth);
     const isCurrent = m.year === curYear && m.month === curMonth;
     const isFuture = !isPast && !isCurrent;
@@ -4884,6 +5121,7 @@ function renderProjecaoTab() {
 
   const futureRows = rows.filter(r => r.isFuture || r.isCurrent);
   const mcRegras = metricasCarteira();
+  rows.forEach(r => { r.cart = carteiraDaLinha(r, mcRegras); });
   // Regras de custo mandam no futuro: o lancamento projetado de um item que
   // tem regra e ignorado, para o valor nao entrar duas vezes.
   const comRegra = (S.costRules||[]).length>0;
@@ -5253,20 +5491,36 @@ function renderProjecaoTab() {
   ${pxrSection}
 
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px">
-    <div style="padding:14px 18px;border-bottom:1px solid var(--bdr)">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;
+                align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div class="ct" style="margin-bottom:0">Detalhamento mês a mês</div>
+      <div class="pj-den">
+        <button class="${completo?'':'on'}" onclick="setDensidadeProj(0)">Essencial</button>
+        <button class="${completo?'on':''}" onclick="setDensidadeProj(1)">Completo</button>
+      </div>
     </div>
-    <div style="overflow-x:auto">
-      <table class="etable plain">
-        <thead><tr>
-          <th style="min-width:110px">Mês</th>
-          <th style="min-width:70px">Status</th>
-          <th class="r" style="min-width:130px">Receita</th>
-          <th class="r" style="min-width:110px">Despesa</th>
-          <th class="r" style="min-width:110px">Resultado</th>
-          <th class="r" style="min-width:55px">Margem</th>
-          <th class="r" style="min-width:120px">Caixa acum.</th>
-        </tr></thead>
+    <div class="pj-wrap">
+      <table class="pj-tab">
+        <thead>
+          <tr>
+            <th class="pj-grp" style="text-align:left"></th>
+            <th class="pj-grp pj-sep" colspan="${completo?4:1}">Carteira</th>
+            <th class="pj-grp pj-sep" colspan="5">Resultado</th>
+          </tr>
+          <tr>
+            <th class="l" style="min-width:150px">Mês</th>
+            <th class="pj-sep" style="min-width:62px">Clientes</th>
+            ${completo?`
+            <th style="min-width:58px">Entram</th>
+            <th style="min-width:52px">Saem</th>
+            <th style="min-width:82px">Ticket</th>`:''}
+            <th class="pj-sep" style="min-width:118px">Receita</th>
+            <th style="min-width:100px">Despesa</th>
+            <th style="min-width:100px">Resultado</th>
+            <th style="min-width:56px">Margem</th>
+            <th style="min-width:112px">Caixa acum.</th>
+          </tr>
+        </thead>
         <tbody>
           ${rows.map(r => {
             const badge = r.isPast
@@ -5276,22 +5530,35 @@ function renderProjecaoTab() {
                 : `<span class="status-badge" style="background:rgba(167,139,250,.12);color:var(--pu);border:1px solid rgba(167,139,250,.3)">Projetado</span>`;
             const balColor = r.projBal >= 0 ? 'var(--tx)' : 'var(--rd)';
             const cashColor = r.cumCashEnd >= 0 ? 'var(--tx)' : 'var(--rd)';
-            const rowBg = r.isCurrent ? 'background:rgba(79,158,255,.04)' : r.isFuture ? 'opacity:.82' : '';
+            const rowBg = r.isCurrent ? 'background:rgba(79,158,255,.04)' : r.isFuture ? 'opacity:.86' : '';
+            const c = r.cart;
+            const sinal = (v, cls) => v==null ? '<span class="pj-zero">—</span>'
+                        : (v<0.05 ? `<span class="pj-zero">${numCli(v)}</span>`
+                                  : `<span class="${cls}">${numCli(v)}</span>`);
             return `<tr style="${rowBg}">
-              <td style="font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">${MONTHS_FULL[r.m.month-1]} ${r.m.year}</td>
-              <td>${badge}</td>
-              <td class="r" style="font-weight:600">${brl(r.projRev)}${
+              <td style="font-weight:${r.isPast?'600':'400'};color:${r.isFuture?'var(--tx2)':'var(--tx)'}">
+                ${MONTHS_FULL[r.m.month-1]} ${r.m.year} ${badge}</td>
+              <td class="pj-cli pj-sep" style="font-weight:600;color:var(--tx)">${numCli(c.clientes)}</td>
+              ${completo?`
+              <td class="pj-in">${sinal(c.entram,'pj-in')}</td>
+              <td class="pj-out">${sinal(c.saem,'pj-out')}</td>
+              <td class="pj-mu">${c.ticket? brl(c.ticket) : '—'}</td>`:''}
+              <td class="pj-money pj-sep">${brl(r.projRev)}${
                 r.lancadoRev!=null && Math.abs(r.lancadoRev-r.projRev)>=1
                   ? `<span class="lanc-ref" title="Contratado neste mês, antes de churn e venda nova">${brl(r.lancadoRev)} lançado</span>` : ''}</td>
-              <td class="r" style="font-weight:600">${brl(r.projCos)}</td>
-              <td class="r" style="color:${balColor};font-family:var(--ff);font-weight:700">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
-              <td class="r" style="font-size:11px;color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
-              <td class="r" style="color:${cashColor};font-family:var(--ff);font-weight:700">${brl(r.cumCashEnd)}</td>
+              <td class="pj-money">${brl(r.projCos)}</td>
+              <td class="pj-big" style="color:${balColor}">${r.projBal>=0?'+':''}${brl(r.projBal)}</td>
+              <td class="pj-mu" style="color:${r.margin<0?'var(--rd)':'var(--mu)'}">${r.margin.toFixed(1)}%</td>
+              <td class="pj-big" style="color:${cashColor}">${brl(r.cumCashEnd)}</td>
             </tr>`;
           }).join('')}
         </tbody>
       </table>
     </div>
+    ${completo?`<div class="rel-help" style="padding:10px 18px;border-top:1px solid var(--bdr)">
+      <b>Carteira</b>: clientes recorrentes do mês. Em mês fechado, entram e saem são a contagem real;
+      em mês projetado são a média do histórico, e por isso aparecem com casa decimal.
+      Trabalho pontual marcado como <b>NR</b> fica fora dessa conta.</div>`:''}
   </div>
 
   <div style="font-size:11px;color:var(--mu);text-align:center;margin-bottom:8px">
@@ -5677,6 +5944,25 @@ function showToast(msg, duration=3000) {
 // ══════════════════════════════════════════════════════════════════════════════
 // RECURRING — CONFIRM ITEM
 // ══════════════════════════════════════════════════════════════════════════════
+// Confirmar uma linha de regra a transforma em despesa de verdade no mes, com
+// o valor que a regra calculou. A partir dai o item manda, e a regra para de
+// gerar linha naquele mes — senao o valor entraria duas vezes.
+async function confirmarRegra(mid, nome, valor, categoria){
+  const hoje = new Date().toISOString().slice(0,10);
+  syncLabel('Salvando…','saving');
+  try {
+    await api('POST', `/api/months/${mid}/costs`,
+      { name:nome, amount:valor, payment_date:hoje, category:categoria, status:'realizado' });
+    const updated = await api('GET', `/api/months/${mid}`);
+    S.map[mid]=updated;
+    const idx=S.months.findIndex(x=>x.id===mid); if(idx>=0) S.months[idx]=updated;
+    if(S.tab===`m${mid}`) renderMonthTab(mid);
+    updateDashboard();
+    syncLabel('Confirmado ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    showToast(`${nome} confirmado como despesa do mês ✓`);
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
 async function confirmItem(type, id) {
   const today = new Date().toISOString().slice(0,10);
   const field = type === 'revenue' ? 'received_date' : 'paid_date';

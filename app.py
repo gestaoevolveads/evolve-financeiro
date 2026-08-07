@@ -189,6 +189,10 @@ def init_db():
             "ALTER TABLE costs ADD COLUMN status TEXT DEFAULT 'realizado'",
             "ALTER TABLE recurring_items ADD COLUMN day_of_month INTEGER",
             "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'",
+            # Regra que so vale na projecao: comissao de venda depende de fechar
+            # negocio, entao nao deve aparecer lancada na aba do mes como se
+            # fosse compromisso certo — so entra na projecao e no simulador.
+            "ALTER TABLE cost_rules ADD COLUMN so_projecao INTEGER DEFAULT 0",
             # Relatórios da Carla: anotação por lançamento e marcação de item não recorrente
             "ALTER TABLE revenues ADD COLUMN note TEXT DEFAULT ''",
             "ALTER TABLE costs    ADD COLUMN note TEXT DEFAULT ''",
@@ -412,9 +416,10 @@ def add_revenue(mid):
     d = request.get_json() or {}
     with db() as c:
         month = c.execute('SELECT year,month FROM months WHERE id=?',(mid,)).fetchone()
-        cur = c.execute('INSERT INTO revenues (month_id,client_name,amount,received_date,category,is_new_client,sort_order) VALUES (?,?,?,?,?,?,?)',
+        cur = c.execute('INSERT INTO revenues (month_id,client_name,amount,received_date,category,is_new_client,sort_order,status) VALUES (?,?,?,?,?,?,?,?)',
             (mid, d.get('client_name',''), d.get('amount',0), d.get('received_date',''),
-             d.get('category','servico'), d.get('is_new_client',0), d.get('sort_order',999)))
+             d.get('category','servico'), d.get('is_new_client',0), d.get('sort_order',999),
+             'projetado' if d.get('status')=='projetado' else 'realizado'))
         c.commit()
         row = c.execute('SELECT * FROM revenues WHERE id=?',(cur.lastrowid,)).fetchone()
     mref = f"{MONTHS_PT[month['month']-1]}/{month['year']}" if month else str(mid)
@@ -479,9 +484,10 @@ def add_cost(mid):
     d = request.get_json() or {}
     with db() as c:
         month = c.execute('SELECT year,month FROM months WHERE id=?',(mid,)).fetchone()
-        cur = c.execute('INSERT INTO costs (month_id,name,amount,payment_date,category,sort_order) VALUES (?,?,?,?,?,?)',
+        cur = c.execute('INSERT INTO costs (month_id,name,amount,payment_date,category,sort_order,status) VALUES (?,?,?,?,?,?,?)',
             (mid, d.get('name',''), d.get('amount',0), d.get('payment_date',''),
-             d.get('category','operacional'), d.get('sort_order',999)))
+             d.get('category','operacional'), d.get('sort_order',999),
+             'projetado' if d.get('status')=='projetado' else 'realizado'))
         c.commit()
         row = c.execute('SELECT * FROM costs WHERE id=?',(cur.lastrowid,)).fetchone()
     mref = f"{MONTHS_PT[month['month']-1]}/{month['year']}" if month else str(mid)
@@ -999,7 +1005,7 @@ def export_data():
 
 RULE_COLS = {'nome':_s,'tipo':_s,'valor':_f,'min_clientes':lambda v:int(v or 0),
              'max_clientes':lambda v:(None if v in ('', None) else int(v)),
-             'categoria':_s,'ativo':_b}
+             'categoria':_s,'ativo':_b,'so_projecao':_b}
 TIPOS_REGRA = ('fixo','por_cliente','pct_primeiro')
 
 @app.get('/api/cost-rules')
@@ -1023,9 +1029,10 @@ def create_cost_rule():
     if mx is not None and mx < mn:
         return jsonify({'error':'A faixa termina antes de começar'}), 400
     with db() as c:
-        cur = c.execute('INSERT INTO cost_rules (nome,tipo,valor,min_clientes,max_clientes,categoria) '
-                        'VALUES (?,?,?,?,?,?)',
-                        (nome, tipo, _f(d.get('valor')), mn, mx, _s(d.get('categoria')) or 'operacional'))
+        cur = c.execute('INSERT INTO cost_rules (nome,tipo,valor,min_clientes,max_clientes,categoria,so_projecao) '
+                        'VALUES (?,?,?,?,?,?,?)',
+                        (nome, tipo, _f(d.get('valor')), mn, mx,
+                         _s(d.get('categoria')) or 'operacional', _b(d.get('so_projecao'))))
         c.commit()
         row = c.execute('SELECT * FROM cost_rules WHERE id=?', (cur.lastrowid,)).fetchone()
     audit(request.user['username'], 'regra_criada', f"{nome} — {tipo} {_f(d.get('valor')):.2f}")
