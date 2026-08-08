@@ -449,6 +449,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
   border-radius:5px;padding:2px 7px;white-space:nowrap}
 .fase-vazio{font-size:11px;color:var(--mu);line-height:1.5}
 .rg-acoes{display:flex;align-items:center;justify-content:flex-end;gap:6px;white-space:nowrap}
+.rg-comp{font-size:10px;color:var(--mu);margin-top:2px}
 .rg-sel{color:var(--ac);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
   text-underline-offset:3px}
 .rg-sel:hover{text-decoration-style:solid}
@@ -1879,7 +1880,7 @@ function custosEfetivos(m, paraProjecao){
   if(!aberto) return semImposto;
 
   let lista = semImposto;
-  if(futuro && (S.costRules||[]).length){
+  if(aberto && (S.costRules||[]).length){
     const {nClientes, novos, tk} = carteiraProjetada(m);
     const confirmados = new Set(semImposto.filter(c=>c.status && c.status!=='projetado')
         .map(c=>semAcento(c.name)));
@@ -1892,7 +1893,7 @@ function custosEfetivos(m, paraProjecao){
     // sai da tabela — nao a mera existencia de uma regra com aquele nome. Se a
     // regra calcula zero (nenhum cliente marcado, faixa fora de vigencia), ela
     // nao substitui nada e o lancamento fica.
-    const geradas = custoPorRegras(nClientes, novos, tk).linhas
+    const geradas = custoPorRegras(nClientes, novos, tk, m.year, m.month).linhas
       .filter(l=>paraProjecao || !l.regra.so_projecao);
     const nomesRegra = new Set(geradas.map(l=>semAcento(l.nome)));
     const cobertoPorRegra = nome => {
@@ -1904,9 +1905,16 @@ function custosEfetivos(m, paraProjecao){
     // projetado sai quando a regra cobre o nome. Antes o "ja confirmado"
     // protegia qualquer item de mesmo nome, entao confirmar a linha da regra
     // devolvia o lancamento projetado a tabela e o custo entrava duas vezes.
-    const semCobertos = semImposto.filter(c =>
-      (c.status && c.status!=='projetado') || !cobertoPorRegra(c.name));
+    // No mes corrente a regra so pode SOMAR, nunca substituir: trocar o que voce
+    // ja lancou no mes que esta gerenciando e intrusivo. Entao, aqui, regra que
+    // cobre um lancamento existente fica de fora e o lancamento manda.
+    const semCobertos = futuro
+      ? semImposto.filter(c => (c.status && c.status!=='projetado') || !cobertoPorRegra(c.name))
+      : semImposto;
     const calc = geradas
+      .filter(l => futuro || !semImposto.some(c=>{
+        const a=semAcento(c.name||''), b=semAcento(l.nome||'');
+        return a===b || a.includes(b) || b.includes(a); }))
       .filter(l=>!jaConfirmado(l.nome))
       .map(l=>({
         id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
@@ -4709,10 +4717,20 @@ function premissasObservadas(){
 // ── Regras de custo em degrau ────────────────────────────────────────────────
 // Dado o numero de clientes, o custo e determinado — nao e estimativa, e
 // politica ja acordada. Por isso vale tambem na projecao oficial.
-function regrasVigentes(nClientes){
+// Uma regra vale por FAIXA DE CLIENTES e, opcionalmente, por COMPETENCIA.
+// Sem a competencia, um custo cadastrado hoje valia retroativamente em todo mes
+// projetado — inclusive antes de ele existir.
+function regraNaCompetencia(r, ano, mes){
+  const k = ano*12 + mes;
+  if(r.inicio_ano && r.inicio_mes && k < r.inicio_ano*12 + r.inicio_mes) return false;
+  if(r.fim_ano    && r.fim_mes    && k > r.fim_ano*12    + r.fim_mes)    return false;
+  return true;
+}
+function regrasVigentes(nClientes, ano, mes){
   return (S.costRules||[]).filter(r=>r.ativo!==0
     && nClientes >= (r.min_clientes||0)
-    && (r.max_clientes==null || nClientes <= r.max_clientes));
+    && (r.max_clientes==null || nClientes <= r.max_clientes)
+    && (ano==null || regraNaCompetencia(r, ano, mes)));
 }
 // nomes cobertos por alguma regra: o lancamento desses itens em mes futuro
 // e ignorado, senao o valor entraria duas vezes
@@ -4750,9 +4768,9 @@ function coberturaRegra(r, nClientes){
   const n = Math.min(base + novos, nClientes || base+novos);
   return {n, base: Math.min(base, n), extra: Math.max(0, n - base)};
 }
-function custoPorRegras(nClientes, nNovos, ticket){
+function custoPorRegras(nClientes, nNovos, ticket, ano, mes){
   const linhas = [];
-  regrasVigentes(nClientes).forEach(r=>{
+  regrasVigentes(nClientes, ano, mes).forEach(r=>{
     let v = 0, n = null;
     if(r.tipo==='fixo')             v = r.valor;
     else if(r.tipo==='por_cliente') v = r.valor * nClientes;
@@ -4790,7 +4808,8 @@ function renderRules(){
           title="Escolher quais clientes têm">${regraClientes(r).length} selecionado${regraClientes(r).length===1?'':'s'}</span>`
       : `${String(r.valor).replace('.',',')}% do 1º pagamento`;
 
-  const hoje = custoPorRegras(mc.baseCli, mc.entramMes, mc.ticket);
+  const _h = new Date();
+  const hoje = custoPorRegras(mc.baseCli, mc.entramMes, mc.ticket, _h.getFullYear(), _h.getMonth()+1);
   e('rules-body').innerHTML = `
     ${(()=>{ const pend = rs.filter(r=>r.tipo==='por_cliente_sel' && regraClientes(r).length===0);
       return pend.length ? `<div class="rg-aviso">
@@ -4811,7 +4830,10 @@ function renderRules(){
         <td>${esc(r.nome)}</td>
         <td>${TIPO_ROT[r.tipo]||r.tipo}</td>
         <td class="r">${valorTxt(r)}</td>
-        <td>${faixa(r)} ${vale(r)?'<span class="rg-on">vigente</span>':''}</td>
+        <td>${faixa(r)} ${vale(r)?'<span class="rg-on">vigente</span>':''}
+          ${(r.inicio_ano||r.fim_ano) ? `<div class="rg-comp">${
+            r.inicio_ano?`de ${MONTHS_PT[r.inicio_mes-1]}/${String(r.inicio_ano).slice(2)}`:'desde já'}${
+            r.fim_ano?` até ${MONTHS_PT[r.fim_mes-1]}/${String(r.fim_ano).slice(2)}`:''}</div>`:''}</td>
         <td><button class="btn sm ${r.so_projecao?'':'filled-g'}" style="font-size:11px"
               title="${r.so_projecao?'Só entra na Projeção e no simulador':'Também aparece lançada na aba do mês'}"
               onclick="alternarEscopoRegra(${r.id},${r.so_projecao?0:1})">${r.so_projecao?'Só projeção':'Mês + projeção'}</button></td>
@@ -4842,8 +4864,12 @@ function renderRules(){
           <option value="por_cliente_sel">Por cliente selecionado</option>
           <option value="pct_primeiro">% do 1º pagamento</option></select></label>
         <label><span id="rg-lbl">Valor</span><input id="rg-valor" placeholder="1.500,00" style="width:110px"></label>
-        <label>De<input id="rg-min" placeholder="0" style="width:66px"></label>
-        <label>Até<input id="rg-max" placeholder="sem limite" style="width:96px"></label>
+        <label>De<input id="rg-min" placeholder="0" style="width:66px" title="A partir de quantos clientes"></label>
+        <label>Até<input id="rg-max" placeholder="sem limite" style="width:96px" title="Até quantos clientes"></label>
+        <label>Começa em<input id="rg-inicio" type="month" style="width:140px"
+          title="Competência em que o custo passa a valer — em branco, vale desde já"></label>
+        <label>Termina em<input id="rg-fim" type="month" style="width:140px"
+          title="Última competência — em branco, não termina"></label>
         <label style="flex-direction:row;align-items:center;gap:6px;padding-top:14px">
           <input type="checkbox" id="rg-soproj" style="width:auto;margin:0">
           <span style="font-size:11px;color:var(--tx2)">Só na projeção</span></label>
@@ -5134,8 +5160,15 @@ async function criarRegra(){
   if(max!=null && max<min){ err.textContent='A faixa termina antes de começar.'; err.style.display='block'; return; }
   err.style.display='none';
   try{
+    const comp = id => { const [y,mo]=String(e(id).value||'').split('-').map(Number);
+                         return (y&&mo)?{y,mo}:null; };
+    const ini = comp('rg-inicio'), fim = comp('rg-fim');
+    if(ini && fim && (fim.y*12+fim.mo) < (ini.y*12+ini.mo)){
+      err.textContent='O fim vem antes do começo.'; err.style.display='block'; return; }
     await api('POST','/api/cost-rules',{nome,tipo,valor,min_clientes:min,max_clientes:max,
-      so_projecao: e('rg-soproj').checked ? 1 : 0});
+      so_projecao: e('rg-soproj').checked ? 1 : 0,
+      inicio_ano: ini?ini.y:null, inicio_mes: ini?ini.mo:null,
+      fim_ano: fim?fim.y:null,   fim_mes: fim?fim.mo:null});
     await carregarRegras(true); renderRules(); syncLabel(fmtSync(),'saved');
     if(S.tab==='projecao') renderProjecaoTab();
   }catch(ex){ err.textContent=ex.message; err.style.display='block'; }
@@ -7219,7 +7252,7 @@ function renderProjecaoTab() {
       const atual = nomesDoMes(r.m);
       if(r.isFuture || r.isCurrent){
         const novos = anterior ? [...atual].filter(x=>!anterior.has(x)).length : 0;
-        custoRegras[r.m.year*100+r.m.month] = custoPorRegras(atual.size, novos, mcRegras.ticket);
+        custoRegras[r.m.year*100+r.m.month] = custoPorRegras(atual.size, novos, mcRegras.ticket, r.m.year, r.m.month);
       }
       anterior = atual;
     });
@@ -7227,7 +7260,7 @@ function renderProjecaoTab() {
     let nCli = mcRegras.baseCli;
     futureRows.forEach(r=>{
       const novos = mcRegras.entramMes;
-      custoRegrasPrev[r.m.year*100+r.m.month] = custoPorRegras(Math.round(nCli), novos, mcRegras.ticket);
+      custoRegrasPrev[r.m.year*100+r.m.month] = custoPorRegras(Math.round(nCli), novos, mcRegras.ticket, r.m.year, r.m.month);
       nCli = nCli - (nCli*mcRegras.churnPct) + novos;
     });
   }

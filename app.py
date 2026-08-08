@@ -198,6 +198,12 @@ def init_db():
             # na forma tudo-ou-nada.
             "ALTER TABLE cost_rules ADD COLUMN clientes TEXT DEFAULT ''",
             "ALTER TABLE cost_rules ADD COLUMN cobre_novos INTEGER DEFAULT 1",
+            # Competencia em que a regra passa a valer. Sem isso, um custo novo
+            # valia retroativamente em todo mes projetado.
+            "ALTER TABLE cost_rules ADD COLUMN inicio_ano INTEGER",
+            "ALTER TABLE cost_rules ADD COLUMN inicio_mes INTEGER",
+            "ALTER TABLE cost_rules ADD COLUMN fim_ano INTEGER",
+            "ALTER TABLE cost_rules ADD COLUMN fim_mes INTEGER",
             # Relatórios da Carla: anotação por lançamento e marcação de item não recorrente
             "ALTER TABLE revenues ADD COLUMN note TEXT DEFAULT ''",
             "ALTER TABLE costs    ADD COLUMN note TEXT DEFAULT ''",
@@ -1010,7 +1016,8 @@ def export_data():
 
 RULE_COLS = {'nome':_s,'tipo':_s,'valor':_f,'min_clientes':lambda v:int(v or 0),
              'max_clientes':lambda v:(None if v in ('', None) else int(v)),
-             'categoria':_s,'ativo':_b,'so_projecao':_b,'clientes':_s,'cobre_novos':_b}
+             'categoria':_s,'ativo':_b,'so_projecao':_b,'clientes':_s,'cobre_novos':_b,
+             'inicio_ano':lambda v:(None if v in ('',None) else int(v)),'inicio_mes':lambda v:(None if v in ('',None) else int(v)),'fim_ano':lambda v:(None if v in ('',None) else int(v)),'fim_mes':lambda v:(None if v in ('',None) else int(v))}
 TIPOS_REGRA = ('fixo','por_cliente','pct_primeiro','por_cliente_sel')
 
 @app.get('/api/cost-rules')
@@ -1034,11 +1041,14 @@ def create_cost_rule():
     if mx is not None and mx < mn:
         return jsonify({'error':'A faixa termina antes de começar'}), 400
     with db() as c:
+        _oi = lambda k: (None if d.get(k) in ('',None) else int(d[k]))
         cur = c.execute('INSERT INTO cost_rules (nome,tipo,valor,min_clientes,max_clientes,categoria,'
-                        'so_projecao,clientes,cobre_novos) VALUES (?,?,?,?,?,?,?,?,?)',
+                        'so_projecao,clientes,cobre_novos,inicio_ano,inicio_mes,fim_ano,fim_mes) '
+                        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
                         (nome, tipo, _f(d.get('valor')), mn, mx,
                          _s(d.get('categoria')) or 'operacional', _b(d.get('so_projecao')),
-                         _s(d.get('clientes')), 1 if d.get('cobre_novos') in (None,'',1,'1',True) else 0))
+                         _s(d.get('clientes')), 1 if d.get('cobre_novos') in (None,'',1,'1',True) else 0,
+                         _oi('inicio_ano'), _oi('inicio_mes'), _oi('fim_ano'), _oi('fim_mes')))
         c.commit()
         row = c.execute('SELECT * FROM cost_rules WHERE id=?', (cur.lastrowid,)).fetchone()
     audit(request.user['username'], 'regra_criada', f"{nome} — {tipo} {_f(d.get('valor')):.2f}")
