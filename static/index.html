@@ -1881,25 +1881,31 @@ function custosEfetivos(m, paraProjecao){
       for(const cf of confirmados){ if(n===cf || n.includes(cf) || cf.includes(n)) return true; }
       return false;
     };
-    const calc=custoPorRegras(nClientes, novos, tk).linhas
+    // Regras que de fato produzem valor neste mes. E esta lista que decide o que
+    // sai da tabela — nao a mera existencia de uma regra com aquele nome. Se a
+    // regra calcula zero (nenhum cliente marcado, faixa fora de vigencia), ela
+    // nao substitui nada e o lancamento fica.
+    const geradas = custoPorRegras(nClientes, novos, tk).linhas
+      .filter(l=>paraProjecao || !l.regra.so_projecao);
+    const nomesRegra = new Set(geradas.map(l=>semAcento(l.nome)));
+    const cobertoPorRegra = nome => {
+      const n = semAcento(nome||'');
+      for(const c of nomesRegra){ if(n===c || n.includes(c) || c.includes(n)) return true; }
+      return false;
+    };
+    // Item ja confirmado sempre fica — ele e dinheiro decidido. Item ainda
+    // projetado sai quando a regra cobre o nome. Antes o "ja confirmado"
+    // protegia qualquer item de mesmo nome, entao confirmar a linha da regra
+    // devolvia o lancamento projetado a tabela e o custo entrava duas vezes.
+    const semCobertos = semImposto.filter(c =>
+      (c.status && c.status!=='projetado') || !cobertoPorRegra(c.name));
+    const calc = geradas
       .filter(l=>!jaConfirmado(l.nome))
-      .filter(l=>paraProjecao || !l.regra.so_projecao)
       .map(l=>({
         id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
         category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true,
         regra:l.regra, mes_id:m.id
       }));
-    // So sai da lista o lancamento que a regra de fato SUBSTITUIU. Antes bastava
-    // existir uma regra com aquele nome: se ela calculasse zero — nenhum cliente
-    // marcado, faixa fora de vigencia — o item lancado sumia da projecao sem
-    // nada no lugar, e o custo simplesmente desaparecia.
-    const substituidos = new Set(calc.map(l=>semAcento(l.name)));
-    const cobertoAgora = nome => {
-      const n = semAcento(nome||'');
-      for(const c of substituidos){ if(n===c || n.includes(c) || c.includes(n)) return true; }
-      return false;
-    };
-    const semCobertos=semImposto.filter(c=>!cobertoAgora(c.name) || jaConfirmado(c.name));
     lista = [...semCobertos, ...calc];
   }
 
