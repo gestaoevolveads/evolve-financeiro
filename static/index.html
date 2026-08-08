@@ -307,7 +307,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 
 
 /* ══ RELATÓRIOS ══════════════════════════════════════════════════════════════ */
-.modal.rel-modal{max-width:1080px;width:96vw;max-height:92vh;overflow-y:auto}
+.modal.rel-modal{max-width:1420px;width:96vw;max-height:92vh;overflow-y:auto}
 .rel-hint{font-size:11px;color:var(--mu);background:var(--s2);border-radius:var(--r3);padding:8px 11px;margin-bottom:14px}
 /* Detalhamento da Projecao: muitas colunas em pouca largura. Os grupos dao a
    hierarquia — dinheiro em destaque, carteira em tom secundario — para a tabela
@@ -535,7 +535,13 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .sim-chip button:hover{color:var(--rd)}
 .sim-vazio{font-size:12px;color:var(--mu)}
 .sim-limpar{background:transparent;border:none;color:var(--mu);font-size:12px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-.sim-grid{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+/* A coluna fixa de 320px nao cabia junto da tabela e o painel "Como o mes foi
+   calculado" vazava para fora do modal, obrigando a rolar de lado dentro dele.
+   Abaixo de uma largura confortavel o painel vai para baixo da tabela, onde tem
+   espaco inteiro. min-width:0 impede a coluna da tabela de empurrar o resto. */
+.sim-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+.sim-grid>*{min-width:0}
+@media(max-width:1480px){ .sim-grid{grid-template-columns:1fr} }
 .sim-tab tbody tr.sel td{background:var(--ac-soft)}
 .sim-calc{background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px}
 .sim-calc-h{font-size:12px;font-weight:600;margin-bottom:10px}
@@ -2672,9 +2678,13 @@ function renderDistBar(dist, isCost=false, id='') {
 // ══════════════════════════════════════════════════════════════════════════════
 const SEL = { revenue:new Set(), cost:new Set() };
 
+// As linhas calculadas — imposto, parcelamento, regra — nao existem no banco,
+// mas sao despesa do mes como qualquer outra. Ficavam de fora da selecao e a
+// soma dava um numero que nao batia com o total da tabela.
 function selItems(type, mid){
   const m=S.map[mid]; if(!m) return [];
-  return (type==='revenue'? m.revenues : m.costs)||[];
+  if(type==='revenue') return m.revenues||[];
+  return custosEfetivos(m).filter(c=>!c.viaImprevisto);
 }
 function toggleSel(type, id, checked, mid){
   checked ? SEL[type].add(id) : SEL[type].delete(id);
@@ -2683,7 +2693,7 @@ function toggleSel(type, id, checked, mid){
   updateSelBar(type, mid);
 }
 function toggleSelAll(type, mid, checked){
-  selItems(type,mid).forEach(i=>checked? SEL[type].add(i.id) : SEL[type].delete(i.id));
+  selItems(type,mid).forEach(i=>checked? SEL[type].add(String(i.id)) : SEL[type].delete(String(i.id)));
   document.querySelectorAll(`.row-sel[data-type="${type}"]`).forEach(cb=>{
     cb.checked=checked; cb.closest('tr')?.classList.toggle('is-sel', checked);
   });
@@ -2694,9 +2704,9 @@ function clearSel(type, mid){ toggleSelAll(type, mid, false);
 }
 function updateSelBar(type, mid){
   const items=selItems(type,mid);
-  const ids=new Set(items.map(i=>i.id));
+  const ids=new Set(items.map(i=>String(i.id)));
   [...SEL[type]].forEach(id=>{ if(!ids.has(id) && !document.querySelector(`.row-sel[data-type="${type}"][data-id="${id}"]`)) SEL[type].delete(id); });
-  const chosen=items.filter(i=>SEL[type].has(i.id));
+  const chosen=items.filter(i=>SEL[type].has(String(i.id)));
   const sum=chosen.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const bar=e(`sel-bar-${type}-${mid}`); if(!bar) return;
   bar.hidden = chosen.length===0;
@@ -2711,7 +2721,7 @@ function updateSelBar(type, mid){
 function restoreSel(mid){
   ['revenue','cost'].forEach(type=>{
     document.querySelectorAll(`.row-sel[data-type="${type}"]`).forEach(cb=>{
-      const on=SEL[type].has(+cb.dataset.id);
+      const on=SEL[type].has(cb.dataset.id);
       cb.checked=on; cb.closest('tr')?.classList.toggle('is-sel', on);
     });
     updateSelBar(type, mid);
@@ -2727,7 +2737,7 @@ function selBarHTML(type, mid){
   </div>`;
 }
 const selTh = (type,mid) => `<th class="sel-col"><input type="checkbox" class="sel-all" id="sel-all-${type}-${mid}" onchange="toggleSelAll('${type}',${mid},this.checked)" title="Selecionar todos"></th>`;
-const selTd = (type,mid,id) => `<td class="sel-col"><input type="checkbox" class="row-sel" data-type="${type}" data-id="${id}" onchange="toggleSel('${type}',${id},this.checked,${mid})"></td>`;
+const selTd = (type,mid,id) => `<td class="sel-col"><input type="checkbox" class="row-sel" data-type="${type}" data-id="${id}" onchange="toggleSel('${type}','${id}',this.checked,${mid})"></td>`;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // RENDER MONTH TAB
@@ -2816,7 +2826,7 @@ function renderMonthTab(mid) {
       : null;
     if(calc){
       return `<tr class="linha-regra">
-        <td class="sel-col"></td>
+        ${selTd('cost',mid,c.id)}
         <td><div class="cell-nome">
           <span class="nm" title="${esc(c.name)}">${esc(c.name)}</span>
           <span class="tg tg-calc" title="${esc(calc.dica)}">${calc.tag}</span>
@@ -4501,6 +4511,8 @@ function simular(ajustes, anoRef, horizonte){
         anota(a.rotulo, emReceita? d : -d);
       } else if(a.tipo==='lancamento'){
         if(a.unico && !(m.month===a.desde)) return;
+        // depois da ultima competencia o lancamento deixa de pesar
+        if(a.fimAno && a.fimMes && (m.year*12+m.month) > (a.fimAno*12+a.fimMes)) return;
         if(a.receita){ sRev += a.valor; anota(a.rotulo, a.valor); }
         else { sCos += a.valor; anota(a.rotulo, -a.valor); }
       } else if(a.tipo==='clientes'){
@@ -5225,21 +5237,59 @@ function aplicarManual(){
   e('man-valor').value='';
   drawSim();
 }
+// Um contrato de 18 meses tem fim, e a projecao precisa saber disso: depois da
+// ultima competencia ele para de pesar. Da para informar o mes final direto ou
+// a duracao — nesse caso a data e calculada e mostrada, para nao restar duvida.
+function trocaFim(){
+  const t = e('nov-fim-tipo').value;
+  e('nov-dur').style.display = t==='dur' ? '' : 'none';
+  e('nov-fim').style.display = t==='mes' ? '' : 'none';
+  calcFim();
+}
+function fimCalculado(){
+  const t = e('nov-fim-tipo') ? e('nov-fim-tipo').value : 'nao';
+  if(t==='nao') return null;
+  if(t==='mes'){
+    const [y,mo] = String(e('nov-fim').value||'').split('-').map(Number);
+    return (y&&mo) ? {y,m:mo} : null;
+  }
+  const n = parseInt(e('nov-dur').value,10)||0;
+  if(n<1) return null;
+  const ini = parseInt(e('nov-desde').value,10) || (new Date().getMonth()+2);
+  const ano = new Date().getFullYear();
+  const k = ano*12 + ini + (n-1);            // inclui o mes de inicio
+  return {y: Math.floor((k-1)/12), m: ((k-1)%12)+1};
+}
+function calcFim(){
+  const eq = e('nov-fim-eq'); if(!eq) return;
+  const f = fimCalculado();
+  const t = e('nov-fim-tipo').value;
+  eq.textContent = !f ? (t==='nao' ? 'segue indefinidamente' : '')
+    : `última competência: ${MONTHS_FULL[f.m-1]} de ${f.y}`;
+}
+
 function addLancamentoNovo(){
   const nome  = e('nov-nome').value.trim();
   const val   = parseAmt(e('nov-valor').value);
   const tipo  = e('nov-tipo').value;         // receita | despesa
   const rec   = e('nov-rec').value;          // todos | uma
   const desde = parseInt(e('nov-desde').value,10);
+  const fim   = fimCalculado();
   const err   = e('sim-erro');
   if(!val){ err.textContent='Informe o valor do lançamento.'; err.style.display='block'; return; }
+  const tf = e('nov-fim-tipo').value;
+  if(tf!=='nao' && !fim){
+    err.textContent = tf==='dur' ? 'Informe por quantos meses o lançamento dura.'
+                                 : 'Informe o mês em que o lançamento termina.';
+    err.style.display='block'; return; }
   err.style.display='none';
   const receita = tipo==='receita';
   simPush([...(S.simAjustes||[]), {
     tipo:'lancamento', tipoAlvo:'novo', receita, valor:val,
     nome: nome || (receita?'Receita nova':'Despesa nova'),
-    desde, unico: rec==='uma',
-    rotulo:`${receita?'+':'−'}${brl(val)} ${nome||(receita?'Receita nova':'Despesa nova')}${rec==='uma'?' (uma vez)':''}`
+    desde, unico: rec==='uma', fimAno: fim?fim.y:null, fimMes: fim?fim.m:null,
+    rotulo:`${receita?'+':'−'}${brl(val)} ${nome||(receita?'Receita nova':'Despesa nova')}`
+      + (rec==='uma' ? ' (uma vez)' : fim ? ` até ${MONTHS_PT[fim.m-1]}/${String(fim.y).slice(2)}` : '')
   }]);
   e('nov-nome').value=''; e('nov-valor').value='';
   drawSim();
@@ -5379,7 +5429,19 @@ function drawSim(){
             <label>Tipo<select id="nov-tipo"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></label>
             <label>Valor<input id="nov-valor" placeholder="450,00" style="width:110px"></label>
             <label>Repetir<select id="nov-rec"><option value="todos">Todo mês</option><option value="uma">Só uma vez</option></select></label>
-            <label>A partir de<select id="nov-desde">${mesOpts(desdePadrao)}</select></label>
+            <label>A partir de<select id="nov-desde" onchange="calcFim()">${mesOpts(desdePadrao)}</select></label>
+            <label>Termina
+              <div class="gat">
+                <select id="nov-fim-tipo" onchange="trocaFim()">
+                  <option value="nao">não termina</option>
+                  <option value="dur">após N meses</option>
+                  <option value="mes">em um mês</option>
+                </select>
+                <input id="nov-dur" placeholder="18" style="width:58px;display:none"
+                  oninput="calcFim()" title="Quantos meses de duração">
+                <input id="nov-fim" type="month" style="width:132px;display:none" title="Último mês">
+              </div>
+              <span class="prev-eq" id="nov-fim-eq"></span></label>
             <button class="btn filled-g" onclick="addLancamentoNovo()">Criar lançamento</button>
           </div>
         </div>
