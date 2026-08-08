@@ -441,6 +441,12 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .fase-t{font-size:10.5px;background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring);
   border-radius:5px;padding:2px 7px;white-space:nowrap}
 .fase-vazio{font-size:11px;color:var(--mu);line-height:1.5}
+.rg-sel{color:var(--ac);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
+  text-underline-offset:3px}
+.rg-sel:hover{text-decoration-style:solid}
+.rg-aviso{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(224,168,0,.09);
+  border:1px solid rgba(224,168,0,.3);border-radius:var(--r2);padding:11px 14px;margin-bottom:12px;
+  font-size:11.5px;line-height:1.5;color:var(--tx2)}
 .cli-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin-bottom:12px}
 .cli-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid var(--bdr);
   border-radius:9px;cursor:pointer;font-size:12.5px;transition:.15s}
@@ -4741,11 +4747,18 @@ function renderRules(){
   const vale = r => (mc.baseCli>=(r.min_clientes||0)) && (r.max_clientes==null||mc.baseCli<=r.max_clientes);
   const valorTxt = r => r.tipo==='fixo' ? brl(r.valor)
       : r.tipo==='por_cliente' ? `${brl(r.valor)} × todos`
-      : r.tipo==='por_cliente_sel' ? `${brl(r.valor)} × ${regraClientes(r).length} selecionado${regraClientes(r).length===1?'':'s'}`
+      : r.tipo==='por_cliente_sel' ? `${brl(r.valor)} × <span class="rg-sel" onclick="abrirClientesRegra(${r.id})"
+          title="Escolher quais clientes têm">${regraClientes(r).length} selecionado${regraClientes(r).length===1?'':'s'}</span>`
       : `${String(r.valor).replace('.',',')}% do 1º pagamento`;
 
   const hoje = custoPorRegras(mc.baseCli, mc.entramMes, mc.ticket);
   e('rules-body').innerHTML = `
+    ${(()=>{ const pend = rs.filter(r=>r.tipo==='por_cliente_sel' && regraClientes(r).length===0);
+      return pend.length ? `<div class="rg-aviso">
+        <b>${pend.length===1?'Uma regra ainda não tem clientes marcados':`${pend.length} regras ainda não têm clientes marcados`}</b> —
+        ${pend.map(r=>esc(r.nome)).join(', ')}. Enquanto ninguém estiver marcado, ${pend.length===1?'ela cobra':'elas cobram'}
+        R$ 0,00 e ${pend.length===1?'não entra':'não entram'} em nenhuma projeção.
+        <button class="btn sm" onclick="abrirClientesRegra(${pend[0].id})">Marcar agora</button></div>` : ''; })()}
     <div class="rel-hint">Dado o número de clientes, estas regras determinam o custo — não são estimativa.
       A Projeção usa elas nos meses futuros, no lugar do que estiver lançado com o mesmo nome.
       Hoje você tem <b>${mc.baseCli} clientes</b>.</div>
@@ -4763,7 +4776,11 @@ function renderRules(){
         <td><button class="btn sm ${r.so_projecao?'':'filled-g'}" style="font-size:11px"
               title="${r.so_projecao?'Só entra na Projeção e no simulador':'Também aparece lançada na aba do mês'}"
               onclick="alternarEscopoRegra(${r.id},${r.so_projecao?0:1})">${r.so_projecao?'Só projeção':'Mês + projeção'}</button></td>
-        <td class="r">${vale(r)? brl((hoje.linhas.find(l=>l.regra.id===r.id)||{valor:0}).valor) : '—'}</td>
+        <td class="r">${
+          r.tipo==='por_cliente_sel' && regraClientes(r).length===0
+            ? `<button class="btn sm filled-g" onclick="abrirClientesRegra(${r.id})"
+                 title="Escolher quais clientes têm ${esc(r.nome)}">Escolher clientes</button>`
+            : (vale(r)? brl((hoje.linhas.find(l=>l.regra.id===r.id)||{valor:0}).valor) : '—')}</td>
         <td style="white-space:nowrap">
           ${r.tipo==='por_cliente_sel'
             ? `<button class="btn sm" onclick="abrirClientesRegra(${r.id})"
