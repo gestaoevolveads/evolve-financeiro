@@ -431,6 +431,18 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .cxa-v{font-size:18px;font-weight:700;letter-spacing:-.02em;margin:3px 0 2px;font-variant-numeric:tabular-nums}
 .cxa-c.ok .cxa-v{color:var(--ac)}
 .cxa-n{font-size:10.5px;color:var(--mu);line-height:1.4}
+.cli-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin-bottom:12px}
+.cli-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid var(--bdr);
+  border-radius:9px;cursor:pointer;font-size:12.5px;transition:.15s}
+.cli-item:hover{border-color:var(--mu)}
+.cli-item.on{background:var(--ac-soft);border-color:var(--ac-ring)}
+.cli-item input{width:auto;margin:0;flex-shrink:0}
+.cli-tot{display:flex;justify-content:space-between;align-items:baseline;padding:11px 12px;
+  background:var(--s2);border:1px solid var(--bdr);border-radius:9px;font-size:12px;color:var(--mu)}
+.cli-tot b{font-size:14px;color:var(--tx);font-variant-numeric:tabular-nums}
+.cli-sw{display:flex;align-items:center;gap:8px;margin:10px 0 6px;cursor:pointer;font-size:12px;color:var(--tx)}
+.cli-sw input{width:auto;margin:0}
+.cli-nota{font-size:11px;color:var(--mu);line-height:1.5}
 .cat-imprev{display:flex;flex-wrap:wrap;gap:6px;padding:4px 14px 8px}
 .cat-chip{font:inherit;font-size:11px;padding:5px 10px;border-radius:99px;cursor:pointer;
   border:1px solid var(--bdr);background:var(--s1);color:var(--mu);transition:.15s}
@@ -975,6 +987,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
+
+<div id="cli-overlay" class="overlay nivel2" style="display:none" onclick="if(event.target===this)fecharClientesRegra()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title"><span id="cli-titulo">Clientes</span>
+      <button class="btn sm" onclick="fecharClientesRegra()">Fechar</button></div>
+    <div id="cli-body"></div>
+  </div>
+</div>
 
 <div id="info-overlay" class="overlay acima" style="display:none" onclick="if(event.target===this)fecharInfo()">
   <div class="modal" style="max-width:600px">
@@ -4639,14 +4659,39 @@ function temRegra(nome){
   return false;
 }
 // custo calculado pelas regras para um mes
+// Clientes da carteira hoje — a referencia de "quem ja tem" nas regras que
+// valem so para alguns.
+function clientesHoje(){
+  const h = new Date();
+  const m = (S.months||[]).find(x=>x.year===h.getFullYear() && x.month===h.getMonth()+1);
+  if(!m) return [];
+  return (m.revenues||[]).filter(r=>r.nonrecurring!=1 && (parseFloat(r.amount)||0)>0
+      && (r.client_name||'').trim()).map(r=>r.client_name.trim());
+}
+function regraClientes(r){
+  try { const v = JSON.parse(r.clientes||'[]'); return Array.isArray(v)?v:[]; }
+  catch(_){ return []; }
+}
+// Quantos clientes a regra cobre num mes com nClientes na carteira.
+// Quem tem hoje e fato; se cliente novo passa a ter e premissa, marcada na
+// propria regra. Sem essa separacao, "R$ 100 por conta" tinha de ser
+// tudo-ou-nada e superestimava sempre que a cobertura fosse parcial.
+function coberturaRegra(r, nClientes){
+  const base = regraClientes(r).length;
+  const hoje = clientesHoje().length || base;
+  if(!(r.cobre_novos!=0)) return Math.min(base, nClientes);
+  const novos = Math.max(0, (nClientes||0) - hoje);
+  return Math.min(base + novos, nClientes||base+novos);
+}
 function custoPorRegras(nClientes, nNovos, ticket){
   const linhas = [];
   regrasVigentes(nClientes).forEach(r=>{
-    let v = 0;
-    if(r.tipo==='fixo')            v = r.valor;
+    let v = 0, n = null;
+    if(r.tipo==='fixo')             v = r.valor;
     else if(r.tipo==='por_cliente') v = r.valor * nClientes;
+    else if(r.tipo==='por_cliente_sel'){ n = coberturaRegra(r, nClientes); v = r.valor * n; }
     else if(r.tipo==='pct_primeiro') v = (r.valor/100) * (ticket||0) * (nNovos||0);
-    if(v) linhas.push({nome:r.nome, tipo:r.tipo, valor:v, regra:r});
+    if(v) linhas.push({nome:r.nome, tipo:r.tipo, valor:v, regra:r, cobertos:n});
   });
   return {linhas, total: linhas.reduce((s,l)=>s+l.valor,0)};
 }
@@ -4657,7 +4702,7 @@ async function carregarRegras(force){
 }
 
 // ── Tela de regras ───────────────────────────────────────────────────────────
-const TIPO_ROT = {fixo:'Fixo', por_cliente:'Por cliente', pct_primeiro:'% do 1º pagamento'};
+const TIPO_ROT = {fixo:'Fixo', por_cliente:'Por cliente', por_cliente_sel:'Por cliente selecionado', pct_primeiro:'% do 1º pagamento'};
 async function openRulesModal(){
   await carregarRegras(true);
   renderRules();
@@ -4672,7 +4717,8 @@ function renderRules(){
   const faixa = r => `${r.min_clientes||0}${r.max_clientes!=null?` a ${r.max_clientes}`:'+'}`;
   const vale = r => (mc.baseCli>=(r.min_clientes||0)) && (r.max_clientes==null||mc.baseCli<=r.max_clientes);
   const valorTxt = r => r.tipo==='fixo' ? brl(r.valor)
-      : r.tipo==='por_cliente' ? `${brl(r.valor)} × cliente`
+      : r.tipo==='por_cliente' ? `${brl(r.valor)} × todos`
+      : r.tipo==='por_cliente_sel' ? `${brl(r.valor)} × ${regraClientes(r).length} selecionado${regraClientes(r).length===1?'':'s'}`
       : `${String(r.valor).replace('.',',')}% do 1º pagamento`;
 
   const hoje = custoPorRegras(mc.baseCli, mc.entramMes, mc.ticket);
@@ -4695,7 +4741,11 @@ function renderRules(){
               title="${r.so_projecao?'Só entra na Projeção e no simulador':'Também aparece lançada na aba do mês'}"
               onclick="alternarEscopoRegra(${r.id},${r.so_projecao?0:1})">${r.so_projecao?'Só projeção':'Mês + projeção'}</button></td>
         <td class="r">${vale(r)? brl((hoje.linhas.find(l=>l.regra.id===r.id)||{valor:0}).valor) : '—'}</td>
-        <td><button class="del-btn" onclick="removerRegra(${r.id})" title="Remover">✕</button></td>
+        <td style="white-space:nowrap">
+          ${r.tipo==='por_cliente_sel'
+            ? `<button class="btn sm" onclick="abrirClientesRegra(${r.id})"
+                 title="Escolher quais clientes têm">Clientes</button>` : ''}
+          <button class="del-btn" onclick="removerRegra(${r.id})" title="Remover">✕</button></td>
       </tr>`).join('')
       : '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:18px">Nenhuma regra cadastrada</td></tr>'}
     </tbody>
@@ -4709,6 +4759,7 @@ function renderRules(){
         <label>Nome<input id="rg-nome" placeholder="Ex.: Adriano" style="width:150px"></label>
         <label>Tipo<select id="rg-tipo" onchange="ajustaDicaRegra()">
           <option value="fixo">Fixo</option><option value="por_cliente">Por cliente</option>
+          <option value="por_cliente_sel">Por cliente selecionado</option>
           <option value="pct_primeiro">% do 1º pagamento</option></select></label>
         <label><span id="rg-lbl">Valor</span><input id="rg-valor" placeholder="1.500,00" style="width:110px"></label>
         <label>De<input id="rg-min" placeholder="0" style="width:66px"></label>
@@ -4820,6 +4871,72 @@ function blocoFiscal(){
   </div>`;
 }
 
+let _regraAberta = null;
+function abrirClientesRegra(id){ _regraAberta = id; renderClientesRegra(); e('cli-overlay').style.display='flex'; }
+function fecharClientesRegra(){ e('cli-overlay').style.display='none'; }
+
+function renderClientesRegra(){
+  const r = (S.costRules||[]).find(x=>x.id===_regraAberta); if(!r) return;
+  const todos = clientesHoje();
+  const sel   = new Set(regraClientes(r).map(semAcento));
+  const cobre = r.cobre_novos != 0;
+  const n = todos.filter(c=>sel.has(semAcento(c))).length;
+  e('cli-titulo').textContent = `Quem tem ${r.nome}`;
+  e('cli-body').innerHTML = `
+    <div class="rel-hint">Marque os clientes que hoje têm <b>${esc(r.nome)}</b>.
+      A regra cobra ${brl(r.valor)} por cliente marcado.</div>
+
+    <div class="cli-lista">
+      ${todos.length ? todos.map(c=>`<label class="cli-item ${sel.has(semAcento(c))?'on':''}">
+        <input type="checkbox" ${sel.has(semAcento(c))?'checked':''}
+          onchange="marcarClienteRegra('${esc(c).replace(/'/g,"\\'")}',this.checked)">
+        <span>${esc(c)}</span></label>`).join('')
+      : '<div class="rel-help">Nenhum cliente recorrente lançado no mês atual.</div>'}
+    </div>
+
+    <div class="cli-tot">
+      <span>${n} de ${todos.length} clientes</span>
+      <b>${brl(r.valor * n)} por mês hoje</b>
+    </div>
+
+    <div class="info-passo" style="margin-top:16px">
+      <div class="info-n">?</div>
+      <div><div class="info-t">E quando entrar cliente novo?</div>
+        <div class="info-d">Ninguém sabe hoje quais dos clientes futuros vão ter
+          ${esc(r.nome)} — isso precisa ser uma escolha sua, não um chute do cálculo.
+          <label class="cli-sw">
+            <input type="checkbox" ${cobre?'checked':''} onchange="cobreNovosRegra(this.checked)">
+            <span>Cliente novo entra com ${esc(r.nome)}</span></label>
+          <div class="cli-nota">${cobre
+            ? `Ligado: a cobertura acompanha o crescimento. Com ${n} hoje, um mês projetado com
+               ${n+3} clientes cobra por ${n+3}.`
+            : `Desligado: a cobertura fica travada em ${n}, mesmo que a carteira cresça.
+               Use quando a ferramenta for de um grupo fechado de clientes.`}</div>
+        </div></div>
+    </div>
+
+    <div class="rel-help" style="padding:12px 0 0">
+      Mudou de um mês para o outro? Volte aqui e remarque. Meses já fechados ficam com o valor
+      que foi lançado neles — a regra só governa o que está à frente, a partir de agora.
+    </div>`;
+}
+
+async function salvarRegraCampo(campos){
+  const r = (S.costRules||[]).find(x=>x.id===_regraAberta); if(!r) return;
+  Object.assign(r, campos);
+  try { await api('PUT', `/api/cost-rules/${r.id}`, campos); syncLabel(fmtSync(),'saved'); }
+  catch(err){ alert(err.message); }
+  renderClientesRegra(); renderRules();
+  if(S.tab==='projecao') renderProjecaoTab(); else updateDashboard();
+}
+function marcarClienteRegra(nome, on){
+  const r = (S.costRules||[]).find(x=>x.id===_regraAberta); if(!r) return;
+  const lista = regraClientes(r).filter(x=>semAcento(x)!==semAcento(nome));
+  if(on) lista.push(nome);
+  salvarRegraCampo({clientes: JSON.stringify(lista)});
+}
+function cobreNovosRegra(on){ salvarRegraCampo({cobre_novos: on?1:0}); }
+
 async function alternarCatImprev(slug){
   const fora = categoriasForaImprev().slice();
   const i = fora.indexOf(slug);
@@ -4860,10 +4977,11 @@ async function salvarParcelamento(){
 function ajustaDicaRegra(){
   const t = e('rg-tipo').value;
   const d = {fixo:'Valor fixo por mês, independente do número de clientes.',
-             por_cliente:'Multiplicado pelo número de clientes do mês.',
+             por_cliente:'Multiplicado por TODOS os clientes do mês.',
+             por_cliente_sel:'Multiplicado só pelos clientes que você selecionar. Depois de criar, clique em Clientes na linha da regra para escolher quem tem.',
              pct_primeiro:'Percentual sobre o primeiro pagamento de cada cliente novo.'};
   e('rg-dica').textContent = d[t]||'';
-  e('rg-lbl').textContent = t==='pct_primeiro' ? 'Percentual' : 'Valor';
+  e('rg-lbl').textContent = t==='pct_primeiro' ? 'Percentual' : (t==='por_cliente_sel' ? 'Valor por cliente' : 'Valor');
 }
 async function alternarEscopoRegra(id, valor){
   try {
