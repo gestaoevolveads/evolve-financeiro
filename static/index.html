@@ -431,6 +431,16 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .cxa-v{font-size:18px;font-weight:700;letter-spacing:-.02em;margin:3px 0 2px;font-variant-numeric:tabular-nums}
 .cxa-c.ok .cxa-v{color:var(--ac)}
 .cxa-n{font-size:10.5px;color:var(--mu);line-height:1.4}
+.sim-fases{border-top:1px dashed var(--bdr);margin-top:12px;padding-top:11px}
+.sim-fases-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;
+  font-size:11px;color:var(--mu)}
+.fase{display:flex;align-items:center;gap:12px;padding:8px 11px;background:var(--s1);
+  border:1px solid var(--bdr);border-radius:9px;margin-bottom:5px}
+.fase-q{font-size:11.5px;color:var(--tx2);flex-shrink:0}
+.fase-c{flex:1;display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.fase-t{font-size:10.5px;background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring);
+  border-radius:5px;padding:2px 7px;white-space:nowrap}
+.fase-vazio{font-size:11px;color:var(--mu);line-height:1.5}
 .cli-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin-bottom:12px}
 .cli-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid var(--bdr);
   border-radius:9px;cursor:pointer;font-size:12.5px;transition:.15s}
@@ -987,6 +997,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
+
+<div id="fase-overlay" class="overlay acima" style="display:none" onclick="if(event.target===this)fecharFase()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title"><span>Nova fase das premissas</span>
+      <button class="btn sm" onclick="fecharFase()">Fechar</button></div>
+    <div id="fase-body"></div>
+  </div>
+</div>
 
 <div id="cli-overlay" class="overlay nivel2" style="display:none" onclick="if(event.target===this)fecharClientesRegra()">
   <div class="modal" style="max-width:560px">
@@ -3844,6 +3862,7 @@ async function exportWeekly(){
   <div class="kpi k2"><div class="l">A Pagar</div><div class="v">${money(w.totalPagar)}</div><div class="s">Total da semana</div></div>
   <div class="kpi k3"><div class="l">A Receber</div><div class="v">${money(w.totalReceber)}</div><div class="s">Total da semana</div></div>
   <div class="kpi k4"><div class="l">Saldo líquido</div><div class="v">${money(w.totalReceber-w.totalPagar)}</div><div class="s">Receber − Pagar</div></div>
+  <div class="kpi k4"><div class="l">Margem</div><div class="v">${w.totalReceber>0?((w.totalReceber-w.totalPagar)/w.totalReceber*100).toFixed(1).replace('.',',')+'%':'—'}</div><div class="s">do que entra, sobra</div></div>
   <div class="kpi k5"><div class="l">Inadimp.</div><div class="v">${money(w.totalInad)}</div><div class="s">Total em aberto</div></div>
 </div>
 
@@ -4184,6 +4203,7 @@ ${pg(2, `
   <div class="kpis">
     <div><div class="v">${brl(d.cur.rev)}</div><div class="l">Receita ${MONTHS_PT[d.mes-1]}/${d.ano}</div></div>
     <div><div class="v">${sinal(d.cur.bal)}</div><div class="l">Resultado do mês</div></div>
+    <div><div class="v">${d.cur.rev>0?(d.cur.bal/d.cur.rev*100).toFixed(1).replace('.',',')+'%':'—'}</div><div class="l">Margem do mês</div></div>
     <div><div class="v">${brl(d.anoBal)}</div><div class="l">Resultado ano</div></div>
   </div>
   <h2 style="margin-top:18px">Análise de Cenários</h2>
@@ -4475,13 +4495,16 @@ function simular(ajustes, anoRef, horizonte){
       ofRevAj = mrrOf - ofRev;
 
       const vigente = (m.year*12+m.month) >= (aAtual*12 + inicioPrem);
-      const cP = vigente ? prem.churnPct : obs.churnPct;
-      const nM = vigente ? prem.novoMRR  : obs.novoMRR;
+      // a fase pode trocar ticket, entradas e saidas a partir de um marco
+      const cliAgora = ofRev ? Math.round(nCli*((mrrSim==null?ofRev:mrrSim)/ofRev)) : nCli;
+      const fase = faseVigente(m.year*12+m.month, cliAgora);
+      const cP = vigente ? fase.churnPct : obs.churnPct;
+      const nM = vigente ? fase.novoMRR  : obs.novoMRR;
       const bSim = (mrrSim==null) ? ofRev : Math.max(mrrSim, 0);
       mrrSim = bSim - bSim*cP + nM;
       // carteira em clientes: cresce na mesma razao da receita, ancorada nos
       // clientes de fato lancados no mes
-      const tkC = prem.ticket || 0;
+      const tkC = fase.ticket || prem.ticket || 0;
       cart = { cliSim: ofRev ? nCli*(mrrSim/ofRev) : nCli,
                cliOf:  ofRev ? nCli*(mrrOf /ofRev) : nCli,
                entram: tkC ? nM/tkC : 0,
@@ -4530,7 +4553,7 @@ function simular(ajustes, anoRef, horizonte){
         if(emReceita) sRev += d; else sCos += d;
         anota(a.rotulo, emReceita? d : -d);
       } else if(a.tipo==='lancamento'){
-        if(a.unico && !(m.month===a.desde)) return;
+        if(a.unico && !a.desdeClientes && !(m.month===a.desde)) return;
         // depois da ultima competencia o lancamento deixa de pesar
         if(a.fimAno && a.fimMes && (m.year*12+m.month) > (a.fimAno*12+a.fimMes)) return;
         if(a.receita){ sRev += a.valor; anota(a.rotulo, a.valor); }
@@ -4871,6 +4894,57 @@ function blocoFiscal(){
   </div>`;
 }
 
+function novaFase(){
+  const p = premissasAtuais();
+  const mAtual = new Date().getMonth()+1, aAtual = new Date().getFullYear();
+  e('fase-body').innerHTML = `
+    <div class="rel-hint">Uma fase muda as premissas a partir de um marco. O que você não
+      preencher continua como estava — só o que for informado muda.</div>
+    <div class="sim-card-b" style="padding:0 0 12px">
+      <label>Vale a partir de
+        <div class="gat">
+          <select id="fase-gat" onchange="trocaGatilho('fase')">
+            <option value="mes">um mês</option><option value="cli">nº de clientes</option>
+          </select>
+          <select id="fase-desde">${(S._simLinhas||[]).filter(l=>(l.ano*12+l.mes)>=(aAtual*12+mAtual))
+            .map(l=>`<option value="${l.ano*12+l.mes}">${MONTHS_PT[l.mes-1]}/${String(l.ano).slice(2)}</option>`).join('')}</select>
+          <input id="fase-desde-cli" placeholder="12" style="width:58px;display:none">
+        </div></label>
+    </div>
+    <div class="sim-card-b" style="padding:0">
+      <label>Ticket médio<input id="fase-ticket" placeholder="${brl(p.ticket).replace('R$ ','')}" style="width:120px"></label>
+      <label>Entram por mês<input id="fase-entram" placeholder="${premEntram(p).toFixed(1).replace('.',',')}" style="width:90px"></label>
+      <label>Saem por mês<input id="fase-saem" placeholder="${premSaem(p).toFixed(1).replace('.',',')}" style="width:90px"></label>
+    </div>
+    <div class="rel-help" style="padding:12px 0">Deixe em branco o que não muda.
+      Os valores acinzentados são os de hoje, só para referência.</div>
+    <div id="fase-erro" class="sim-erro" style="display:none"></div>
+    <button class="btn filled-g" onclick="salvarFase()">Adicionar fase</button>`;
+  e('fase-overlay').style.display='flex';
+}
+function fecharFase(){ e('fase-overlay').style.display='none'; }
+function salvarFase(){
+  const porCli = e('fase-gat').value==='cli';
+  const num = id => { const v=e(id).value.trim(); return v==='' ? null : (parseFloat(v.replace(',','.'))||0); };
+  const f = {
+    porClientes: porCli,
+    desdeIdx: porCli ? null : parseInt(e('fase-desde').value,10),
+    desdeClientes: porCli ? (parseInt(e('fase-desde-cli').value,10)||0) : null,
+    ticket: e('fase-ticket').value.trim() ? parseAmt(e('fase-ticket').value) : null,
+    entram: num('fase-entram'), saem: num('fase-saem')
+  };
+  const err = e('fase-erro');
+  if(porCli && !f.desdeClientes){ err.textContent='Informe a partir de quantos clientes.'; err.style.display='block'; return; }
+  if(f.ticket==null && f.entram==null && f.saem==null){
+    err.textContent='Informe ao menos uma premissa que muda nesta fase.'; err.style.display='block'; return; }
+  f.rotulo = porCli ? `${f.desdeClientes} clientes` : 'mês';
+  fasesSim().push(f);
+  fasesSim().sort((a,b)=> (a.porClientes?1:0)-(b.porClientes?1:0)
+    || (a.desdeIdx||0)-(b.desdeIdx||0) || (a.desdeClientes||0)-(b.desdeClientes||0));
+  fecharFase(); drawSim();
+}
+function removerFase(i){ fasesSim().splice(i,1); drawSim(); }
+
 let _regraAberta = null;
 function abrirClientesRegra(id){ _regraAberta = id; renderClientesRegra(); e('cli-overlay').style.display='flex'; }
 function fecharClientesRegra(){ e('cli-overlay').style.display='none'; }
@@ -5149,6 +5223,29 @@ function premissasAtuais(){
   return S.simPrem;
 }
 // conversoes entre as duas formas de ver a mesma alavanca
+// Premissas em FASES. Uma carteira nao se comporta igual do primeiro ao
+// trigesimo sexto mes: o ticket sobe quando se reajusta, o ritmo de venda muda
+// quando entra alguem comercial, o churn cai quando o processo amadurece.
+// Cada fase vale a partir de um mes OU de um tamanho de carteira, e a ultima
+// fase cujo gatilho ja foi atingido e a que manda.
+function fasesSim(){ return S.simFases || (S.simFases = []); }
+function faseVigente(mesIdx, nClientes){
+  const base = premissasAtuais();
+  let atual = {ticket:base.ticket, churnPct:base.churnPct, novoMRR:base.novoMRR, rot:'base'};
+  fasesSim().forEach(f=>{
+    const vale = f.porClientes ? (nClientes >= f.desdeClientes) : (mesIdx >= f.desdeIdx);
+    if(!vale) return;
+    const tk = f.ticket!=null ? f.ticket : atual.ticket;
+    atual = {
+      ticket: tk,
+      churnPct: f.saem!=null ? (base.observado.baseCli ? f.saem/base.observado.baseCli : atual.churnPct) : atual.churnPct,
+      novoMRR: f.entram!=null ? f.entram*tk : (f.ticket!=null ? (atual.novoMRR/atual.ticket)*tk : atual.novoMRR),
+      rot: f.rotulo
+    };
+  });
+  return atual;
+}
+
 const premEntram = p => p.ticket ? p.novoMRR / p.ticket : 0;
 const premSaem   = p => (p.observado.baseCli||0) * p.churnPct;
 function setPremissa(campo, valor){
@@ -5392,9 +5489,12 @@ function addLancamentoNovo(){
   const tipo  = e('nov-tipo').value;         // receita | despesa
   const rec   = e('nov-rec').value;          // todos | uma
   const desde = parseInt(e('nov-desde').value,10);
+  const porCli= e('nov-gatilho').value==='cli';
+  const dCli  = porCli ? (parseInt(e('nov-desde-cli').value,10)||0) : 0;
   const fim   = fimCalculado();
   const err   = e('sim-erro');
   if(!val){ err.textContent='Informe o valor do lançamento.'; err.style.display='block'; return; }
+  if(porCli && !dCli){ err.textContent='Informe a partir de quantos clientes o lançamento entra.'; err.style.display='block'; return; }
   const tf = e('nov-fim-tipo').value;
   if(tf!=='nao' && !fim){
     err.textContent = tf==='dur' ? 'Informe por quantos meses o lançamento dura.'
@@ -5405,7 +5505,7 @@ function addLancamentoNovo(){
   simPush([...(S.simAjustes||[]), {
     tipo:'lancamento', tipoAlvo:'novo', receita, valor:val,
     nome: nome || (receita?'Receita nova':'Despesa nova'),
-    desde, unico: rec==='uma', fimAno: fim?fim.y:null, fimMes: fim?fim.m:null,
+    desde, desdeClientes: dCli, unico: rec==='uma', fimAno: fim?fim.y:null, fimMes: fim?fim.m:null,
     rotulo:`${receita?'+':'−'}${brl(val)} ${nome||(receita?'Receita nova':'Despesa nova')}`
       + (rec==='uma' ? ' (uma vez)' : fim ? ` até ${MONTHS_PT[fim.m-1]}/${String(fim.y).slice(2)}` : '')
   }]);
@@ -5485,6 +5585,28 @@ function drawSim(){
             ${[0,6,12,24,36].map(h=>`<option value="${h}" ${(S.simHorizonte||0)===h?'selected':''}>${h?h+' meses':'ano corrente'}</option>`).join('')}
           </select></label>
         </div>
+        <div class="sim-fases">
+          <div class="sim-fases-h">
+            <span>Mudanças ao longo do tempo</span>
+            <button class="btn sm" onclick="novaFase()">+ Nova fase</button>
+          </div>
+          ${fasesSim().length ? fasesSim().map((f,i)=>`
+            <div class="fase">
+              <div class="fase-q">${f.porClientes
+                ? `a partir de <b>${f.desdeClientes} clientes</b>`
+                : `a partir de <b>${MONTHS_PT[((f.desdeIdx-1)%12)]}/${String(Math.floor((f.desdeIdx-1)/12)).slice(2)}</b>`}</div>
+              <div class="fase-c">
+                ${f.ticket!=null?`<span class="fase-t">ticket ${brl(f.ticket)}</span>`:''}
+                ${f.entram!=null?`<span class="fase-t">entram ${String(f.entram).replace('.',',')}/mês</span>`:''}
+                ${f.saem!=null?`<span class="fase-t">saem ${String(f.saem).replace('.',',')}/mês</span>`:''}
+                ${f.ticket==null&&f.entram==null&&f.saem==null?'<span class="fase-t">sem alteração</span>':''}
+              </div>
+              <button class="del-btn" onclick="removerFase(${i})" title="Remover fase">✕</button>
+            </div>`).join('')
+          : `<div class="fase-vazio">Nenhuma mudança programada — as premissas acima valem para todo o período.
+              Use isto para dizer coisas como “a partir de 12 clientes o ticket médio sobe para R$ 2.200”.</div>`}
+        </div>
+
         <div class="sim-prem-n">
           ${prem.observado.pontuais
             ? `${prem.observado.pontuais} lançamento(s) marcado(s) como <b>NR</b> ficam fora da conta de carteira — trabalho pontual não é cliente que entra ou sai.`
@@ -5547,7 +5669,16 @@ function drawSim(){
             <label>Tipo<select id="nov-tipo"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></label>
             <label>Valor<input id="nov-valor" placeholder="450,00" style="width:110px"></label>
             <label>Repetir<select id="nov-rec"><option value="todos">Todo mês</option><option value="uma">Só uma vez</option></select></label>
-            <label>A partir de<select id="nov-desde" onchange="calcFim()">${mesOpts(desdePadrao)}</select></label>
+            <label>A partir de
+              <div class="gat">
+                <select id="nov-gatilho" onchange="trocaGatilho('nov');calcFim()">
+                  <option value="mes">um mês</option>
+                  <option value="cli">nº de clientes</option>
+                </select>
+                <select id="nov-desde" onchange="calcFim()">${mesOpts(desdePadrao)}</select>
+                <input id="nov-desde-cli" placeholder="12" style="width:58px;display:none"
+                  title="A partir de quantos clientes">
+              </div></label>
             <label>Termina
               <div class="gat">
                 <select id="nov-fim-tipo" onchange="trocaFim()">
@@ -5729,7 +5860,10 @@ function trocaGatilho(pref){
 }
 function detalheSim(i, tipo){
   const l = (S._simLinhas||[])[i]; if(!l) return;
-  abrirDetalhe(l.mesId, tipo, l.mesId ? null : l.mObj);
+  // Os ajustes do cenario nao existem em custosEfetivos — sao aplicados por
+  // cima, dentro do simular(). Sem passar por aqui, o popup mostrava o mes
+  // como se nenhum ajuste tivesse sido feito, e a soma nao batia com a linha.
+  abrirDetalhe(l.mesId, tipo, l.mesId ? null : l.mObj, l.efeitos);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6058,7 +6192,7 @@ function setDensidadeProj(v){
 // Aceita um id de mes cadastrado OU o proprio objeto de um mes projetado do
 // simulador. Sem isso o detalhamento parava em janeiro/27 e o clique morria
 // justamente onde a curiosidade e maior.
-function abrirDetalhe(mid, tipo, mObj){
+function abrirDetalhe(mid, tipo, mObj, efeitos){
   const m = mObj || S.map[mid]; if(!m) return;
   const futuro = mesEmAberto(m);
   const receita = tipo==='rev';
@@ -6071,7 +6205,9 @@ function abrirDetalhe(mid, tipo, mObj){
                     imprev:c.base||null, sobre:c.sobreImprev||0, fiscal:c.fiscal||null, parc:!!c.viaParcela })))
               .filter(x=>x.v!==0)
               .sort((a,b)=>b.v-a.v);
-  const total = itens.reduce((s,x)=>s+x.v,0);
+  const ajTotal = (efeitos||[]).filter(x=> receita ? x.val>0 : x.val<0 )
+      .reduce((s,x)=>s+Math.abs(x.val),0);
+  const total = itens.reduce((s,x)=>s+x.v,0) + ajTotal;
   const maior = itens.length ? Math.abs(itens[0].v) : 1;
   const cor = receita ? 'var(--g)' : 'var(--rd)';
   const realizados = itens.filter(x=>!x.st || x.st==='realizado');
@@ -6101,6 +6237,21 @@ function abrirDetalhe(mid, tipo, mObj){
         : itens.map(linha).join('')}
     <div class="det-tot"><span>${itens.length} ${itens.length===1?'item':'itens'}</span>
       <span style="color:${cor};font-variant-numeric:tabular-nums">${brl(total)}</span></div>
+    ${(()=>{
+      const efs = (efeitos||[]).filter(x=> receita ? x.val>0 : x.val<0 );
+      if(!efs.length) return '';
+      const soma = efs.reduce((s,x)=>s+Math.abs(x.val),0);
+      return `<div class="det-grp">Ajustes deste cenário · ${brl(soma)}</div>
+        ${efs.map(x=>`<div class="det-l">
+          <div class="det-bar" style="width:${Math.min(Math.abs(x.val)/maior*100,100)}%;background:var(--pu)"></div>
+          <div class="det-n">${esc(x.txt)}
+            <span class="det-tag" style="background:rgba(167,139,250,.14);color:var(--pu)">cenário</span></div>
+          <div class="det-v">${brl(Math.abs(x.val))}</div>
+        </div>`).join('')}
+        <div class="rel-help" style="padding:8px 12px 0">
+          Estes não são lançamentos: existem só neste cenário e somem ao limpar a simulação.
+          O total acima já os inclui.</div>`;
+    })()}
     <div class="rel-help" style="padding:10px 12px 0">Ordenado do maior para o menor. A barra mostra o peso de cada linha no total.</div>
     ${(()=>{ const im = itens.find(x=>x.imprev); if(!im) return '';
       const b = im.imprev;
