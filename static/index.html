@@ -441,6 +441,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .fase-t{font-size:10.5px;background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring);
   border-radius:5px;padding:2px 7px;white-space:nowrap}
 .fase-vazio{font-size:11px;color:var(--mu);line-height:1.5}
+.rg-acoes{display:flex;align-items:center;justify-content:flex-end;gap:6px;white-space:nowrap}
 .rg-sel{color:var(--ac);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
   text-underline-offset:3px}
 .rg-sel:hover{text-decoration-style:solid}
@@ -1880,7 +1881,6 @@ function custosEfetivos(m, paraProjecao){
       for(const cf of confirmados){ if(n===cf || n.includes(cf) || cf.includes(n)) return true; }
       return false;
     };
-    const semCobertos=semImposto.filter(c=>!temRegra(c.name) || jaConfirmado(c.name));
     const calc=custoPorRegras(nClientes, novos, tk).linhas
       .filter(l=>!jaConfirmado(l.nome))
       .filter(l=>paraProjecao || !l.regra.so_projecao)
@@ -1889,6 +1889,17 @@ function custosEfetivos(m, paraProjecao){
         category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true,
         regra:l.regra, mes_id:m.id
       }));
+    // So sai da lista o lancamento que a regra de fato SUBSTITUIU. Antes bastava
+    // existir uma regra com aquele nome: se ela calculasse zero — nenhum cliente
+    // marcado, faixa fora de vigencia — o item lancado sumia da projecao sem
+    // nada no lugar, e o custo simplesmente desaparecia.
+    const substituidos = new Set(calc.map(l=>semAcento(l.name)));
+    const cobertoAgora = nome => {
+      const n = semAcento(nome||'');
+      for(const c of substituidos){ if(n===c || n.includes(c) || c.includes(n)) return true; }
+      return false;
+    };
+    const semCobertos=semImposto.filter(c=>!cobertoAgora(c.name) || jaConfirmado(c.name));
     lista = [...semCobertos, ...calc];
   }
 
@@ -4766,7 +4777,7 @@ function renderRules(){
     <table class="etable plain"><thead><tr>
       <th class="flush">Nome</th><th class="flush">Tipo</th><th class="r">Valor</th>
       <th class="flush">Faixa de clientes</th><th class="flush">Onde aplica</th>
-      <th class="r">Hoje</th><th style="width:34px"></th>
+      <th class="r">Hoje</th><th style="width:110px"></th>
     </tr></thead><tbody>
       ${rs.length? rs.map(r=>`<tr class="${vale(r)?'':'off'}">
         <td>${esc(r.nome)}</td>
@@ -4781,11 +4792,12 @@ function renderRules(){
             ? `<button class="btn sm filled-g" onclick="abrirClientesRegra(${r.id})"
                  title="Escolher quais clientes têm ${esc(r.nome)}">Escolher clientes</button>`
             : (vale(r)? brl((hoje.linhas.find(l=>l.regra.id===r.id)||{valor:0}).valor) : '—')}</td>
-        <td style="white-space:nowrap">
+        <td><div class="rg-acoes">
           ${r.tipo==='por_cliente_sel'
             ? `<button class="btn sm" onclick="abrirClientesRegra(${r.id})"
                  title="Escolher quais clientes têm">Clientes</button>` : ''}
-          <button class="del-btn" onclick="removerRegra(${r.id})" title="Remover">✕</button></td>
+          <button class="del-btn" onclick="removerRegra(${r.id})" title="Remover">✕</button>
+        </div></td>
       </tr>`).join('')
       : '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:18px">Nenhuma regra cadastrada</td></tr>'}
     </tbody>
@@ -4920,7 +4932,7 @@ function novaFase(){
     <div class="sim-card-b" style="padding:0 0 12px">
       <label>Vale a partir de
         <div class="gat">
-          <select id="fase-gat" onchange="trocaGatilho('fase')">
+          <select id="fase-gatilho" onchange="trocaGatilho('fase')">
             <option value="mes">um mês</option><option value="cli">nº de clientes</option>
           </select>
           <select id="fase-desde">${(S._simLinhas||[]).filter(l=>(l.ano*12+l.mes)>=(aAtual*12+mAtual))
@@ -4941,7 +4953,7 @@ function novaFase(){
 }
 function fecharFase(){ e('fase-overlay').style.display='none'; }
 function salvarFase(){
-  const porCli = e('fase-gat').value==='cli';
+  const porCli = e('fase-gatilho').value==='cli';
   const num = id => { const v=e(id).value.trim(); return v==='' ? null : (parseFloat(v.replace(',','.'))||0); };
   const f = {
     porClientes: porCli,
