@@ -173,6 +173,13 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
    outra. Agora são um flex — o nome encolhe com reticências, a tag nunca quebra. */
 .cell-nome{display:flex;align-items:center;gap:7px;min-width:0;min-height:26px}
 .cell-nome .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+/* Linha de regra com composicao: nome e tag em cima, de onde vem o valor
+   embaixo, em tom secundario. A altura cresce so nesta linha e o resto da
+   tabela segue no mesmo ritmo. */
+.cell-nome-2{flex-direction:column;align-items:flex-start;gap:2px;min-height:34px;justify-content:center}
+.cn-l1{display:flex;align-items:center;gap:7px;min-width:0;width:100%}
+.comp{font-size:10px;color:var(--mu);white-space:nowrap;font-variant-numeric:tabular-nums}
+.comp-x{color:var(--ac);margin-left:5px}
 .tg{flex-shrink:0;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:5px;
   white-space:nowrap;line-height:1.5}
 .tg-proj{background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring)}
@@ -1904,7 +1911,7 @@ function custosEfetivos(m, paraProjecao){
       .map(l=>({
         id:'regra-'+l.regra.id, name:l.nome, amount:l.valor, payment_date:'',
         category:l.regra.categoria||'operacional', status:'projetado', viaRegra:true,
-        regra:l.regra, mes_id:m.id
+        regra:l.regra, cob:l.cob, mes_id:m.id
       }));
     lista = [...semCobertos, ...calc];
   }
@@ -2886,11 +2893,24 @@ function renderMonthTab(mid) {
       : c.viaParcela ? {tag:'parcelamento', dica:'Parcela de imposto retroativo', botao:'Ajustar', acao:'openRulesModal()'}
       : null;
     if(calc){
+      // Quando a regra cobre alguns clientes e projeta outros, a composicao
+      // precisa aparecer: R$ 500 e o que ja existe, R$ 100 e o cliente que a
+      // projecao espera entrar. Sem isso o numero muda sozinho e ninguem sabe
+      // de onde veio o a mais.
+      const cb = c.cob;
+      const val = c.regra ? (parseFloat(c.regra.valor)||0) : 0;
+      const comp = (cb && cb.extra > 0)
+        ? `<span class="comp">${cb.base} marcado${cb.base===1?'':'s'} · ${fmtAmt(cb.base*val)}
+             <span class="comp-x">+ ${cb.extra} previsto${cb.extra===1?'':'s'} · ${fmtAmt(cb.extra*val)}</span></span>`
+        : (cb ? `<span class="comp">${cb.base} cliente${cb.base===1?'':'s'} marcado${cb.base===1?'':'s'}</span>` : '');
       return `<tr class="linha-regra">
         ${selTd('cost',mid,c.id)}
-        <td><div class="cell-nome">
-          <span class="nm" title="${esc(c.name)}">${esc(c.name)}</span>
-          <span class="tg tg-calc" title="${esc(calc.dica)}">${calc.tag}</span>
+        <td><div class="cell-nome cell-nome-2">
+          <div class="cn-l1">
+            <span class="nm" title="${esc(c.name)}">${esc(c.name)}</span>
+            <span class="tg tg-calc" title="${esc(calc.dica)}">${calc.tag}</span>
+          </div>
+          ${comp}
         </div></td>
         <td class="r"><span style="font-weight:600;font-size:12px">${fmtAmt(c.amount)}</span></td>
         <td><span style="font-size:11px;color:var(--mu)">—</span></td>
@@ -4725,9 +4745,10 @@ function regraClientes(r){
 function coberturaRegra(r, nClientes){
   const base = regraClientes(r).length;
   const hoje = clientesHoje().length || base;
-  if(!(r.cobre_novos!=0)) return Math.min(base, nClientes);
+  if(!(r.cobre_novos!=0)) return {n: Math.min(base, nClientes), base: Math.min(base,nClientes), extra: 0};
   const novos = Math.max(0, (nClientes||0) - hoje);
-  return Math.min(base + novos, nClientes||base+novos);
+  const n = Math.min(base + novos, nClientes || base+novos);
+  return {n, base: Math.min(base, n), extra: Math.max(0, n - base)};
 }
 function custoPorRegras(nClientes, nNovos, ticket){
   const linhas = [];
@@ -4735,9 +4756,10 @@ function custoPorRegras(nClientes, nNovos, ticket){
     let v = 0, n = null;
     if(r.tipo==='fixo')             v = r.valor;
     else if(r.tipo==='por_cliente') v = r.valor * nClientes;
-    else if(r.tipo==='por_cliente_sel'){ n = coberturaRegra(r, nClientes); v = r.valor * n; }
+    else if(r.tipo==='por_cliente_sel'){ const cb = coberturaRegra(r, nClientes);
+      n = cb; v = r.valor * cb.n; }
     else if(r.tipo==='pct_primeiro') v = (r.valor/100) * (ticket||0) * (nNovos||0);
-    if(v) linhas.push({nome:r.nome, tipo:r.tipo, valor:v, regra:r, cobertos:n});
+    if(v) linhas.push({nome:r.nome, tipo:r.tipo, valor:v, regra:r, cob:n});
   });
   return {linhas, total: linhas.reduce((s,l)=>s+l.valor,0)};
 }
