@@ -1022,6 +1022,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
   </div>
 </div>
 
+<div id="flow-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharFlow()">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-title"><span>Importar cliente do Evolve Flow</span>
+      <button class="btn sm" onclick="fecharFlow()">Fechar</button></div>
+    <div id="flow-body"></div>
+  </div>
+</div>
+
 <div id="cli-overlay" class="overlay nivel2" style="display:none" onclick="if(event.target===this)fecharClientesRegra()">
   <div class="modal" style="max-width:560px">
     <div class="modal-title"><span id="cli-titulo">Clientes</span>
@@ -1525,7 +1533,12 @@ async function api(method, path, body) {
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.token},
     body: body ? JSON.stringify(body) : undefined,
   });
-  if(!res.ok){ const err=await res.json().catch(()=>({error:`HTTP ${res.status}`})); throw new Error(err.error||'Erro'); }
+  if(!res.ok){
+    const err=await res.json().catch(()=>({error:`HTTP ${res.status}`}));
+    // guarda o corpo inteiro: erros de validação vêm com a lista de motivos,
+    // e só a mensagem não diz o que precisa ser corrigido
+    const ex = new Error(err.error||'Erro'); ex.dados = err; throw ex;
+  }
   return res.json();
 }
 
@@ -3619,6 +3632,7 @@ function buildNav() {
     ${item('audit',ICONS.historico,'Histórico')}
     <button class="side-item" onclick="openCatsModal()"><span class="si-ic">${ICONS.categorias}</span><span class="si-tx">Categorias</span></button>
     <button class="side-item" onclick="openRecurringModal()"><span class="si-ic">${ICONS.recorrentes}</span><span class="si-tx">Recorrentes</span></button>
+    <button class="side-item" onclick="abrirFlow()"><span class="si-ic">${ICONS.recorrentes}</span><span class="si-tx">Importar do Flow</span></button>
     <button class="side-item" onclick="openRulesModal()"><span class="si-ic">${ICONS.regras}</span><span class="si-tx">Regras de custo</span></button>
     <button class="side-item" onclick="openGoalsModal()"><span class="si-ic">${ICONS.metas}</span><span class="si-tx">Metas</span></button>
     <button class="side-item" onclick="openBonusModal()"><span class="si-ic">${ICONS.bonus}</span><span class="si-tx">Bônus</span></button>
@@ -5043,6 +5057,111 @@ function salvarFase(){
   fecharFase(); drawSim();
 }
 function removerFase(i){ fasesSim().splice(i,1); drawSim(); }
+
+// ══════════════════════════════════════════════════════════════════════════
+// IMPORTAR CLIENTE DO EVOLVE FLOW
+// O cliente entra como recorrência de receita — o caminho que já existe. A
+// partir dela o MRR, o Fluxo e a Projeção enxergam sozinhos, sem lançamento
+// manual e sem tocar em nenhuma fórmula.
+// ══════════════════════════════════════════════════════════════════════════
+let _flowPayload = null;
+
+function abrirFlow(){ _flowPayload = null; renderFlow(); e('flow-overlay').style.display='flex'; }
+function fecharFlow(){ e('flow-overlay').style.display='none'; }
+
+function renderFlow(erros, resultado){
+  const d = _flowPayload;
+  const M = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const comp = t => { const [y,m]=String(t||'').split('-'); return (y&&m)?`${M[+m]} de ${y}`:'—'; };
+
+  if(resultado){
+    e('flow-body').innerHTML = `
+      <div class="rel-hint"><b>${esc(resultado.cliente)}</b> foi
+        ${resultado.acao==='criado'?'importado':'atualizado'} como recorrência de receita.</div>
+      <div class="info-tab">
+        <div class="info-l"><div>Valor mensal</div><div class="info-v">${brl(resultado.valor)}</div></div>
+        <div class="info-l"><div>Início</div><div class="info-v">${resultado.inicio}</div></div>
+        <div class="info-l"><div>Encerramento</div><div class="info-v">${resultado.fim||'sem data'}</div></div>
+        <div class="info-l"><div>Cobrança</div><div class="info-v">${resultado.tipo}</div></div>
+      </div>
+      <div class="rel-help" style="padding:12px 0 0">
+        Os lançamentos já foram gerados nos meses da vigência. MRR, Fluxo de caixa e Projeção
+        passam a considerar este cliente automaticamente.
+      </div>
+      <button class="btn filled-g" style="margin-top:12px" onclick="fecharFlow()">Pronto</button>`;
+    return;
+  }
+
+  e('flow-body').innerHTML = `
+    <div class="rel-hint">Selecione o arquivo <b>financeiro-….json</b> que o Evolve Flow gera
+      ao fechar um cliente. Ele entra como recorrência: os lançamentos são criados em todos os
+      meses da vigência, e o MRR passa a contar com ele.</div>
+
+    <input type="file" id="flow-arq" accept=".json,application/json"
+      onchange="lerArquivoFlow(this)" style="margin-bottom:12px">
+
+    ${erros ? `<div class="rg-aviso" style="display:block">
+      <b>Importação recusada — nada foi gravado.</b>
+      <ul style="margin:6px 0 0 18px">${erros.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+    </div>` : ''}
+
+    ${d ? `
+      <div class="info-passo">
+        <div class="info-n">✓</div>
+        <div><div class="info-t">${esc(d.empresa||'—')}</div>
+          <div class="info-d">Confira antes de gravar. O que estiver errado, corrija no Flow e
+            exporte de novo — assim os dois lados ficam iguais.</div></div>
+      </div>
+      <div class="info-tab">
+        <div class="info-l"><div>Valor mensal</div><div class="info-v">${d.valorContrato?brl(parseFloat(d.valorContrato)):'<span style="color:var(--rd)">faltando</span>'}</div></div>
+        <div class="info-l"><div>Início do contrato</div><div class="info-v">${d.inicioContrato?comp(d.inicioContrato):'<span style="color:var(--rd)">faltando</span>'}</div></div>
+        <div class="info-l"><div>Encerramento</div><div class="info-v">${d.fimContrato?comp(d.fimContrato):'sem data — segue indeterminado'}</div></div>
+        <div class="info-l"><div>Cobrança</div><div class="info-v">${d.tipoCobranca==='pontual'?'pontual (uma vez)':'recorrente (todo mês)'}</div></div>
+        <div class="info-l"><div>Dia do vencimento</div><div class="info-v">${d.diaVencimento||d.vencimento||'—'}</div></div>
+        <div class="info-l"><div>Identificador</div><div class="info-v" style="font-size:11px">${esc(d.clienteId||d.cnpj||d.emailFinanceiro||d.empresa||'—')}</div></div>
+      </div>
+      <div class="rel-help" style="padding:10px 0 12px">
+        Importar o mesmo cliente de novo <b>atualiza</b> o que já existe — não duplica.
+      </div>
+      <button class="btn filled-g" onclick="gravarFlow()">Importar cliente</button>
+    ` : ''}`;
+}
+
+function lerArquivoFlow(input){
+  const f = input.files && input.files[0];
+  if(!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    try { _flowPayload = JSON.parse(fr.result); }
+    catch(_){ _flowPayload = null; renderFlow(['O arquivo não é um JSON válido.']); return; }
+    if(_flowPayload && _flowPayload.tipo !== 'evolve_flow_cliente_financeiro'){
+      const t = _flowPayload.tipo;
+      _flowPayload = null;
+      renderFlow([`Não é um arquivo de cliente do Evolve Flow${t?` (tipo "${t}")`:''}.`]);
+      return;
+    }
+    renderFlow();
+  };
+  fr.onerror = () => renderFlow(['Não consegui ler o arquivo.']);
+  fr.readAsText(f);
+}
+
+async function gravarFlow(){
+  if(!_flowPayload) return;
+  syncLabel('Importando…','saving');
+  try {
+    const r = await api('POST','/api/import/flow-cliente', _flowPayload);
+    await loadData();
+    buildNav(); buildTabs();
+    if(S.tab==='projecao') renderProjecaoTab(); else renderDashboard();
+    syncLabel('Importado ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
+    renderFlow(null, r);
+  } catch(err){
+    syncLabel('Erro','error');
+    const motivos = (err.dados && err.dados.motivos) ? err.dados.motivos : [err.message];
+    renderFlow(motivos);
+  }
+}
 
 let _regraAberta = null;
 function abrirClientesRegra(id){ _regraAberta = id; renderClientesRegra(); e('cli-overlay').style.display='flex'; }

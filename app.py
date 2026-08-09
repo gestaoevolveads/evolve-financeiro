@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-import sqlite3, bcrypt, jwt, datetime, os, secrets, time
+import sqlite3, bcrypt, jwt, datetime, os, secrets, time, re
 from functools import wraps
 from collections import defaultdict
 
@@ -204,6 +204,10 @@ def init_db():
             "ALTER TABLE cost_rules ADD COLUMN inicio_mes INTEGER",
             "ALTER TABLE cost_rules ADD COLUMN fim_ano INTEGER",
             "ALTER TABLE cost_rules ADD COLUMN fim_mes INTEGER",
+            # De onde veio a recorrencia. Chave estavel para reimportar sem
+            # duplicar: o Evolve Flow manda o id do cliente dele.
+            "ALTER TABLE recurring_items ADD COLUMN origem TEXT DEFAULT ''",
+            "ALTER TABLE recurring_items ADD COLUMN origem_chave TEXT DEFAULT ''",
             # Relatórios da Carla: anotação por lançamento e marcação de item não recorrente
             "ALTER TABLE revenues ADD COLUMN note TEXT DEFAULT ''",
             "ALTER TABLE costs    ADD COLUMN note TEXT DEFAULT ''",
@@ -1031,6 +1035,148 @@ RULE_COLS = {'nome':_s,'tipo':_s,'valor':_f,'min_clientes':lambda v:int(v or 0),
              'categoria':_s,'ativo':_b,'so_projecao':_b,'clientes':_s,'cobre_novos':_b,
              'inicio_ano':lambda v:(None if v in ('',None) else int(v)),'inicio_mes':lambda v:(None if v in ('',None) else int(v)),'fim_ano':lambda v:(None if v in ('',None) else int(v)),'fim_mes':lambda v:(None if v in ('',None) else int(v))}
 TIPOS_REGRA = ('fixo','por_cliente','pct_primeiro','por_cliente_sel')
+
+# ══════════════════════════════════════════════════════════════════════════
+# IMPORTAÇÃO DE CLIENTE VINDO DO EVOLVE FLOW
+# O cliente entra como RECORRÊNCIA de receita — o caminho que ja existe. A
+# partir dai _gen_recurring_rows espalha as linhas projetadas por todos os
+# meses, e MRR, Fluxo e Projecao passam a enxergar sozinhos. Nenhuma formula
+# de churn ou de projecao e tocada.
+# ══════════════════════════════════════════════════════════════════════════
+
+def _comp(txt):
+    """'2026-09' -> (2026, 9). Devolve (None, None) se vazio ou invalido."""
+    try:
+        y, m = str(txt or '').split('-')[:2]
+        y, m = int(y), int(m)
+        if 1 <= m <= 12 and 2000 <= y <= 2100:
+            return y, m
+    except Exception:
+        pass
+    return None, None
+
+
+def _valida_flow(d):
+    """Devolve (dados_limpos, erros). Erro em qualquer campo obrigatorio
+    impede a gravacao inteira — nunca grava pela metade."""
+    erros = []
+    if not isinstance(d, dict):
+        return None, ['O arquivo não é um JSON de objeto.']
+    if d.get('tipo') != 'evolve_flow_cliente_financeiro':
+        erros.append('Não é um arquivo de cliente do Evolve Flow '
+                     '(campo "tipo" ausente ou diferente do esperado).')
+        return None, erros
+
+    empresa = _s(d.get('empresa')).strip()
+    if not empresa:
+        erros.append('Falta o nome da empresa.')
+
+    try:
+        valor = float(str(d.get('valorContrato') or '').replace('.', '').replace(',', '.')
+                      if ',' in str(d.get('valorContrato') or '') else (d.get('valorContrato') or 0))
+    except (TypeError, ValueError):
+        valor = 0.0
+    if valor <= 0:
+        erros.append('Valor do contrato ausente ou inválido.')
+
+    iy, im = _comp(d.get('inicioContrato'))
+    if not iy:
+        erros.append('Falta o início do contrato (competência AAAA-MM).')
+    fy, fm = _comp(d.get('fimContrato'))
+    if d.get('fimContrato') and not fy:
+        erros.append('Fim do contrato em formato inválido (esperado AAAA-MM).')
+    if iy and fy and (fy * 12 + fm) < (iy * 12 + im):
+        erros.append('O fim do contrato vem antes do início.')
+
+    tipo = _s(d.get('tipoCobranca')) or 'recorrente'
+    if tipo not in ('recorrente', 'pontual'):
+        erros.append('Tipo de cobrança inválido (use "recorrente" ou "pontual").')
+
+    # Cobranca pontual e um mes so: o fim e o proprio mes de inicio.
+    if tipo == 'pontual' and iy:
+        fy, fm = iy, im
+
+    dia = None
+    try:
+        v = int(d.get('diaVencimento') or d.get('vencimento') or 0)
+        if 1 <= v <= 31:
+            dia = v
+    except (TypeError, ValueError):
+        dia = None
+
+    chave = (_s(d.get('clienteId')).strip()
+             or re.sub(r'\D', '', _s(d.get('cnpj')))
+             or _s(d.get('emailFinanceiro')).strip().lower()
+             or empresa.strip().lower())
+    if not chave:
+        erros.append('Sem identificador do cliente (id do Flow, CNPJ, e-mail ou nome).')
+
+    if erros:
+        return None, erros
+    return {
+        'empresa': empresa, 'valor': valor, 'iy': iy, 'im': im, 'fy': fy, 'fm': fm,
+        'tipo': tipo, 'dia': dia, 'chave': chave,
+        'categoria': _s(d.get('categoriaSugerida')) or 'servico',
+        'descricao': _s(d.get('descricaoSugerida')) or ('Mensalidade ' + empresa),
+    }, []
+
+
+@app.post('/api/import/flow-cliente')
+@auth
+def import_flow_cliente():
+    dados, erros = _valida_flow(request.get_json(silent=True))
+    if erros:
+        return jsonify({'error': 'Importação recusada', 'motivos': erros}), 400
+
+    with db() as c:
+        existente = c.execute(
+            "SELECT * FROM recurring_items WHERE origem='flow' AND origem_chave=? AND active=1",
+            (dados['chave'],)).fetchone()
+
+        if existente:
+            c.execute('UPDATE recurring_items SET description=?,client_name=?,amount=?,category=?,'
+                      'start_year=?,start_month=?,end_year=?,end_month=?,day_of_month=? WHERE id=?',
+                      (dados['descricao'], dados['empresa'], dados['valor'], dados['categoria'],
+                       dados['iy'], dados['im'], dados['fy'], dados['fm'], dados['dia'],
+                       existente['id']))
+            rid = existente['id']
+            # o valor pode ter mudado: alinha as linhas ainda projetadas
+            c.execute("UPDATE revenues SET amount=?,category=?,client_name=? "
+                      "WHERE recurring_id=? AND status='projetado'",
+                      (dados['valor'], dados['categoria'], dados['empresa'], rid))
+            # e remove as que cairam fora da vigencia nova
+            if dados['fy']:
+                for m in c.execute('SELECT id FROM months WHERE year>? OR (year=? AND month>?)',
+                                   (dados['fy'], dados['fy'], dados['fm'])).fetchall():
+                    c.execute("DELETE FROM revenues WHERE month_id=? AND recurring_id=? "
+                              "AND status='projetado'", (m['id'], rid))
+            for m in c.execute('SELECT id FROM months WHERE year<? OR (year=? AND month<?)',
+                               (dados['iy'], dados['iy'], dados['im'])).fetchall():
+                c.execute("DELETE FROM revenues WHERE month_id=? AND recurring_id=? "
+                          "AND status='projetado'", (m['id'], rid))
+            acao = 'atualizado'
+        else:
+            cur = c.execute(
+                'INSERT INTO recurring_items (type,description,client_name,amount,category,'
+                'start_year,start_month,end_year,end_month,day_of_month,origem,origem_chave) '
+                "VALUES ('revenue',?,?,?,?,?,?,?,?,?,'flow',?)",
+                (dados['descricao'], dados['empresa'], dados['valor'], dados['categoria'],
+                 dados['iy'], dados['im'], dados['fy'], dados['fm'], dados['dia'], dados['chave']))
+            rid = cur.lastrowid
+            acao = 'criado'
+
+        c.commit()
+        item = dict(c.execute('SELECT * FROM recurring_items WHERE id=?', (rid,)).fetchone())
+        _gen_recurring_rows(c, item)
+        c.commit()
+
+    audit(request.user['username'], 'cliente_importado_flow',
+          f"{dados['empresa']} — R$ {dados['valor']:.2f} — {acao}")
+    return jsonify({'acao': acao, 'recurring_id': rid, 'cliente': dados['empresa'],
+                    'valor': dados['valor'], 'inicio': f"{dados['im']:02d}/{dados['iy']}",
+                    'fim': (f"{dados['fm']:02d}/{dados['fy']}" if dados['fy'] else None),
+                    'tipo': dados['tipo']})
+
 
 @app.get('/api/cost-rules')
 @auth
