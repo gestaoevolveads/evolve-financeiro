@@ -2926,7 +2926,14 @@ function renderMonthTab(mid) {
           </div>
           ${comp}
         </div></td>
-        <td class="r"><span style="font-weight:600;font-size:12px">${fmtAmt(c.amount)}</span></td>
+        <td class="r">
+          ${c.viaRegra
+            ? `<input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
+                 style="text-align:right"
+                 onfocus="onAmtFocus(this)"
+                 onblur="onRegraAmtBlur(${mid},'${esc(c.name).replace(/'/g,"\\'")}',${c.amount},'${c.category}',this)">`
+            : `<span style="font-weight:600;font-size:12px">${fmtAmt(c.amount)}</span>`}
+        </td>
         <td><span style="font-size:11px;color:var(--mu)">—</span></td>
         <td><span style="font-size:11px;color:var(--mu)">${catLabel(c.category)}</span></td>
         <td style="white-space:nowrap">
@@ -8139,6 +8146,13 @@ async function confirmarRegra(mid, nome, valor, categoria){
     syncLabel('Confirmado ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
     showToast(`${nome} confirmado como despesa do mês ✓`);
   } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+
+async function onRegraAmtBlur(mid, nome, valorOriginal, categoria, el) {
+  const novo = parseAmt(el.value);
+  el.value = fmtAmt(novo);
+  if(Math.abs(novo - valorOriginal) < 0.001) return; // nada mudou
+  await confirmarRegra(mid, nome, novo, categoria);
 }
 
 async function confirmItem(type, id) {
