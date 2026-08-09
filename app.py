@@ -209,6 +209,8 @@ def init_db():
             "ALTER TABLE costs    ADD COLUMN note TEXT DEFAULT ''",
             "ALTER TABLE revenues ADD COLUMN nonrecurring INTEGER DEFAULT 0",
             "ALTER TABLE costs    ADD COLUMN nonrecurring INTEGER DEFAULT 0",
+            "ALTER TABLE revenues ADD COLUMN overridden INTEGER DEFAULT 0",
+            "ALTER TABLE costs    ADD COLUMN overridden INTEGER DEFAULT 0",
             # Blocos de texto dos relatórios (resumo, conclusão, observações).
             # key no formato 'mensal:2026-07:resumo' ou 'semanal:2026-08-03:obs'
             "CREATE TABLE IF NOT EXISTS report_texts (key TEXT PRIMARY KEY, value TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))",
@@ -463,14 +465,19 @@ def _f(v):
 def _b(v):    return 1 if v else 0
 
 REVENUE_COLS = {'client_name':_s,'amount':_f,'received_date':_s,'category':_s,
-                'is_new_client':_b,'note':_s,'nonrecurring':_b}
+                'is_new_client':_b,'note':_s,'nonrecurring':_b,'overridden':_b}
 COST_COLS    = {'name':_s,'amount':_f,'payment_date':_s,'category':_s,
-                'note':_s,'nonrecurring':_b}
+                'note':_s,'nonrecurring':_b,'overridden':_b}
 
 @app.put('/api/revenues/<int:rid>')
 @auth
 def update_revenue(rid):
     d = request.get_json() or {}
+    if 'amount' in d:
+        with db() as c:
+            cur = c.execute('SELECT amount, recurring_id FROM revenues WHERE id=?', (rid,)).fetchone()
+        if cur and cur['recurring_id'] and abs(_f(cur['amount']) - _f(d['amount'])) > 0.001:
+            d['overridden'] = 1
     if not partial_update('revenues', REVENUE_COLS, d, rid):
         return jsonify({'error':'Nada para atualizar'}), 400
     audit(request.user['username'], 'receita_editada', f"ID {rid} — {d.get('client_name','')} R${_f(d.get('amount')):.2f}")
@@ -509,6 +516,11 @@ def add_cost(mid):
 @auth
 def update_cost(cid):
     d = request.get_json() or {}
+    if 'amount' in d:
+        with db() as c:
+            cur = c.execute('SELECT amount, recurring_id FROM costs WHERE id=?', (cid,)).fetchone()
+        if cur and cur['recurring_id'] and abs(_f(cur['amount']) - _f(d['amount'])) > 0.001:
+            d['overridden'] = 1
     if not partial_update('costs', COST_COLS, d, cid):
         return jsonify({'error':'Nada para atualizar'}), 400
     audit(request.user['username'], 'despesa_editada', f"ID {cid} — {d.get('name','')} R${_f(d.get('amount')):.2f}")

@@ -184,6 +184,7 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
   white-space:nowrap;line-height:1.5}
 .tg-proj{background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring)}
 .tg-calc{background:rgba(167,139,250,.13);color:var(--pu);border:1px solid rgba(167,139,250,.28)}
+.tg-adj{background:rgba(245,158,11,.12);color:#d97706;border:1px solid rgba(245,158,11,.3)}
 /* A reserva nao e uma linha da tabela: fica logo abaixo, com peso visual menor
    que um lancamento e sem os botoes que ela nao tem como oferecer. */
 .res-box{display:flex;align-items:center;gap:11px;padding:11px 14px;
@@ -2040,6 +2041,7 @@ async function addRevenue(mid) {
 function onRevChange(mid,rid,field,value) {
   const m=S.map[mid]; if(!m) return;
   const rev=m.revenues.find(r=>r.id===rid); if(!rev) return;
+  if(field==='amount' && rev.recurring_id && (parseFloat(value)||0) !== rev.amount) rev.overridden=1;
   rev[field]=field==='amount'?(parseFloat(value)||0):(field==='is_new_client'?(value?1:0):value);
   updateSummary(mid); updateDashboard();
   scheduleSave('revenue',rid,{client_name:rev.client_name,amount:rev.amount,received_date:rev.received_date,category:rev.category,is_new_client:rev.is_new_client});
@@ -2076,6 +2078,7 @@ async function addCost(mid) {
 function onCostChange(mid,cid,field,value) {
   const m=S.map[mid]; if(!m) return;
   const cost=m.costs.find(c=>c.id===cid); if(!cost) return;
+  if(field==='amount' && cost.recurring_id && (parseFloat(value)||0) !== cost.amount) cost.overridden=1;
   cost[field]=field==='amount'?(parseFloat(value)||0):value;
   updateSummary(mid); updateDashboard();
   scheduleSave('cost',cid,{name:cost.name,amount:cost.amount,payment_date:cost.payment_date,category:cost.category});
@@ -2855,10 +2858,13 @@ function renderMonthTab(mid) {
           <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)" style="flex:1;min-width:0">
         </div>
       </td>
-      <td><input class="cell-input amount" type="text" value="${fmtAmt(r.amount)}" placeholder="0,00"
-        onfocus="onAmtFocus(this)"
-        onblur="onAmtBlur('revenue',${mid},${r.id},this)"
-        oninput="onAmtInput('revenue',${mid},${r.id},this)"></td>
+      <td>
+        <input class="cell-input amount" type="text" value="${fmtAmt(r.amount)}" placeholder="0,00"
+          onfocus="onAmtFocus(this)"
+          onblur="onAmtBlur('revenue',${mid},${r.id},this)"
+          oninput="onAmtInput('revenue',${mid},${r.id},this)">
+        ${r.overridden&&hasRec?'<span class="tg tg-adj" style="margin-top:3px;display:block;width:fit-content;margin-left:auto">↗ ajustado</span>':''}
+      </td>
       <td><input class="cell-input date" value="${esc(r.received_date)}" placeholder="DD/MM" oninput="onRevChange(${mid},${r.id},'received_date',this.value)"></td>
       <td>
         <select class="cell-select" onchange="onRevChange(${mid},${r.id},'category',this.value)">
@@ -2953,10 +2959,13 @@ function renderMonthTab(mid) {
           <input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)" style="flex:1;min-width:0">
         </div>
       </td>
-      <td><input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
-        onfocus="onAmtFocus(this)"
-        onblur="onAmtBlur('cost',${mid},${c.id},this)"
-        oninput="onAmtInput('cost',${mid},${c.id},this)"></td>
+      <td>
+        <input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
+          onfocus="onAmtFocus(this)"
+          onblur="onAmtBlur('cost',${mid},${c.id},this)"
+          oninput="onAmtInput('cost',${mid},${c.id},this)">
+        ${c.overridden&&hasRec?'<span class="tg tg-adj" style="margin-top:3px;display:block;width:fit-content;margin-left:auto">↗ ajustado</span>':''}
+      </td>
       <td><input class="cell-input date" value="${esc(c.payment_date)}" placeholder="DD/MM" oninput="onCostChange(${mid},${c.id},'payment_date',this.value)"></td>
       <td>
         <select class="cell-select" onchange="onCostChange(${mid},${c.id},'category',this.value)">
