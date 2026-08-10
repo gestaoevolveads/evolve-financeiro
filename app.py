@@ -295,9 +295,16 @@ def init_db():
                           (new, tp, slug, old))
             c.execute("INSERT OR REPLACE INTO settings (key,value) VALUES ('cat_palette_evolve_v1','1')")
 
-        for year, month in [(2026,m) for m in range(1,13)] + [(2027,1)]:
-            c.execute('INSERT OR IGNORE INTO months (year,month) VALUES (?,?)', (year,month))
+        # Periodo cadastrado vai ate 2028. Recorrencia anual e contrato longo
+        # precisam de um mes onde pousar: sem a linha do mes, o lancamento
+        # simplesmente nao existe. O menu lateral nao mostra tudo — agrupa por
+        # ano — mas os meses precisam existir no banco.
+        for year in (2026, 2027, 2028):
+            for month in range(1, 13):
+                c.execute('INSERT OR IGNORE INTO months (year,month) VALUES (?,?)', (year, month))
         c.commit()
+
+
 
 init_db()
 
@@ -881,6 +888,33 @@ def _gen_recurring_rows(c, item):
             if not ex:
                 c.execute('INSERT INTO costs (month_id,name,amount,payment_date,category,sort_order,recurring_id,status) VALUES (?,?,?,?,?,?,?,?)',
                     (m['id'], item['description'], item['amount'], '', item['category'], 999, iid, 'projetado'))
+
+def _estender_recorrentes_uma_vez():
+    """As recorrencias existentes foram criadas quando o periodo terminava em
+    jan/2027, entao nao tem linha nos meses novos — sem isto a projecao cairia a
+    zero a partir de fev/2027. Roda uma vez so, marcada em settings.
+
+    Fica aqui e nao dentro de init_db porque init_db e chamado no import, antes
+    de _gen_recurring_rows existir."""
+    with db() as c:
+        ja = c.execute("SELECT value FROM settings WHERE key='meses_ate_2028'").fetchone()
+        if ja:
+            return
+        n = 0
+        for r in c.execute('SELECT * FROM recurring_items WHERE active=1').fetchall():
+            try:
+                _gen_recurring_rows(c, dict(r))
+                n += 1
+            except Exception as ex:
+                print('  aviso: recorrencia', r['id'], 'nao pode ser estendida:', ex)
+        c.execute("INSERT OR REPLACE INTO settings (key,value) VALUES ('meses_ate_2028','1')")
+        c.commit()
+        if n:
+            print(f'  meses estendidos ate 2028 — {n} recorrencia(s) preenchida(s)')
+
+
+_estender_recorrentes_uma_vez()
+
 
 @app.get('/api/recurring')
 @auth

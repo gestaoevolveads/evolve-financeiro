@@ -171,6 +171,12 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 /* Nome e marcação disputavam a célula como dois spans soltos: nome longo
    empurrava a tag para a linha de baixo e a altura da linha variava de uma para
    outra. Agora são um flex — o nome encolhe com reticências, a tag nunca quebra. */
+.side-ano{display:flex;align-items:center;justify-content:space-between;width:100%;
+  background:none;border:none;cursor:pointer;font:inherit;font-size:10.5px;font-weight:700;
+  letter-spacing:.06em;color:var(--mu);padding:7px 10px 4px;text-transform:uppercase}
+.side-ano:hover{color:var(--tx2)}
+.side-ano.on{color:var(--ac)}
+.side-ano-c{font-size:12px;font-weight:400;opacity:.7}
 .cell-nome{display:flex;align-items:center;gap:7px;min-width:0;min-height:26px}
 .cell-nome .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 /* Linha de regra com composicao: nome e tag em cima, de onde vem o valor
@@ -3676,10 +3682,20 @@ function buildNav() {
     `<button class="side-item" id="nav-${id}" onclick="goTab('${id}')" ${extra}>
        <span class="si-ic">${ic}</span><span class="si-tx">${label}</span></button>`;
 
-  const meses = S.months.map(m=>{
-    const label = MONTHS_FULL[m.month-1] + (m.year===2027 ? " 2027" : "");
-    return `<button class="side-item" id="nav-m${m.id}" onclick="goTab('m${m.id}')">
-              <span class="si-tx">${label}</span></button>`;
+  // O periodo cadastrado vai ate 2028 para recorrencia anual e contrato longo
+  // terem onde pousar. Trinta e seis botoes seguidos no menu nao se navegam,
+  // entao os anos ficam recolhidos: o ano corrente aberto, os outros a um
+  // clique. O ano so aparece se tiver mes cadastrado.
+  if(S.anoAberto === undefined) S.anoAberto = (new Date()).getFullYear();
+  const anos = [...new Set(S.months.map(m=>m.year))].sort();
+  const meses = anos.map(ano=>{
+    const doAno = S.months.filter(m=>m.year===ano);
+    const aberto = S.anoAberto === ano;
+    const btns = aberto ? doAno.map(m=>
+      `<button class="side-item" id="nav-m${m.id}" onclick="goTab('m${m.id}')">
+         <span class="si-tx">${MONTHS_FULL[m.month-1]}</span></button>`).join('') : '';
+    return `<button class="side-ano ${aberto?'on':''}" onclick="S.anoAberto=${aberto?0:ano};buildNav();marcarNavAtiva()">
+              <span>${ano}</span><span class="side-ano-c">${aberto?'−':'+'}</span></button>${btns}`;
   }).join('');
 
   nav.innerHTML = `
