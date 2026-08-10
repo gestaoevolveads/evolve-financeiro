@@ -2071,7 +2071,8 @@ function scheduleSave(type, id, data) {
 async function addRevenue(mid) {
   syncLabel('Salvando…','saving');
   try {
-    const row=await api('POST',`/api/months/${mid}/revenues`,{client_name:'',amount:0,received_date:'',category:'servico',is_new_client:0,sort_order:S.map[mid].revenues.length});
+    const row=await api('POST',`/api/months/${mid}/revenues`,{client_name:'',amount:0,received_date:'',category:'servico',is_new_client:0,
+    sort_order:S.map[mid].revenues.length, status:statusPelaData(S.map[mid],'')});
     S.map[mid].revenues.push(row); rerenderCurrentMonth(mid);
     syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
     setTimeout(()=>{ const inp=document.querySelectorAll(`#tab-m${mid} .rev-name`); if(inp.length) inp[inp.length-1].focus(); },80);
@@ -2105,10 +2106,49 @@ async function deleteRevenue(mid,rid) {
 // ══════════════════════════════════════════════════════════════════════════════
 // COST CRUD
 // ══════════════════════════════════════════════════════════════════════════════
+// Um lançamento com data futura ainda não aconteceu: entra na projeção e fica
+// esperando confirmação, igual ao que vem de recorrência. Data passada ou de
+// hoje é fato consumado. Sem data, também fica projetado — ninguém confirma o
+// que não sabe quando aconteceu.
+//
+// Mês já fechado é exceção: ali tudo que se lança é histórico sendo registrado
+// depois, então nasce realizado. Fazer diferente encheria os meses passados de
+// pendências que ninguém vai confirmar.
+function statusPelaData(m, ddmm){
+  const h = new Date();
+  const hojeMes = h.getFullYear()*100 + (h.getMonth()+1);
+  if(m.year*100 + m.month < hojeMes) return 'realizado';
+  const p = String(ddmm||'').match(/^\s*(\d{1,2})\s*\/\s*(\d{1,2})/);
+  if(!p) return 'projetado';
+  const dia = +p[1], mes = +p[2];
+  if(!(dia>=1 && dia<=31 && mes>=1 && mes<=12)) return 'projetado';
+  const hojeIdx = h.getFullYear()*10000 + (h.getMonth()+1)*100 + h.getDate();
+  return (m.year*10000 + mes*100 + dia) <= hojeIdx ? 'realizado' : 'projetado';
+}
+
+// Roda no blur, não a cada tecla: o campo é "DD/MM" e o status oscilaria entre
+// projetado e realizado enquanto a pessoa digita, com re-render roubando o foco.
+function onDataBlur(kind, mid, id, el){
+  const m = S.map[mid]; if(!m) return;
+  const lista = kind === 'revenue' ? m.revenues : m.costs;
+  const it = lista.find(x => x.id === id); if(!it) return;
+  const novo = statusPelaData(m, el.value);
+  if((it.status || 'realizado') === novo) return;
+  it.status = novo;
+  api('PUT', `/api/${kind === 'revenue' ? 'revenues' : 'costs'}/${id}`, {status: novo})
+    .then(() => { syncLabel(fmtSync(), 'saved'); })
+    .catch(err => { syncLabel('Erro','error'); alert(err.message); });
+  rerenderCurrentMonth(mid);
+  showToast(novo === 'projetado'
+    ? 'Data futura — entrou na projeção, aguardando confirmação'
+    : 'Data já passou — marcado como realizado');
+}
+
 async function addCost(mid) {
   syncLabel('Salvando…','saving');
   try{
-    const row=await api('POST',`/api/months/${mid}/costs`,{name:'',amount:0,payment_date:'',category:'operacional',sort_order:S.map[mid].costs.length});
+    const row=await api('POST',`/api/months/${mid}/costs`,{name:'',amount:0,payment_date:'',category:'operacional',
+    sort_order:S.map[mid].costs.length, status:statusPelaData(S.map[mid],'')});
     S.map[mid].costs.push(row); rerenderCurrentMonth(mid);
     syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
     setTimeout(()=>{ const inp=document.querySelectorAll(`#tab-m${mid} .cost-name`); if(inp.length) inp[inp.length-1].focus(); },80);
@@ -2904,7 +2944,10 @@ function renderMonthTab(mid) {
           oninput="onAmtInput('revenue',${mid},${r.id},this)">
         ${r.overridden&&hasRec?'<span class="tg tg-adj" style="margin-top:3px;display:block;width:fit-content;margin-left:auto">↗ ajustado</span>':''}
       </td>
-      <td><input class="cell-input date" value="${esc(r.received_date)}" placeholder="DD/MM" oninput="onRevChange(${mid},${r.id},'received_date',this.value)"></td>
+      <td><input class="cell-input date" value="${esc(r.received_date)}" placeholder="DD/MM"
+        title="Data futura deixa a receita projetada, aguardando confirmação"
+        oninput="onRevChange(${mid},${r.id},'received_date',this.value)"
+        onblur="onDataBlur('revenue',${mid},${r.id},this)"></td>
       <td>
         <select class="cell-select" onchange="onRevChange(${mid},${r.id},'category',this.value)">
           ${REV_CATS.map(c=>`<option value="${c}" ${c===r.category?'selected':''}>${catLabel(c)}</option>`).join('')}
@@ -3012,7 +3055,10 @@ function renderMonthTab(mid) {
           oninput="onAmtInput('cost',${mid},${c.id},this)">
         ${c.overridden&&hasRec?'<span class="tg tg-adj" style="margin-top:3px;display:block;width:fit-content;margin-left:auto">↗ ajustado</span>':''}
       </td>
-      <td><input class="cell-input date" value="${esc(c.payment_date)}" placeholder="DD/MM" oninput="onCostChange(${mid},${c.id},'payment_date',this.value)"></td>
+      <td><input class="cell-input date" value="${esc(c.payment_date)}" placeholder="DD/MM"
+        title="Data futura deixa a despesa projetada, aguardando confirmação"
+        oninput="onCostChange(${mid},${c.id},'payment_date',this.value)"
+        onblur="onDataBlur('cost',${mid},${c.id},this)"></td>
       <td>
         <select class="cell-select" onchange="onCostChange(${mid},${c.id},'category',this.value)">
           ${COST_CATS.map(cat=>`<option value="${cat}" ${cat===c.category?'selected':''}>${catLabel(cat)}</option>`).join('')}
@@ -8453,11 +8499,17 @@ function renderRecurringList() {
   const mkItem=item=>{
     const end=item.end_year&&item.end_month?`${mn(item.end_month)}/${item.end_year}`:'Sem encerramento';
     const endBadge=item.end_year&&item.end_month?`<span style="background:rgba(245,166,35,.15);color:var(--am);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;margin-left:6px">Encerra ${end}</span>`:'';
+    // Sem esta marcação, uma anual e uma mensal ficam idênticas na lista e a
+    // única forma de saber qual é qual seria abrir os meses e contar.
+    const freqBadge = item.frequency==='annual'
+      ? `<span style="background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;margin-left:6px"
+           title="Lançada uma vez por ano, no mês indicado">Anual · ${mn(item.month_of_year||item.start_month)}</span>`
+      : '';
     return `<div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
         <div style="flex:1;min-width:0">
           <span style="font-family:var(--ff);font-weight:700;font-size:12px">${esc(item.description)}${item.client_name&&item.client_name!==item.description?` <span style="color:var(--mu);font-weight:400">(${esc(item.client_name)})</span>`:''}</span>
-          ${endBadge}
+          ${freqBadge}${endBadge}
           <div style="font-size:11px;color:var(--mu);margin-top:3px">Desde ${mn(item.start_month)}/${item.start_year} · ${brl(item.amount)}${item.day_of_month?` · <span style="color:var(--pu);font-weight:600">Dia ${item.day_of_month}</span>`:''}</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
@@ -8534,7 +8586,16 @@ function renderRecurringList() {
             ${mkCatOpts(cats,defCat)}
           </select></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="margin-bottom:8px">
+        <label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Frequência</label>
+        <select id="rec-new-freq-${type}"
+          style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none"
+          onchange="(()=>{const a=e('rec-new-freq-annual-${type}');const m=e('rec-new-freq-monthly-${type}');if(this.value==='annual'){a.style.display='grid';m.style.display='none';}else{a.style.display='none';m.style.display='grid';}})()">
+          <option value="monthly">Mensal — aparece todo mês</option>
+          <option value="annual">Anual — aparece uma vez por ano, no mês escolhido</option>
+        </select>
+      </div>
+      <div id="rec-new-freq-monthly-${type}" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
         <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Início mês</label>
           <select id="rec-new-sm-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none">
             ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}" ${i+1===nextM?'selected':''}>${mn}</option>`).join('')}
@@ -8543,7 +8604,7 @@ function renderRecurringList() {
           <select id="rec-new-sy-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none">
             <option value="2026" ${nextY===2026?'selected':''}>2026</option><option value="2027" ${nextY===2027?'selected':''}>2027</option>
           </select></div>
-        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês <span style="color:var(--mu);font-weight:400">(opcional)</span></label>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Encerra mês <span style="font-weight:400">(opcional)</span></label>
           <select id="rec-new-em-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none">
             <option value="">—</option>
             ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}">${mn}</option>`).join('')}
@@ -8552,6 +8613,20 @@ function renderRecurringList() {
           <select id="rec-new-ey-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none">
             <option value="">—</option>
             <option value="2026">2026</option><option value="2027">2027</option>
+          </select></div>
+      </div>
+      <div id="rec-new-freq-annual-${type}" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Mês do ano</label>
+          <select id="rec-new-moy-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none">
+            ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}">${mn}</option>`).join('')}
+          </select></div>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">A partir do ano</label>
+          <select id="rec-new-sy2-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none">
+            <option value="2026" ${nextY===2026?'selected':''}>2026</option><option value="2027">2027</option>
+          </select></div>
+        <div><label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Até o ano <span style="font-weight:400">(opcional)</span></label>
+          <select id="rec-new-ey2-${type}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 7px;color:var(--tx);font-family:var(--ff);font-size:11px;outline:none">
+            <option value="">Sem fim</option><option value="2026">2026</option><option value="2027">2027</option>
           </select></div>
       </div>
       <div style="display:flex;gap:6px">
@@ -8588,12 +8663,28 @@ async function submitNewRecurring(type) {
   const em=parseInt(e(`rec-new-em-${type}`)?.value)||null;
   const ey=parseInt(e(`rec-new-ey-${type}`)?.value)||null;
   const dom=parseInt(e(`rec-new-dom-${type}`)?.value)||null;
+
+  // Frequência: mensal usa os campos de mês/ano de sempre; anual usa o mês do
+  // ano e a faixa de anos, que ficam em campos próprios — sem ler daqui, o
+  // formulário mostrava as opções e gravava tudo como mensal.
+  const freq = e(`rec-new-freq-${type}`)?.value === 'annual' ? 'annual' : 'monthly';
+  let moy = null, sm2 = sm, sy2 = sy, em2 = em, ey2 = ey;
+  if(freq === 'annual'){
+    moy = parseInt(e(`rec-new-moy-${type}`)?.value) || 1;
+    sy2 = parseInt(e(`rec-new-sy2-${type}`)?.value) || sy;
+    ey2 = parseInt(e(`rec-new-ey2-${type}`)?.value) || null;
+    // a vigência de uma anual começa e termina no próprio mês-alvo
+    sm2 = moy;
+    em2 = ey2 ? moy : null;
+  }
+
   syncLabel('Salvando…','saving');
   try {
     const item=await api('POST','/api/recurring',{
       type, description:desc, client_name:type==='revenue'?desc:'',
-      amount:amt, category:cat, start_year:sy, start_month:sm,
-      end_year:ey||null, end_month:em||null, day_of_month:dom||null
+      amount:amt, category:cat, start_year:sy2, start_month:sm2,
+      end_year:ey2||null, end_month:em2||null, day_of_month:dom||null,
+      frequency:freq, month_of_year:moy
     });
     S.recurring.push(item);
     const allMonths=await api('GET','/api/months');
@@ -8602,7 +8693,17 @@ async function submitNewRecurring(type) {
     if(S.tab!=='dashboard'){ const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
     updateDashboard();
     syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
-    showToast(`${type==='revenue'?'Receita':'Despesa'} recorrente adicionada ✓`);
+    // Recorrência que não gerou lançamento nenhum some da tela sem explicação —
+    // acontece quando a vigência cai fora dos meses cadastrados, tipico de uma
+    // anual cujo mês-alvo só volta no ano que vem.
+    if(item.linhas_geradas === 0){
+      showToast(`Recorrente salva, mas nenhum lançamento foi gerado: a vigência começa em `
+        + `${MONTHS_PT[(item.start_month||1)-1]}/${item.start_year}, fora dos meses cadastrados.`, 'error');
+    } else {
+      showToast(freq==='annual'
+        ? `${type==='revenue'?'Receita':'Despesa'} anual adicionada — aparece todo ${MONTHS_PT[moy-1]} ✓`
+        : `${type==='revenue'?'Receita':'Despesa'} recorrente adicionada ✓`);
+    }
   } catch(err){ syncLabel('Erro','error'); alert(err.message||'Erro ao salvar'); }
 }
 

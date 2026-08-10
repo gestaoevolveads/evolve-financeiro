@@ -215,6 +215,8 @@ def init_db():
             "ALTER TABLE costs    ADD COLUMN nonrecurring INTEGER DEFAULT 0",
             "ALTER TABLE revenues ADD COLUMN overridden INTEGER DEFAULT 0",
             "ALTER TABLE costs    ADD COLUMN overridden INTEGER DEFAULT 0",
+            "ALTER TABLE recurring_items ADD COLUMN frequency TEXT DEFAULT 'monthly'",
+            "ALTER TABLE recurring_items ADD COLUMN month_of_year INTEGER",
             # Blocos de texto dos relatórios (resumo, conclusão, observações).
             # key no formato 'mensal:2026-07:resumo' ou 'semanal:2026-08-03:obs'
             "CREATE TABLE IF NOT EXISTS report_texts (key TEXT PRIMARY KEY, value TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))",
@@ -468,10 +470,16 @@ def _f(v):
     except (TypeError, ValueError): return 0.0
 def _b(v):    return 1 if v else 0
 
+# status entra na whitelist com validacao propria: um payload torto gravaria
+# qualquer string e quebraria os filtros de realizado/projetado espalhados pela
+# aplicacao inteira.
+def _st(v):
+    return 'projetado' if _s(v) == 'projetado' else 'realizado'
+
 REVENUE_COLS = {'client_name':_s,'amount':_f,'received_date':_s,'category':_s,
-                'is_new_client':_b,'note':_s,'nonrecurring':_b,'overridden':_b}
+                'is_new_client':_b,'note':_s,'nonrecurring':_b,'overridden':_b,'status':_st}
 COST_COLS    = {'name':_s,'amount':_f,'payment_date':_s,'category':_s,
-                'note':_s,'nonrecurring':_b,'overridden':_b}
+                'note':_s,'nonrecurring':_b,'overridden':_b,'status':_st}
 
 @app.put('/api/revenues/<int:rid>')
 @auth
@@ -842,6 +850,14 @@ def _gen_recurring_rows(c, item):
     months = c.execute('SELECT * FROM months ORDER BY year,month').fetchall()
     sy, sm = item['start_year'], item['start_month']
     ey, em = item['end_year'], item['end_month']
+    # aceita dict ou sqlite3.Row: Row nao tem .get() e todos os chamadores
+    # precisariam lembrar de converter, o que ja falhou uma vez
+    def _campo(k, padrao=None):
+        try:    v = item[k]
+        except (IndexError, KeyError, TypeError): return padrao
+        return padrao if v is None else v
+    freq = _campo('frequency', 'monthly') or 'monthly'
+    moy  = _campo('month_of_year')   # só para frequência anual
     for m in months:
         y, mo = m['year'], m['month']
         after_start = (y > sy) or (y == sy and mo >= sm)
@@ -850,6 +866,9 @@ def _gen_recurring_rows(c, item):
         else:
             before_end = True
         if not after_start or not before_end:
+            continue
+        # Frequência anual: só gera no mês específico de cada ano
+        if freq == 'annual' and moy and mo != moy:
             continue
         iid = item['id']
         if item['type'] == 'revenue':
@@ -878,18 +897,29 @@ def create_recurring():
     desc = d.get('description', '').strip()
     if not desc:
         return jsonify({'error': 'Descrição obrigatória'}), 400
+    freq = d.get('frequency','monthly')
+    if freq not in ('monthly','annual'): freq = 'monthly'
+    moy  = int(d['month_of_year']) if d.get('month_of_year') else None
+    if freq != 'annual': moy = None
+    if moy is not None and not (1 <= moy <= 12): moy = None
+    # anual sem mes definido nao teria onde gerar: cai no mes de inicio
+    if freq == 'annual' and not moy: moy = int(d.get('start_month', 1))
     with db() as c:
         cur = c.execute(
-            'INSERT INTO recurring_items (type,description,client_name,amount,category,start_year,start_month,end_year,end_month,day_of_month) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO recurring_items (type,description,client_name,amount,category,start_year,start_month,end_year,end_month,day_of_month,frequency,month_of_year) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
             (tp, desc, d.get('client_name',''), float(d.get('amount',0)),
              d.get('category','servico' if tp=='revenue' else 'operacional'),
              int(d.get('start_year',2026)), int(d.get('start_month',1)),
              d.get('end_year') or None, d.get('end_month') or None,
-             int(d['day_of_month']) if d.get('day_of_month') else None))
+             int(d['day_of_month']) if d.get('day_of_month') else None,
+             freq, moy))
         c.commit()
         item = dict(c.execute('SELECT * FROM recurring_items WHERE id=?',(cur.lastrowid,)).fetchone())
         _gen_recurring_rows(c, item)
         c.commit()
+        tabela = 'revenues' if tp == 'revenue' else 'costs'
+        item['linhas_geradas'] = c.execute(
+            f'SELECT COUNT(*) FROM {tabela} WHERE recurring_id=?', (item['id'],)).fetchone()[0]
     audit(request.user['username'], 'recorrente_criado', desc)
     return jsonify(item)
 
@@ -900,17 +930,38 @@ def update_recurring(rid):
     with db() as c:
         item = c.execute('SELECT * FROM recurring_items WHERE id=?',(rid,)).fetchone()
         if not item: return jsonify({'error':'Não encontrado'}),404
-        new_ey = d.get('end_year') or None
-        new_em = d.get('end_month') or None
-        new_amt = float(d.get('amount', item['amount']))
+        new_ey   = d.get('end_year') or None
+        new_em   = d.get('end_month') or None
+        new_amt  = float(d.get('amount', item['amount']))
         new_desc = d.get('description', item['description'])
         new_client = d.get('client_name', item['client_name'])
-        new_cat = d.get('category', item['category'])
-        new_dom = int(d['day_of_month']) if d.get('day_of_month') else None
-        c.execute('UPDATE recurring_items SET description=?,client_name=?,amount=?,category=?,start_year=?,start_month=?,end_year=?,end_month=?,day_of_month=? WHERE id=?',
+        new_cat  = d.get('category', item['category'])
+        new_dom  = int(d['day_of_month']) if d.get('day_of_month') else None
+        # sqlite3.Row nao tem .get() — indexar por nome e o acesso correto, e a
+        # coluna pode nao existir em base antiga, por isso o try
+        try:    _freq_atual = item['frequency'] or 'monthly'
+        except (IndexError, KeyError): _freq_atual = 'monthly'
+        try:    _moy_atual = item['month_of_year']
+        except (IndexError, KeyError): _moy_atual = None
+        new_freq = d.get('frequency', _freq_atual)
+        if new_freq not in ('monthly','annual'): new_freq = 'monthly'
+        new_moy  = int(d['month_of_year']) if d.get('month_of_year') else _moy_atual
+        if new_freq != 'annual': new_moy = None
+        if new_moy is not None and not (1 <= new_moy <= 12): new_moy = None
+        # Uma anual so existe no mes-alvo, entao a vigencia tem de comecar nele.
+        # Sem isto, trocar mensal->anual mantinha o inicio no mes antigo e o item
+        # desaparecia de todos os meses sem dizer por que.
+        new_sy = int(d.get('start_year',  item['start_year']))
+        new_sm = int(d.get('start_month', item['start_month']))
+        if new_freq == 'annual' and new_moy:
+            if new_moy < new_sm:
+                new_sy += 1      # a proxima ocorrencia e no ano seguinte
+            new_sm = new_moy
+        c.execute('UPDATE recurring_items SET description=?,client_name=?,amount=?,category=?,start_year=?,start_month=?,end_year=?,end_month=?,day_of_month=?,frequency=?,month_of_year=? WHERE id=?',
             (new_desc, new_client, new_amt, new_cat,
-             int(d.get('start_year', item['start_year'])), int(d.get('start_month', item['start_month'])),
-             new_ey, new_em, new_dom, rid))
+
+             new_sy, new_sm,
+             new_ey, new_em, new_dom, new_freq, new_moy, rid))
         tp = item['type']
         if tp == 'revenue':
             c.execute("UPDATE revenues SET amount=?,category=?,client_name=? WHERE recurring_id=? AND status='projetado'",
@@ -918,15 +969,25 @@ def update_recurring(rid):
             if new_ey and new_em:
                 for m in c.execute("SELECT id FROM months WHERE year>? OR (year=? AND month>?)",(new_ey,new_ey,new_em)).fetchall():
                     c.execute("DELETE FROM revenues WHERE month_id=? AND recurring_id=? AND status='projetado'",(m['id'],rid))
+            # Frequência anual: remove projetados dos meses que não são o mês-alvo
+            if new_freq == 'annual' and new_moy:
+                for m in c.execute("SELECT id FROM months WHERE month!=?",(new_moy,)).fetchall():
+                    c.execute("DELETE FROM revenues WHERE month_id=? AND recurring_id=? AND status='projetado'",(m['id'],rid))
         else:
             c.execute("UPDATE costs SET amount=?,category=?,name=? WHERE recurring_id=? AND status='projetado'",
                 (new_amt, new_cat, new_desc, rid))
             if new_ey and new_em:
                 for m in c.execute("SELECT id FROM months WHERE year>? OR (year=? AND month>?)",(new_ey,new_ey,new_em)).fetchall():
                     c.execute("DELETE FROM costs WHERE month_id=? AND recurring_id=? AND status='projetado'",(m['id'],rid))
+            if new_freq == 'annual' and new_moy:
+                for m in c.execute("SELECT id FROM months WHERE month!=?",(new_moy,)).fetchall():
+                    c.execute("DELETE FROM costs WHERE month_id=? AND recurring_id=? AND status='projetado'",(m['id'],rid))
         # Generate new projected rows if end date extended or removed
         updated = dict(c.execute('SELECT * FROM recurring_items WHERE id=?',(rid,)).fetchone())
         _gen_recurring_rows(c, updated)
+        tabela = 'revenues' if updated['type']=='revenue' else 'costs'
+        updated['linhas_geradas'] = c.execute(
+            f'SELECT COUNT(*) FROM {tabela} WHERE recurring_id=?', (rid,)).fetchone()[0]
         c.commit()
     audit(request.user['username'], 'recorrente_editado', f"ID {rid} — {new_desc}")
     return jsonify(updated)
