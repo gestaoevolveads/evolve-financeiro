@@ -1682,7 +1682,22 @@ function applyCatData() {
   S.revCats.forEach(c=>{ CAT_COLORS[c.slug]=c.color; CAT_LABEL[c.slug]=c.label; });
   S.costCats.forEach(c=>{ CAT_COLORS[c.slug]=c.color; CAT_LABEL[c.slug]=c.label; });
 }
+// O sync de 30 em 30 segundos redesenhava o mes inteiro sem olhar se alguem
+// estava no meio de uma digitacao. Quem escrevia "14" e ia digitar a barra
+// podia ter o campo recriado embaixo do cursor: a tecla seguinte caia num
+// input que ja nao era o mesmo, e parecia que "/" nao funcionava.
+//
+// Pior que o redesenho: a troca de S.months joga fora o que ainda nao foi
+// gravado — o save e debounced em 700ms. Por isso a rodada inteira e pulada,
+// nao so o redesenho. Trinta segundos depois ela roda de novo.
+function estaEditando(){
+  const a = document.activeElement;
+  if(a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.type !== 'checkbox') return true;
+  return Object.keys(S.timers || {}).length > 0;   // save ainda pendente
+}
+
 async function pollSync() {
+  if(estaEditando()) return;
   try {
     const months=await api('GET','/api/months');
     S.months=months; S.map={}; months.forEach(m=>S.map[m.id]=m);
@@ -2181,18 +2196,63 @@ function statusPelaData(m, ddmm){
 
 // Roda no blur, não a cada tecla: o campo é "DD/MM" e o status oscilaria entre
 // projetado e realizado enquanto a pessoa digita, com re-render roubando o foco.
+// "14" e uma data no mes que a aba ja diz qual e. Quem digita nao deveria ter
+// de repetir o mes, e nao deveria perder o que digitou por causa disso: antes,
+// sair do campo com "14" pela metade nao dava data nenhuma, a linha virava
+// projetada, a lista se reordenava e o campo sumia debaixo do cursor — dava a
+// impressao de que a tecla "/" nao funcionava.
+// Devolve '' quando nao da para entender, e ai nada e alterado.
+function normalizaData(valor, m){
+  const v = String(valor||'').trim();
+  if(!v) return '';
+  const soDia = v.match(/^(\d{1,2})$/);
+  if(soDia){
+    const d = +soDia[1];
+    return (d>=1 && d<=31) ? String(d).padStart(2,'0')+'/'+String(m.month).padStart(2,'0') : '';
+  }
+  const k = dateKey(v, m.year);
+  if(k === null) return '';
+  const dia = k % 100, mes = Math.floor(k/100) % 100;
+  if(!(dia>=1 && dia<=31 && mes>=1 && mes<=12)) return '';
+  return String(dia).padStart(2,'0')+'/'+String(mes).padStart(2,'0');
+}
+
 function onDataBlur(kind, mid, id, el){
   const m = S.map[mid]; if(!m) return;
   const lista = kind === 'revenue' ? m.revenues : m.costs;
   const it = lista.find(x => x.id === id); if(!it) return;
-  const novo = statusPelaData(m, el.value);
-  if((it.status || 'realizado') === novo) return;
-  it.status = novo;
-  api('PUT', `/api/${kind === 'revenue' ? 'revenues' : 'costs'}/${id}`, {status: novo})
-    .then(() => { syncLabel(fmtSync(), 'saved'); })
-    .catch(err => { syncLabel('Erro','error'); alert(err.message); });
+  const rec = kind === 'revenue' ? 'revenues' : 'costs';
+  const campo = kind === 'revenue' ? 'received_date' : 'payment_date';
+
+  // texto que nao vira data nenhuma: deixa como esta, sem mexer no status nem
+  // redesenhar a lista — quem digitou algo estranho corrige sem perder o foco
+  const norm = normalizaData(el.value, m);
+  if(!norm && String(el.value||'').trim()) return;
+
+  const mudouData = norm !== (it[campo] || '');
+  if(mudouData){
+    it[campo] = norm; el.value = norm;
+    api('PUT', `/api/${rec}/${id}`, {[campo]: norm}).catch(()=>{});
+  }
+
+  const novo = statusPelaData(m, norm);
+  const mudouStatus = (it.status || 'realizado') !== novo;
+  if(mudouStatus){
+    it.status = novo;
+    api('PUT', `/api/${rec}/${id}`, {status: novo})
+      .then(() => { syncLabel(fmtSync(), 'saved'); })
+      .catch(err => { syncLabel('Erro','error'); alert(err.message); });
+  }
+  if(!mudouData && !mudouStatus) return;
+
+  // a linha muda de lugar na lista ao mudar de status; devolve o cursor para o
+  // mesmo campo depois do redesenho, senao a digitacao seguinte cai no vazio
+  const foco = `dt-${kind}-${id}`;
   rerenderCurrentMonth(mid);
-  showToast(novo === 'projetado'
+  const alvo = e(foco);
+  if(alvo){ alvo.focus(); const n=alvo.value.length; try{ alvo.setSelectionRange(n,n); }catch(_){} }
+
+  if(mudouStatus) showToast(novo === 'projetado'
     ? 'Data futura — entrou na projeção, aguardando confirmação'
     : 'Data já passou — marcado como realizado');
 }
@@ -2999,7 +3059,7 @@ function renderMonthTab(mid) {
           oninput="onAmtInput('revenue',${mid},${r.id},this)">
         ${r.overridden&&hasRec?'<span class="tg tg-adj" style="margin-top:3px;display:block;width:fit-content;margin-left:auto">↗ ajustado</span>':''}
       </td>
-      <td><input class="cell-input date" value="${esc(r.received_date)}" placeholder="DD/MM"
+      <td><input id="dt-revenue-${r.id}" class="cell-input date" value="${esc(r.received_date)}" placeholder="DD/MM"
         title="Data futura deixa a receita projetada, aguardando confirmação"
         oninput="onRevChange(${mid},${r.id},'received_date',this.value)"
         onblur="onDataBlur('revenue',${mid},${r.id},this)"></td>
@@ -3114,7 +3174,7 @@ function renderMonthTab(mid) {
           oninput="onAmtInput('cost',${mid},${c.id},this)">
         ${c.overridden&&hasRec?'<span class="tg tg-adj" style="margin-top:3px;display:block;width:fit-content;margin-left:auto">↗ ajustado</span>':''}
       </td>
-      <td><input class="cell-input date" value="${esc(c.payment_date)}" placeholder="DD/MM"
+      <td><input id="dt-cost-${c.id}" class="cell-input date" value="${esc(c.payment_date)}" placeholder="DD/MM"
         title="Data futura deixa a despesa projetada, aguardando confirmação"
         oninput="onCostChange(${mid},${c.id},'payment_date',this.value)"
         onblur="onDataBlur('cost',${mid},${c.id},this)"></td>
