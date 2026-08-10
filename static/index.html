@@ -2921,7 +2921,7 @@ function renderMonthTab(mid) {
     const isProj=r.status==='projetado';
     const hasRec=!!r.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
-    if(isProj){
+    if(isProj && hasRec){
       return `<tr style="${rowStyle}">
         ${selTd('revenue',mid,r.id)}
         <td><div class="cell-nome">
@@ -2935,12 +2935,13 @@ function renderMonthTab(mid) {
         <td><button class="del-btn" onclick="deleteRevenue(${mid},${r.id})">✕</button></td>
       </tr>`;
     }
-    return `<tr class="${r.is_new_client?'new-client':''}">
+    return `<tr class="${r.is_new_client?'new-client':''}" style="${isProj?rowStyle:''}">
       ${selTd('revenue',mid,r.id)}
       <td>
         <div style="display:flex;align-items:center;gap:3px">
           ${hasRec?'<span style="color:var(--ac);font-size:11px;flex-shrink:0" title="Recorrente">↻</span>':''}
           <input class="cell-input rev-name" value="${esc(r.client_name)}" placeholder="Cliente…" oninput="onRevChange(${mid},${r.id},'client_name',this.value)" style="flex:1;min-width:0">
+          ${isProj?'<span class="tg tg-proj">Projetado</span>':''}
         </div>
       </td>
       <td>
@@ -2961,6 +2962,8 @@ function renderMonthTab(mid) {
       </td>
       <td>
         <div class="row-acts">
+          ${isProj?`<button class="btn sm grn" title="Confirmar que já aconteceu"
+            onclick="openConfirmModal('revenue',${r.id},${r.amount},${r.recurring_id||'null'})">✓</button>`:''}
           <button class="new-btn ${r.is_new_client?'active':''}" title="Marca que este cliente entrou neste mês"
             onclick="toggleNewClient(${mid},${r.id},this)">${r.is_new_client?'★ Novo':'☆ Novo'}</button>
           <button class="nr-btn ${r.nonrecurring==1?'active':''}"
@@ -3032,7 +3035,7 @@ function renderMonthTab(mid) {
         <td></td>
       </tr>`;
     }
-    if(isProj){
+    if(isProj && hasRec){
       return `<tr style="${rowStyle}">
         ${selTd('cost',mid,c.id)}
         <td><div class="cell-nome">
@@ -3046,12 +3049,13 @@ function renderMonthTab(mid) {
         <td><button class="del-btn" onclick="deleteCost(${mid},${c.id})">✕</button></td>
       </tr>`;
     }
-    return `<tr>
+    return `<tr style="${isProj?rowStyle:''}">
       ${selTd('cost',mid,c.id)}
       <td>
         <div style="display:flex;align-items:center;gap:3px">
           ${hasRec?'<span style="color:var(--ac);font-size:11px;flex-shrink:0" title="Recorrente">↻</span>':''}
           <input class="cell-input cost-name" value="${esc(c.name)}" placeholder="Descrição…" oninput="onCostChange(${mid},${c.id},'name',this.value)" style="flex:1;min-width:0">
+          ${isProj?'<span class="tg tg-proj">Projetado</span>':''}
         </div>
       </td>
       <td>
@@ -3072,6 +3076,8 @@ function renderMonthTab(mid) {
       </td>
       <td>
         <div class="row-acts">
+          ${isProj?`<button class="btn sm grn" title="Confirmar que já aconteceu"
+            onclick="openConfirmModal('cost',${c.id},${c.amount},${c.recurring_id||'null'})">✓</button>`:''}
           <button class="nr-btn ${c.nonrecurring==1?'active':''}"
             title="NR = Não Recorrente. Gasto pontual, que não deve se repetir todo mês."
             onclick="toggleNonRec('cost',${mid},${c.id},this)">NR</button>
