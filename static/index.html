@@ -1486,6 +1486,23 @@ function byDateDesc(field, year){
   };
 }
 
+// Realizado em cima, projetado embaixo, e dentro de cada bloco o que importa:
+// no realizado, a data mais recente primeiro; no projetado, o que a pessoa
+// acabou de lancar a mao antes das linhas que vieram de recorrencia — senao a
+// despesa nova nascia no meio de vinte projetadas e parecia nao ter entrado.
+function byStatusThenDate(field, year){
+  const dt = byDateDesc(field, year);
+  return (a,b)=>{
+    const pa = (a.status==='projetado')?1:0, pb = (b.status==='projetado')?1:0;
+    if(pa!==pb) return pa-pb;
+    if(!pa) return dt(a,b);
+    const ra = a.recurring_id?1:0, rb = b.recurring_id?1:0;
+    if(ra!==rb) return ra-rb;
+    if(!ra) return (b.id||0)-(a.id||0);       // lancada a mao: a mais nova na frente
+    return (a.sort_order||0)-(b.sort_order||0) || a.id-b.id;
+  };
+}
+
 async function toggleNonRec(kind, mid, id, btn){
   const m=S.map[mid]; if(!m) return;
   const arr = kind==='revenue' ? m.revenues : m.costs;
@@ -2124,12 +2141,15 @@ function statusPelaData(m, ddmm){
   const h = new Date();
   const hojeMes = h.getFullYear()*100 + (h.getMonth()+1);
   if(m.year*100 + m.month < hojeMes) return 'realizado';
-  const p = String(ddmm||'').match(/^\s*(\d{1,2})\s*\/\s*(\d{1,2})/);
-  if(!p) return 'projetado';
-  const dia = +p[1], mes = +p[2];
-  if(!(dia>=1 && dia<=31 && mes>=1 && mes<=12)) return 'projetado';
+  // Le pelo dateKey, o mesmo leitor do Fluxo de caixa. Antes so entendia
+  // "DD/MM" com barra, e a coluna tem tres formatos: o que a pessoa digita,
+  // o "21-08" com traco e o ISO que o botao de confirmar gravava. Qualquer
+  // um que ele nao reconhecesse virava projetado — e um item ja confirmado
+  // se desconfirmava sozinho ao passar pelo campo de data.
+  const k = dateKey(ddmm, m.year);
+  if(k === null) return 'projetado';
   const hojeIdx = h.getFullYear()*10000 + (h.getMonth()+1)*100 + h.getDate();
-  return (m.year*10000 + mes*100 + dia) <= hojeIdx ? 'realizado' : 'projetado';
+  return k <= hojeIdx ? 'realizado' : 'projetado';
 }
 
 // Roda no blur, não a cada tecla: o campo é "DD/MM" e o status oscilaria entre
@@ -2917,7 +2937,7 @@ function renderMonthTab(mid) {
   const costCatSel=`<select class="cell-select" style="width:100%;min-width:100px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
     ${COST_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
 
-  const revRows=[...m.revenues].sort(byDateDesc('received_date',m.year)).map(r=>{
+  const revRows=[...m.revenues].sort(byStatusThenDate('received_date',m.year)).map(r=>{
     const isProj=r.status==='projetado';
     const hasRec=!!r.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
@@ -2983,7 +3003,7 @@ function renderMonthTab(mid) {
   // continua dentro do total projetado, so muda onde aparece.
   const custosDoMes = custosEfetivos(m);
   const reservaMes  = custosDoMes.find(c=>c.viaImprevisto);
-  const costRows=[...custosDoMes.filter(c=>!c.viaImprevisto)].sort(byDateDesc('payment_date',m.year)).map(c=>{
+  const costRows=[...custosDoMes.filter(c=>!c.viaImprevisto)].sort(byStatusThenDate('payment_date',m.year)).map(c=>{
     const isProj=c.status==='projetado';
     const hasRec=!!c.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';

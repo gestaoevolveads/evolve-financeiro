@@ -1085,11 +1085,18 @@ def make_cost_recurring(cid):
     audit(request.user['username'], 'despesa_tornou_recorrente', f"ID {cid}")
     return jsonify(item)
 
+def _hoje_ddmm():
+    """A coluna de data e exibida e digitada como DD/MM na tela inteira. O
+    confirm gravava ISO (2026-08-10), e o valor aparecia fora do padrao no meio
+    da lista — e o leitor de status nao o reconhecia."""
+    return datetime.date.today().strftime('%d/%m')
+
+
 @app.post('/api/revenues/<int:rid>/confirm')
 @auth
 def confirm_revenue(rid):
     d = request.get_json() or {}
-    date = d.get('received_date', datetime.date.today().isoformat())
+    date = d.get('received_date') or _hoje_ddmm()
     with db() as c:
         c.execute("UPDATE revenues SET status='realizado',received_date=? WHERE id=?",(date,rid))
         c.commit()
@@ -1102,7 +1109,7 @@ def confirm_revenue(rid):
 @auth
 def confirm_cost(cid):
     d = request.get_json() or {}
-    date = d.get('paid_date', datetime.date.today().isoformat())
+    date = d.get('paid_date') or _hoje_ddmm()
     with db() as c:
         c.execute("UPDATE costs SET status='realizado',payment_date=? WHERE id=?",(date,cid))
         c.commit()
