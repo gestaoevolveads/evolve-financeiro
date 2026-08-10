@@ -1486,20 +1486,24 @@ function byDateDesc(field, year){
   };
 }
 
-// Realizado em cima, projetado embaixo, e dentro de cada bloco o que importa:
-// no realizado, a data mais recente primeiro; no projetado, o que a pessoa
-// acabou de lancar a mao antes das linhas que vieram de recorrencia — senao a
-// despesa nova nascia no meio de vinte projetadas e parecia nao ter entrado.
+// Realizado em cima, projetado embaixo — a separacao e o que importa, porque
+// uma despesa nova nascia no meio de vinte projetadas e parecia nao ter
+// entrado. Dentro de cada bloco a ordem e a data de pagamento.
+//
+// No realizado a data mais recente vem primeiro: o que acabou de acontecer e o
+// que se quer ver. No projetado e o contrario, a mais proxima primeiro — o
+// bloco e uma fila de vencimentos, e a proxima conta a pagar e a que interessa.
+// Linha sem data vai para o fim dos dois lados, para nao atrapalhar quem esta
+// preenchendo.
 function byStatusThenDate(field, year){
-  const dt = byDateDesc(field, year);
   return (a,b)=>{
     const pa = (a.status==='projetado')?1:0, pb = (b.status==='projetado')?1:0;
     if(pa!==pb) return pa-pb;
-    if(!pa) return dt(a,b);
-    const ra = a.recurring_id?1:0, rb = b.recurring_id?1:0;
-    if(ra!==rb) return ra-rb;
-    if(!ra) return (b.id||0)-(a.id||0);       // lancada a mao: a mais nova na frente
-    return (a.sort_order||0)-(b.sort_order||0) || a.id-b.id;
+    const ka = dateKey(a[field], year), kb = dateKey(b[field], year);
+    if(ka===null && kb===null) return (a.sort_order||0)-(b.sort_order||0) || a.id-b.id;
+    if(ka===null) return 1;
+    if(kb===null) return -1;
+    return (pa ? ka-kb : kb-ka) || a.id-b.id;
   };
 }
 
