@@ -2856,7 +2856,13 @@ function renderMonthTab(mid) {
           <span class="nm" style="color:var(--tx2)" title="${esc(r.client_name)}">${esc(r.client_name)||'—'}</span>
           <span class="tg tg-proj">Projetado</span>
         </div></td>
-        <td><span style="font-family:var(--ff);font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(r.amount)||'0,00'}</span></td>
+        <td>
+          <input class="cell-input amount" type="text" value="${fmtAmt(r.amount)}" placeholder="0,00"
+            style="color:var(--pu);font-weight:600"
+            title="Digite o valor realizado e saia do campo para confirmar"
+            onfocus="onAmtFocus(this)"
+            onblur="onProjAmtBlur('revenue',${mid},${r.id},${r.amount},this)">
+        </td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(r.category)}</span></td>
         <td><button class="btn sm grn" onclick="confirmItem('revenue',${r.id})">✓ Confirmar</button></td>
@@ -2964,7 +2970,13 @@ function renderMonthTab(mid) {
           <span class="nm" style="color:var(--tx2)" title="${esc(c.name)}">${esc(c.name)||'—'}</span>
           <span class="tg tg-proj">Projetado</span>
         </div></td>
-        <td><span style="font-family:var(--ff);font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(c.amount)||'0,00'}</span></td>
+        <td>
+          <input class="cell-input amount" type="text" value="${fmtAmt(c.amount)}" placeholder="0,00"
+            style="color:var(--pu);font-weight:600"
+            title="Digite o valor realizado e saia do campo para confirmar"
+            onfocus="onAmtFocus(this)"
+            onblur="onProjAmtBlur('cost',${mid},${c.id},${c.amount},this)">
+        </td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(c.category)}</span></td>
         <td><button class="btn sm grn" onclick="confirmItem('cost',${c.id})">✓ Confirmar</button></td>
@@ -8312,6 +8324,22 @@ function _findMidForItem(type, id) {
     if(list && list.find(x=>x.id===id)) return m.id;
   }
   return null;
+}
+
+async function onProjAmtBlur(type, mid, id, projAmount, el) {
+  const novo = parseAmt(el.value);
+  el.value = fmtAmt(novo);
+  if(Math.abs(novo - projAmount) > 0.001) {
+    // Valor diferente do projetado: atualiza primeiro, depois confirma
+    const amtField = type === 'revenue' ? 'amount' : 'amount';
+    const endpoint = type === 'revenue' ? `/api/revenues/${id}` : `/api/costs/${id}`;
+    syncLabel('Salvando…','saving');
+    try {
+      await api('PUT', endpoint, { amount: novo });
+      await confirmItem(type, id);
+    } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+  }
+  // Se valor igual: não faz nada — usuário usa o botão ✓ Confirmar normalmente
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
