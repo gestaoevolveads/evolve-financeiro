@@ -8541,6 +8541,25 @@ function renderRecurringList() {
         </div>
       </div>
       <div id="rec-edit-form-${item.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
+        <!-- Converter mensal em anual só era possível pela API: a lógica existia
+             e o campo, não. Trocar aqui move a vigência para o mês escolhido. -->
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Frequência</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <select id="rec-edit-freq-${item.id}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:var(--ff);font-size:12px;outline:none"
+              onchange="(()=>{const m=e('rec-edit-moy-${item.id}');m.style.display=this.value==='annual'?'':'none';})()">
+              <option value="monthly" ${item.frequency!=='annual'?'selected':''}>Mensal — todo mês</option>
+              <option value="annual" ${item.frequency==='annual'?'selected':''}>Anual — uma vez por ano</option>
+            </select>
+            <select id="rec-edit-moy-${item.id}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:var(--ff);font-size:12px;outline:none;display:${item.frequency==='annual'?'':'none'}">
+              ${MONTHS_PT.map((mn,i)=>`<option value="${i+1}" ${(item.month_of_year||item.start_month)===i+1?'selected':''}>${mn}</option>`).join('')}
+            </select>
+          </div>
+          <div style="font-size:10px;color:var(--mu);margin-top:4px">
+            Vigência atual: a partir de ${MONTHS_PT[(item.start_month||1)-1]}/${item.start_year}${item.end_year?` até ${MONTHS_PT[(item.end_month||12)-1]}/${item.end_year}`:''}.
+            Trocar a frequência move a vigência para o mês escolhido.
+          </div>
+        </div>
         <div style="margin-bottom:8px">
           <label style="font-size:11px;color:var(--mu);display:block;margin-bottom:3px">Nome / Descrição</label>
           <input id="rec-edit-desc-${item.id}" type="text" value="${esc(item.description)}" style="width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--tx);font-family:var(--ff);font-size:12px;outline:none;box-sizing:border-box">
@@ -8750,9 +8769,11 @@ async function submitEditRecurring(id) {
   const dom=parseInt(e(`rec-edit-dom-${id}`)?.value)||null;
   const em=parseInt(e(`rec-edit-em-${id}`)?.value)||null;
   const ey=parseInt(e(`rec-edit-ey-${id}`)?.value)||null;
+  const freq=e(`rec-edit-freq-${id}`)?.value==='annual'?'annual':'monthly';
+  const moy=freq==='annual' ? (parseInt(e(`rec-edit-moy-${id}`)?.value)||item.start_month) : null;
   syncLabel('Salvando…','saving');
   try {
-    const updated=await api('PUT',`/api/recurring/${id}`,{...item, description:desc, client_name:item.type==='revenue'?desc:item.client_name, amount:amt, day_of_month:dom||null, end_month:em||null, end_year:ey||null});
+    const updated=await api('PUT',`/api/recurring/${id}`,{...item, description:desc, client_name:item.type==='revenue'?desc:item.client_name, amount:amt, day_of_month:dom||null, end_month:em||null, end_year:ey||null, frequency:freq, month_of_year:moy});
     const idx=S.recurring.findIndex(r=>r.id===id); if(idx>=0) S.recurring[idx]=updated;
     const allMonths = await api('GET','/api/months');
     S.months=allMonths; S.map={}; allMonths.forEach(m=>S.map[m.id]=m);
@@ -8760,7 +8781,16 @@ async function submitEditRecurring(id) {
     if(S.tab!=='dashboard'){ const mid=parseInt(S.tab.replace('m','')); if(!isNaN(mid)) renderMonthTab(mid); }
     updateDashboard();
     syncLabel('Salvo ✓','saved'); setTimeout(()=>syncLabel(fmtSync(),''),3000);
-    showToast('Recorrente atualizado ✓');
+    // Virar anual pode mover a vigência para o ano seguinte, e aí some dos
+    // meses cadastrados. Sem dizer isso, parece que o item se perdeu.
+    if(updated.linhas_geradas === 0){
+      showToast(`Atualizado, mas nenhum lançamento ficou: a vigência começa em `
+        + `${MONTHS_PT[(updated.start_month||1)-1]}/${updated.start_year}, fora dos meses cadastrados.`, 7000);
+    } else if(freq==='annual'){
+      showToast(`Recorrente agora é anual — aparece todo ${MONTHS_PT[(updated.month_of_year||1)-1]} ✓`);
+    } else {
+      showToast('Recorrente atualizado ✓');
+    }
   } catch(err){ syncLabel('Erro','error'); alert(err.message); }
 }
 
