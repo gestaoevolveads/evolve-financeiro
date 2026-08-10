@@ -8073,7 +8073,17 @@ function drawContasTab() {
 function buildRecurringContasSection(isRecv) {
   const recType = isRecv ? 'revenue' : 'cost';
   const recItems = (S.recurring||[]).filter(r=>r.type===recType&&r.active!==0);
-  if(!recItems.length) return '';
+  if(!recItems.length) {
+    const addType = isRecv ? 'revenue' : 'cost';
+    const addColor = isRecv ? 'grn' : 'red';
+    return `<div class="card" style="padding:0;overflow:hidden;margin-top:14px">
+      <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+        <div class="ct" style="margin-bottom:0;color:var(--pu)">🔁 ${isRecv?'Receitas':'Despesas'} Recorrentes</div>
+        <button class="btn sm ${addColor}" onclick="openRecurringModal('${addType}')">+ Nova</button>
+      </div>
+      <div style="padding:10px 14px;color:var(--mu);font-size:12px">Nenhuma ${isRecv?'receita':'despesa'} recorrente cadastrada.</div>
+    </div>`;
+  }
   const rows = recItems.map(r=>{
     const domLabel = r.day_of_month ? `Dia ${r.day_of_month}` : '—';
     const endLabel = r.end_year&&r.end_month ? `até ${MONTHS_PT[r.end_month-1]}/${r.end_year}` : 'sem encerramento';
@@ -8092,10 +8102,15 @@ function buildRecurringContasSection(isRecv) {
     </tr>`;
   }).join('');
   const total = recItems.reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const addType = isRecv ? 'revenue' : 'cost';
+  const addColor = isRecv ? 'grn' : 'red';
   return `<div class="card" style="padding:0;overflow:hidden;margin-top:14px">
     <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
       <div class="ct" style="margin-bottom:0;color:var(--pu)">🔁 ${isRecv?'Receitas':'Despesas'} Recorrentes (${recItems.length})</div>
-      <span style="font-size:12px;font-family:var(--ff);font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(total)}/mês</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;font-family:var(--ff);font-weight:700;color:${isRecv?'var(--g)':'var(--rd)'}">${brl(total)}/mês</span>
+        <button class="btn sm ${addColor}" onclick="openRecurringModal('${addType}')">+ Nova</button>
+      </div>
     </div>
     <div style="overflow-x:auto">
       <table class="etable">
@@ -8337,9 +8352,17 @@ async function submitMakeRecurring() {
 // ══════════════════════════════════════════════════════════════════════════════
 // RECURRING — MANAGE MODAL
 // ══════════════════════════════════════════════════════════════════════════════
-function openRecurringModal() {
+function openRecurringModal(autoAddType) {
   renderRecurringList();
   e('rec-overlay').style.display='flex';
+  if(autoAddType) {
+    // Expande o formulário de adição para o tipo certo
+    setTimeout(()=>{
+      const f=e(`rec-add-form-${autoAddType}`);
+      if(f){ f.style.display='block'; f.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+      e(`rec-new-desc-${autoAddType}`)?.focus();
+    }, 80);
+  }
 }
 function closeRecurringModal(){ e('rec-overlay').style.display='none'; }
 
