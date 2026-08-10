@@ -189,6 +189,14 @@ button{transition:transform .1s ease-out,background .15s,border-color .15s,color
 .tg{flex-shrink:0;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:5px;
   white-space:nowrap;line-height:1.5}
 .tg-proj{background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-ring)}
+/* Projetado ainda nao aconteceu: em toda a ferramenta isso se le como roxo e
+   texto mais claro. A linha projetada que da para editar ficava com a mesma
+   tinta de uma realizada e destoava das de cima. */
+tr.linha-proj .cell-input.cost-name,
+tr.linha-proj .cell-input.rev-name,
+tr.linha-proj .cell-select{color:var(--tx2)}
+tr.linha-proj .cell-input.amount{color:var(--pu);font-weight:600}
+tr.linha-proj .cell-input.date{color:var(--tx2)}
 .tg-calc{background:rgba(167,139,250,.13);color:var(--pu);border:1px solid rgba(167,139,250,.28)}
 .tg-adj{background:rgba(245,158,11,.12);color:#d97706;border:1px solid rgba(245,158,11,.3)}
 /* A reserva nao e uma linha da tabela: fica logo abaixo, com peso visual menor
@@ -1495,11 +1503,26 @@ function byDateDesc(field, year){
 // bloco e uma fila de vencimentos, e a proxima conta a pagar e a que interessa.
 // Linha sem data vai para o fim dos dois lados, para nao atrapalhar quem esta
 // preenchendo.
-function byStatusThenDate(field, year){
+// A recorrencia guarda o dia do vencimento ("Dia 10"), mas a linha gerada nasce
+// sem data — e ficava com "—" na coluna e no fim da fila. Aqui a data e
+// deduzida para exibir e para ordenar; nada e gravado, e quem nao tem dia
+// cadastrado continua sem data mesmo.
+function vencimentoDe(it, m){
+  const propria = it.payment_date || it.received_date || '';
+  if(propria) return propria;
+  if(!it.recurring_id) return '';
+  const r = (S.recurring||[]).find(x=>x.id===it.recurring_id);
+  const d = r && parseInt(r.day_of_month);
+  if(!d || d<1 || d>31) return '';
+  return String(d).padStart(2,'0')+'/'+String(m.month).padStart(2,'0');
+}
+
+function byStatusThenDate(field, m){
+  const year = m.year;
   return (a,b)=>{
     const pa = (a.status==='projetado')?1:0, pb = (b.status==='projetado')?1:0;
     if(pa!==pb) return pa-pb;
-    const ka = dateKey(a[field], year), kb = dateKey(b[field], year);
+    const ka = dateKey(vencimentoDe(a,m) || a[field], year), kb = dateKey(vencimentoDe(b,m) || b[field], year);
     if(ka===null && kb===null) return (a.sort_order||0)-(b.sort_order||0) || a.id-b.id;
     if(ka===null) return 1;
     if(kb===null) return -1;
@@ -2941,7 +2964,7 @@ function renderMonthTab(mid) {
   const costCatSel=`<select class="cell-select" style="width:100%;min-width:100px" onchange="onCostChange(${mid},ROWID,'category',this.value)">
     ${COST_CATS.map(c=>`<option value="${c}">CATVAL</option>`).join('')}</select>`;
 
-  const revRows=[...m.revenues].sort(byStatusThenDate('received_date',m.year)).map(r=>{
+  const revRows=[...m.revenues].sort(byStatusThenDate('received_date',m)).map(r=>{
     const isProj=r.status==='projetado';
     const hasRec=!!r.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
@@ -2953,13 +2976,14 @@ function renderMonthTab(mid) {
           <span class="tg tg-proj">Projetado</span>
         </div></td>
         <td><span style="font-family:var(--ff);font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(r.amount)||'0,00'}</span></td>
-        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
+        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block"
+          title="${vencimentoDe(r,m)?'Vencimento cadastrado na recorrência':''}">${vencimentoDe(r,m)||'—'}</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(r.category)}</span></td>
         <td><button class="btn sm grn" onclick="openConfirmModal('revenue',${r.id},${r.amount},${r.recurring_id||'null'})">✓ Confirmar</button></td>
         <td><button class="del-btn" onclick="deleteRevenue(${mid},${r.id})">✕</button></td>
       </tr>`;
     }
-    return `<tr class="${r.is_new_client?'new-client':''}" style="${isProj?rowStyle:''}">
+    return `<tr class="${r.is_new_client?'new-client':''} ${isProj?'linha-proj':''}" style="${isProj?rowStyle:''}">
       ${selTd('revenue',mid,r.id)}
       <td>
         <div style="display:flex;align-items:center;gap:3px">
@@ -3007,7 +3031,7 @@ function renderMonthTab(mid) {
   // continua dentro do total projetado, so muda onde aparece.
   const custosDoMes = custosEfetivos(m);
   const reservaMes  = custosDoMes.find(c=>c.viaImprevisto);
-  const costRows=[...custosDoMes.filter(c=>!c.viaImprevisto)].sort(byStatusThenDate('payment_date',m.year)).map(c=>{
+  const costRows=[...custosDoMes.filter(c=>!c.viaImprevisto)].sort(byStatusThenDate('payment_date',m)).map(c=>{
     const isProj=c.status==='projetado';
     const hasRec=!!c.recurring_id;
     const rowStyle=isProj?'opacity:.8;border-left:3px solid var(--pu)':'';
@@ -3067,13 +3091,14 @@ function renderMonthTab(mid) {
           <span class="tg tg-proj">Projetado</span>
         </div></td>
         <td><span style="font-family:var(--ff);font-weight:600;font-size:12px;color:var(--pu);padding:5px 8px;display:block;text-align:right">${fmtAmt(c.amount)||'0,00'}</span></td>
-        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">—</span></td>
+        <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block"
+          title="${vencimentoDe(c,m)?'Vencimento cadastrado na recorrência':''}">${vencimentoDe(c,m)||'—'}</span></td>
         <td><span style="font-size:11px;color:var(--mu);padding:5px 8px;display:block">${catLabel(c.category)}</span></td>
         <td><button class="btn sm grn" onclick="openConfirmModal('cost',${c.id},${c.amount},${c.recurring_id||'null'})">✓ Confirmar</button></td>
         <td><button class="del-btn" onclick="deleteCost(${mid},${c.id})">✕</button></td>
       </tr>`;
     }
-    return `<tr style="${isProj?rowStyle:''}">
+    return `<tr class="${isProj?'linha-proj':''}" style="${isProj?rowStyle:''}">
       ${selTd('cost',mid,c.id)}
       <td>
         <div style="display:flex;align-items:center;gap:3px">
