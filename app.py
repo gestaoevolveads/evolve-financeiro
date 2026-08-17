@@ -865,6 +865,7 @@ def _gen_recurring_rows(c, item):
         return padrao if v is None else v
     freq = _campo('frequency', 'monthly') or 'monthly'
     moy  = _campo('month_of_year')   # só para frequência anual
+    dom  = _campo('day_of_month')    # dia do mês (1-31); usado como payment_date
     for m in months:
         y, mo = m['year'], m['month']
         after_start = (y > sy) or (y == sy and mo >= sm)
@@ -878,16 +879,21 @@ def _gen_recurring_rows(c, item):
         if freq == 'annual' and moy and mo != moy:
             continue
         iid = item['id']
+        date_val = f"{y:04d}-{mo:02d}-{int(dom):02d}" if dom else ''
         if item['type'] == 'revenue':
             ex = c.execute('SELECT id FROM revenues WHERE month_id=? AND recurring_id=?', (m['id'], iid)).fetchone()
             if not ex:
                 c.execute('INSERT INTO revenues (month_id,client_name,amount,received_date,category,is_new_client,sort_order,recurring_id,status) VALUES (?,?,?,?,?,?,?,?,?)',
-                    (m['id'], item['client_name'] or item['description'], item['amount'], '', item['category'], 0, 999, iid, 'projetado'))
+                    (m['id'], item['client_name'] or item['description'], item['amount'], date_val, item['category'], 0, 999, iid, 'projetado'))
+            elif dom:
+                c.execute("UPDATE revenues SET received_date=? WHERE id=? AND status='projetado' AND received_date=''", (date_val, ex['id']))
         else:
             ex = c.execute('SELECT id FROM costs WHERE month_id=? AND recurring_id=?', (m['id'], iid)).fetchone()
             if not ex:
                 c.execute('INSERT INTO costs (month_id,name,amount,payment_date,category,sort_order,recurring_id,status) VALUES (?,?,?,?,?,?,?,?)',
-                    (m['id'], item['description'], item['amount'], '', item['category'], 999, iid, 'projetado'))
+                    (m['id'], item['description'], item['amount'], date_val, item['category'], 999, iid, 'projetado'))
+            elif dom:
+                c.execute("UPDATE costs SET payment_date=? WHERE id=? AND status='projetado' AND payment_date=''", (date_val, ex['id']))
 
 def _estender_recorrentes_uma_vez():
     """As recorrencias existentes foram criadas quando o periodo terminava em
@@ -914,6 +920,38 @@ def _estender_recorrentes_uma_vez():
 
 
 _estender_recorrentes_uma_vez()
+
+
+def _fixar_payment_dates():
+    """Preenche payment_date/received_date vazios em linhas projetadas cujo
+    recurring_item tem day_of_month definido. Roda a cada startup — idempotente."""
+    with db() as c:
+        items = c.execute(
+            'SELECT * FROM recurring_items WHERE active=1 AND day_of_month IS NOT NULL'
+        ).fetchall()
+        for item in items:
+            dom = item['day_of_month']
+            if not dom:
+                continue
+            rows = c.execute(
+                "SELECT c.id, m.year, m.month FROM costs c JOIN months m ON c.month_id=m.id "
+                "WHERE c.recurring_id=? AND c.status='projetado' AND (c.payment_date='' OR c.payment_date IS NULL)",
+                (item['id'],)
+            ).fetchall()
+            for r in rows:
+                date_val = f"{r['year']:04d}-{r['month']:02d}-{int(dom):02d}"
+                c.execute('UPDATE costs SET payment_date=? WHERE id=?', (date_val, r['id']))
+            rev_rows = c.execute(
+                "SELECT r.id, m.year, m.month FROM revenues r JOIN months m ON r.month_id=m.id "
+                "WHERE r.recurring_id=? AND r.status='projetado' AND (r.received_date='' OR r.received_date IS NULL)",
+                (item['id'],)
+            ).fetchall()
+            for r in rev_rows:
+                date_val = f"{r['year']:04d}-{r['month']:02d}-{int(dom):02d}"
+                c.execute('UPDATE revenues SET received_date=? WHERE id=?', (date_val, r['id']))
+        c.commit()
+
+_fixar_payment_dates()
 
 
 @app.get('/api/recurring')
