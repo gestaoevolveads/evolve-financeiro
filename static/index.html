@@ -3901,37 +3901,23 @@ const dBR = s => { const k=dateKey(s); if(!k) return String(s||'—');
   return `${String(dd).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`; };
 const daysBetween = (a,b) => Math.round((b-a)/86400000);
 
-// Monta os dados da semana a partir de contas a pagar/receber já cadastradas
+// Monta os dados da semana a partir de contas a pagar/receber cadastradas
 function buildWeekly(startISO){
   const ini = parseISO(startISO), fim = addDays(ini,6);
   const kIni = ini.getFullYear()*10000+(ini.getMonth()+1)*100+ini.getDate();
   const kFim = fim.getFullYear()*10000+(fim.getMonth()+1)*100+fim.getDate();
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
-  // Pagar e receber saem das tabelas do MES, que e onde os lancamentos vivem de
-  // verdade. Ler da aba Contas deixava o relatorio zerado, porque ela nao e usada.
-  // Datas do mes sao texto livre ("03/08" ou "2026-08-03"), entao o ano do mes
-  // entra como fallback no parse.
-  const pagar = [], receber = [];
-  (S.months||[]).forEach(m=>{
-    (m.costs||[]).forEach(c=>{
-      const k = dateKey(c.payment_date, m.year);
-      if(k===null || k<kIni || k>kFim) return;
-      pagar.push({ id:c.id, _k:k, due_date:c.payment_date, description:c.name,
-                   category:c.category, amount:c.amount,
-                   status: c.status==='projetado' ? 'pendente' : 'pago' });
-    });
-    (m.revenues||[]).forEach(r=>{
-      const k = dateKey(r.received_date, m.year);
-      if(k===null || k<kIni || k>kFim) return;
-      receber.push({ id:r.id, _k:k, due_date:r.received_date, client_name:r.client_name,
-                     description:r.client_name, category:r.category, amount:r.amount,
-                     status: r.status==='projetado' ? 'pendente' : 'recebido',
-                     received_date: r.status==='projetado' ? '' : r.received_date });
-    });
-  });
-  pagar.sort((a,b)=>a._k-b._k);
-  receber.sort((a,b)=>a._k-b._k);
+  // Pagar vem de S.payables, receber de S.receivables — filtrado por due_date na semana
+  const pagar = (S.payables||[])
+    .filter(p=>{ const k=dateKey(p.due_date); return k!==null && k>=kIni && k<=kFim; })
+    .map(p=>({...p, _k:dateKey(p.due_date)}))
+    .sort((a,b)=>a._k-b._k);
+
+  const receber = (S.receivables||[])
+    .filter(r=>{ const k=dateKey(r.due_date); return k!==null && k>=kIni && k<=kFim; })
+    .map(r=>({...r, _k:dateKey(r.due_date)}))
+    .sort((a,b)=>a._k-b._k);
 
   // Inadimplente = a receber, ainda pendente, vencida antes desta semana
   const inad = (S.receivables||[]).filter(r=>{
@@ -4004,8 +3990,8 @@ async function openWeekly(){
   S.weeklyTxt = txt;
 
   const linha = (cols) => `<tr>${cols.map(c=>`<td${c.r?' class="r"':''}>${c.v}</td>`).join('')}</tr>`;
-  const stat = it => (it.status && it.status!=='pendente')
-      ? `<span class="status-badge ${it.received_date?'s-recebido':'s-pago'}">${it.received_date?'Recebido':'Pago'}</span>` : '';
+  const statP = p => p.status==='pago' ? `<span class="status-badge s-pago">Pago</span>` : '';
+  const statR = r => r.status==='recebido' ? `<span class="status-badge s-recebido">Recebido</span>` : '';
 
   const vazio = c => `<tr><td colspan="${c}" style="color:var(--mu);text-align:center;padding:16px">Nada nesta semana</td></tr>`;
 
@@ -4025,7 +4011,7 @@ async function openWeekly(){
       </tr></thead><tbody>
         ${w.pagar.length ? w.pagar.map(p=>linha([
             {v:dBR(p.due_date)},{v:esc(p.description||'—')},{v:esc(catLabel(p.category))},
-            {v:brl(p.amount),r:1},{v:stat(p)}])).join('') : vazio(5)}
+            {v:brl(p.amount),r:1},{v:statP(p)}])).join('') : vazio(5)}
       </tbody><tfoot><tr class="tot"><td colspan="3">Total a pagar</td><td class="r">${brl(w.totalPagar)}</td><td></td></tr></tfoot></table>
     </div>
 
@@ -4035,7 +4021,7 @@ async function openWeekly(){
       </tr></thead><tbody>
         ${w.receber.length ? w.receber.map(r=>linha([
             {v:dBR(r.due_date)},{v:esc(r.client_name||r.description||'—')},{v:esc(catLabel(r.category))},
-            {v:brl(r.amount),r:1},{v:stat(r)}])).join('') : vazio(5)}
+            {v:brl(r.amount),r:1},{v:statR(r)}])).join('') : vazio(5)}
       </tbody><tfoot><tr class="tot"><td colspan="3">Total a receber</td><td class="r">${brl(w.totalReceber)}</td><td></td></tr></tfoot></table>
     </div>
 
@@ -4097,7 +4083,8 @@ async function exportWeekly(){
   const rows = (arr, cols, empty) => arr.length
     ? arr.map(x=>`<tr>${cols(x)}</tr>`).join('')
     : `<tr><td colspan="5" class="vazio">${empty}</td></tr>`;
-  const stTxt = it => (it.status && it.status!=='pendente') ? (it.received_date?'Recebido':'Pago') : '';
+  const stTxtP = p => p.status==='pago' ? 'Pago' : '';
+  const stTxtR = r => r.status==='recebido' ? 'Recebido' : '';
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Relatório Semanal · ${per}</title>
@@ -4152,12 +4139,12 @@ async function exportWeekly(){
 
 <div class="band pagar">Contas a Pagar</div>
 <table><thead><tr><th>Vencimento</th><th>Fornecedor</th><th>Categoria</th><th class="r">Valor</th><th>Status</th></tr></thead>
-<tbody>${rows(w.pagar, p=>`<td>${dBR(p.due_date)}</td><td>${esc(p.description||'—')}</td><td>${esc(catLabel(p.category))}</td><td class="r">${money(p.amount)}</td><td>${stTxt(p)}</td>`,'Nenhuma conta a pagar nesta semana')}</tbody>
+<tbody>${rows(w.pagar, p=>`<td>${dBR(p.due_date)}</td><td>${esc(p.description||'—')}</td><td>${esc(catLabel(p.category))}</td><td class="r">${money(p.amount)}</td><td>${stTxtP(p)}</td>`,'Nenhuma conta a pagar nesta semana')}</tbody>
 <tfoot><tr class="tot pagar"><td colspan="3" style="text-align:right">TOTAL A PAGAR</td><td class="r">${money(w.totalPagar)}</td><td></td></tr></tfoot></table>
 
 <div class="band receber">Contas a Receber</div>
 <table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Categoria</th><th class="r">Valor</th><th>Status</th></tr></thead>
-<tbody>${rows(w.receber, r=>`<td>${dBR(r.due_date)}</td><td>${esc(r.client_name||r.description||'—')}</td><td>${esc(catLabel(r.category))}</td><td class="r">${money(r.amount)}</td><td>${stTxt(r)}</td>`,'Nenhuma conta a receber nesta semana')}</tbody>
+<tbody>${rows(w.receber, r=>`<td>${dBR(r.due_date)}</td><td>${esc(r.client_name||r.description||'—')}</td><td>${esc(catLabel(r.category))}</td><td class="r">${money(r.amount)}</td><td>${stTxtR(r)}</td>`,'Nenhuma conta a receber nesta semana')}</tbody>
 <tfoot><tr class="tot receber"><td colspan="3" style="text-align:right">TOTAL A RECEBER</td><td class="r">${money(w.totalReceber)}</td><td></td></tr></tfoot></table>
 
 <div class="band inad">Inadimplentes</div>
