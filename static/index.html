@@ -3908,16 +3908,42 @@ function buildWeekly(startISO){
   const kFim = fim.getFullYear()*10000+(fim.getMonth()+1)*100+fim.getDate();
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
-  // Pagar vem de S.payables, receber de S.receivables — filtrado por due_date na semana
-  const pagar = (S.payables||[])
-    .filter(p=>{ const k=dateKey(p.due_date); return k!==null && k>=kIni && k<=kFim; })
-    .map(p=>({...p, _k:dateKey(p.due_date)}))
-    .sort((a,b)=>a._k-b._k);
+  // Pagar = custos mensais com payment_date na semana + payables com due_date na semana
+  const pagar = [];
+  (S.months||[]).forEach(m=>{
+    (m.costs||[]).forEach(c=>{
+      const k=dateKey(c.payment_date, m.year);
+      if(k===null || k<kIni || k>kFim) return;
+      pagar.push({ _k:k, due_date:c.payment_date, description:c.name,
+                   category:c.category, amount:c.amount,
+                   status: (c.status==='projetado'||!c.status) ? 'pendente' : 'pago' });
+    });
+  });
+  (S.payables||[]).forEach(p=>{
+    const k=dateKey(p.due_date);
+    if(k===null || k<kIni || k>kFim) return;
+    pagar.push({...p, _k:k, status:p.status||'pendente'});
+  });
+  pagar.sort((a,b)=>a._k-b._k);
 
-  const receber = (S.receivables||[])
-    .filter(r=>{ const k=dateKey(r.due_date); return k!==null && k>=kIni && k<=kFim; })
-    .map(r=>({...r, _k:dateKey(r.due_date)}))
-    .sort((a,b)=>a._k-b._k);
+  // Receber = receitas mensais com received_date na semana + receivables com due_date na semana
+  const receber = [];
+  (S.months||[]).forEach(m=>{
+    (m.revenues||[]).forEach(r=>{
+      const k=dateKey(r.received_date, m.year);
+      if(k===null || k<kIni || k>kFim) return;
+      receber.push({ _k:k, due_date:r.received_date, client_name:r.client_name,
+                     category:r.category, amount:r.amount,
+                     status: r.status==='projetado' ? 'pendente' : 'recebido',
+                     received_date: r.status==='projetado' ? '' : r.received_date });
+    });
+  });
+  (S.receivables||[]).forEach(r=>{
+    const k=dateKey(r.due_date);
+    if(k===null || k<kIni || k>kFim) return;
+    receber.push({...r, _k:k, status:r.status||'pendente'});
+  });
+  receber.sort((a,b)=>a._k-b._k);
 
   // Inadimplente = a receber, ainda pendente, vencida antes desta semana
   const inad = (S.receivables||[]).filter(r=>{
@@ -3991,7 +4017,7 @@ async function openWeekly(){
 
   const linha = (cols) => `<tr>${cols.map(c=>`<td${c.r?' class="r"':''}>${c.v}</td>`).join('')}</tr>`;
   const statP = p => p.status==='pago' ? `<span class="status-badge s-pago">Pago</span>` : '';
-  const statR = r => r.status==='recebido' ? `<span class="status-badge s-recebido">Recebido</span>` : '';
+  const statR = r => (r.status==='recebido'||r.received_date) ? `<span class="status-badge s-recebido">Recebido</span>` : '';
 
   const vazio = c => `<tr><td colspan="${c}" style="color:var(--mu);text-align:center;padding:16px">Nada nesta semana</td></tr>`;
 
@@ -4084,7 +4110,7 @@ async function exportWeekly(){
     ? arr.map(x=>`<tr>${cols(x)}</tr>`).join('')
     : `<tr><td colspan="5" class="vazio">${empty}</td></tr>`;
   const stTxtP = p => p.status==='pago' ? 'Pago' : '';
-  const stTxtR = r => r.status==='recebido' ? 'Recebido' : '';
+  const stTxtR = r => (r.status==='recebido'||r.received_date) ? 'Recebido' : '';
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Relatório Semanal · ${per}</title>
