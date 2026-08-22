@@ -5545,10 +5545,22 @@ function metricasCarteira(){
     });
     return o;
   };
-  const serie = (S.months||[]).slice()
-    .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
+  // Só meses FECHADOS. O mês corrente está sempre pela metade: as receitas com
+  // vencimento à frente ainda são 'projetado' e não entram na carteira, então a
+  // transição do mês anterior para ele lia todo cliente que ainda não recebeu
+  // como se tivesse saído, e nenhum como entrada. Isso encolhia a base da
+  // carteira, inflava o churn e derrubava a média de entradas — a projeção
+  // virava decrescente sozinha na virada do mês, sem ninguém ter mexido em nada.
+  const hoje = new Date(), mesAtual = hoje.getFullYear()*12 + (hoje.getMonth()+1);
+  const comCarteira = ms => ms
     .map(m=>({m, c:carteira(m)}))
     .filter(x=>Object.keys(x.c).length);
+  const ordenados = (S.months||[]).slice()
+    .sort((a,b)=>(a.year-b.year)||(a.month-b.month));
+  const fechados = comCarteira(ordenados.filter(m => (m.year*12+m.month) < mesAtual));
+  // Ferramenta recém-começada, sem nenhum mês fechado com carteira: aí é melhor
+  // ler o mês corrente do que não ter métrica nenhuma.
+  const serie = fechados.length ? fechados : comCarteira(ordenados);
 
   const pontes = [];
   for(let i=1;i<serie.length;i++){
@@ -5583,7 +5595,13 @@ function metricasCarteira(){
   // assumir 1 e a leitura conservadora, e o mes que trouxer o segundo cliente
   // aparece como ganho e nao como cumprimento de meta. O churn fica como esta,
   // em percentual da receita, para nao mexer no que ja estava calibrado.
-  const entramInt  = Math.floor(somaNEnt/n);
+  //
+  // O piso e 1, e nunca zero. So o arredondamento para baixo fazia a media cair
+  // de 1,0x para 0,9x e a premissa saltar de um cliente para nenhum — com o
+  // churn continuando a valer, a projecao virava so decrescente, de um mes para
+  // o outro, sem nenhuma mudanca de verdade no negocio. A Evolve nunca planejou
+  // um semestre sem entrar cliente nenhum; um por mes e o piso do plano.
+  const entramInt  = Math.max(1, Math.floor(somaNEnt/n));
   const novoMRRProj = entramInt * tkBase;
 
   return {
