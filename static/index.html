@@ -534,6 +534,45 @@ tr.linha-proj .cell-input.date{color:var(--tx2)}
 .pj-imp:hover:not(:disabled){color:var(--tx);border-color:var(--mu)}
 .pj-imp.on{background:var(--ac-soft);border-color:var(--ac-ring);color:var(--ac);font-weight:600}
 .pj-imp:disabled{opacity:.4;cursor:not-allowed}
+/* chave desligada: a conta esta sem aquele custo, e isso tem de gritar */
+.pj-imp.off{background:color-mix(in srgb,var(--rd) 9%,transparent);border-color:color-mix(in srgb,var(--rd) 40%,transparent);color:var(--rd);font-weight:600}
+.pj-imp.off:hover{color:var(--rd);border-color:var(--rd)}
+.pj-aviso{margin:0;padding:9px 18px;font-size:11.5px;line-height:1.5;color:#7A4B00;
+  background:rgba(224,168,0,.12);border-bottom:1px solid rgba(224,168,0,.3)}
+[data-theme="dark"] .pj-aviso{color:#F0C25A}
+/* periodo: horizonte a esquerda, ampliacao a direita */
+.pj-periodo{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.pj-ampliar{display:inline-flex;align-items:center;gap:4px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:3px}
+.pj-ampliar-l{font-size:10.5px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;padding:0 8px 0 9px;font-weight:600}
+.pj-ext{border:1px solid transparent;background:none;font:inherit;font-size:11.5px;color:var(--tx2);padding:4px 10px;border-radius:8px;cursor:pointer;
+  display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;transition:background .15s,color .15s}
+.pj-ext small{font-size:9.5px;color:var(--mu);font-weight:400}
+.pj-ext:hover:not(:disabled){background:var(--s1);color:var(--tx)}
+.pj-ext.on{background:var(--s1);color:var(--pu);border-color:rgba(167,139,250,.5);font-weight:700;box-shadow:var(--sh)}
+.pj-ext:disabled{opacity:.4;cursor:not-allowed}
+/* exportar: botao com menu de duas opcoes */
+.pj-exp{position:relative;display:inline-block}
+.pj-exp-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;
+  background:var(--s1);border:1px solid var(--bdr);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:4px}
+.pj-exp.open .pj-exp-menu{display:block}
+.pj-exp-menu button{display:flex;flex-direction:column;align-items:flex-start;width:100%;border:none;background:none;font:inherit;
+  text-align:left;padding:8px 10px;border-radius:7px;cursor:pointer;color:var(--tx)}
+.pj-exp-menu button b{font-size:12.5px}
+.pj-exp-menu button span{font-size:10.5px;color:var(--mu)}
+.pj-exp-menu button:hover{background:var(--s2)}
+/* cabecalho que so existe no PNG/PDF */
+#proj-exp-head{display:none}
+.pxh{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;padding:0 0 18px;margin-bottom:22px;border-bottom:1px solid var(--bdr)}
+.pxh-k{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ac);margin-bottom:6px}
+.pxh-t{font-size:24px;font-weight:700;letter-spacing:-.025em;line-height:1.1}
+.pxh-s{font-size:12px;color:var(--mu);margin-top:6px}
+.pxh-chaves{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:420px}
+.pxh-ch{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--bdr);color:var(--tx2);background:var(--s1);white-space:nowrap}
+.pxh-ch.off{color:var(--rd);border-color:color-mix(in srgb,var(--rd) 40%,transparent);background:color-mix(in srgb,var(--rd) 8%,transparent);font-weight:600}
+/* na foto: nada rola, nada anima, nada tem sombra que o html2canvas nao desenha */
+#tab-projecao.exportando .card,#tab-projecao.exportando .pxr{box-shadow:none}
+#tab-projecao.exportando .pj-wrap{overflow:visible}
+#tab-projecao.exportando *{transition:none!important;animation:none!important}
 .pj-den{display:inline-flex;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:2px}
 .pj-den button{border:none;background:none;font:inherit;font-size:11px;color:var(--mu);
   padding:4px 10px;border-radius:6px;cursor:pointer}
@@ -1429,6 +1468,7 @@ const S = {
   recurring: [],
   contasSubTab: 'receber',
   projecaoHorizon: 0,
+  projecaoExtra: 0,      // meses alem de dezembro, so quando horizon = 0
   _editRecvId: null,
   _editPayId: null,
   tab:   'dashboard',
@@ -1844,6 +1884,64 @@ function parcelaDoMes(m){
 const MESES_BASE_IMPREV = 6;
 function imprevistosLigado(){ return (S.settings||{}).imprevistos === '1'; }
 
+// ══════════════════════════════════════════════════════════════════════════
+// CHAVES DA PROJECAO — "e se eu nao tivesse esse custo?"
+// Ao lado da reserva de imprevistos, duas chaves tiram da Projecao o que ainda
+// nao aconteceu: o imposto (DAS por aliquota, parcelamento retroativo,
+// contabilidade e qualquer lancamento da categoria imposto) e o ads
+// (investimento em anuncios/marketing). Regras:
+//  - so mexem em linha PROJETADA ou CALCULADA. Lancamento realizado e dinheiro
+//    que ja saiu e nunca some daqui;
+//  - so valem para a Projecao e o simulador (paraProjecao). A aba do mes e o
+//    dashboard continuam mostrando exatamente o que esta lancado;
+//  - ficam em settings, como a reserva, para todo mundo ver a mesma conta —
+//    e a tela avisa, em destaque, sempre que alguma estiver desligada.
+// ══════════════════════════════════════════════════════════════════════════
+function projSemImposto(){ return (S.settings||{}).proj_sem_imposto === '1'; }
+function projSemAds(){     return (S.settings||{}).proj_sem_ads     === '1'; }
+const RX_ADS_CAT  = /market|\bads\b|anunc|trafeg|midia|impulsion|publicid/;
+const RX_ADS_NOME = /\bads\b|anunc|trafeg|impulsion|patrocin|publicid|saldo meta|\bmeta\b|google ads|boost/;
+function ehCustoImposto(c){
+  const cat = semAcento(c.category||''), n = semAcento(c.name||'');
+  return cat==='imposto' || /contab/.test(n) || /\bdas\b/.test(n) || /simples nacional/.test(n)
+      || !!c.viaFiscal || !!c.viaParcela;
+}
+function ehCustoAds(c){
+  const cat = semAcento(c.category||''), n = semAcento(c.name||'');
+  return RX_ADS_CAT.test(cat) || RX_ADS_NOME.test(n);
+}
+// Devolve a lista sem o que as chaves desligadas mandam tirar. Linha
+// realizada passa sempre.
+function aplicarChavesProj(lista){
+  const sImp = projSemImposto(), sAds = projSemAds();
+  if(!sImp && !sAds) return lista;
+  return lista.filter(c => {
+    const realizada = c.status && c.status!=='projetado';
+    if(realizada) return true;
+    if(sImp && ehCustoImposto(c)) return false;
+    if(sAds && ehCustoAds(c))     return false;
+    return true;
+  });
+}
+// Mesma coisa para o resultado de custoPorRegras (regras de custo).
+function chavesProjRegras(res){
+  const sImp = projSemImposto(), sAds = projSemAds();
+  if(!sImp && !sAds) return res;
+  const linhas = res.linhas.filter(l => {
+    const c = {name:l.nome, category:l.regra.categoria};
+    if(sImp && ehCustoImposto(c)) return false;
+    if(sAds && ehCustoAds(c))     return false;
+    return true;
+  });
+  return {linhas, total: linhas.reduce((s,l)=>s+l.valor,0)};
+}
+function chavesDesligadas(){
+  const v = [];
+  if(projSemImposto()) v.push('imposto');
+  if(projSemAds())     v.push('ads');
+  return v;
+}
+
 // Distribuicao de lucro e repasse a socio sao saida de caixa, mas nao sao
 // imprevisto: acontecem porque houve resultado. Deixa-las na base inflava a
 // mediana e, pior, faziam a reserva subir justamente quando o negocio foi bem.
@@ -2029,6 +2127,11 @@ function custosEfetivos(m, paraProjecao){
     lista = [...semCobertos, ...calc];
   }
 
+  // Chaves da Projecao (sem imposto / sem ads): tiram so o que ainda nao
+  // aconteceu, e so quando a conta e para a Projecao. Ver aplicarChavesProj.
+  if(paraProjecao) lista = aplicarChavesProj(lista);
+  const semImpostoProj = paraProjecao && projSemImposto();
+
   // Reserva de imprevistos: completa ate a mediana historica. Vem antes do
   // imposto de proposito — imposto incide sobre receita, nao sobre custo.
   const nrNoMes = lista.filter(c=>c.nonrecurring==1).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
@@ -2039,7 +2142,7 @@ function custosEfetivos(m, paraProjecao){
     calcImprev:imp, mes_id:m.id }];
 
   // Imposto pela aliquota efetiva e parcela de imposto retroativo
-  if(fiscal.ativo){
+  if(fiscal.ativo && !semImpostoProj){
     // sobre a receita PROJETADA do mes, nao sobre a lancada: o imposto e um
     // percentual do faturamento, entao tem de crescer junto com o cenario.
     // Antes ficava travado no mesmo valor em Pessimista, Base e Otimista.
@@ -2049,7 +2152,7 @@ function custosEfetivos(m, paraProjecao){
       id:'fiscal-'+m.id, name:'Simples Nacional — DAS', amount:fx.valor, payment_date:'',
       category:'imposto', status:'projetado', viaFiscal:true, fiscal:fx, mes_id:m.id }];
   }
-  const pc = parcelaDoMes(m);
+  const pc = semImpostoProj ? null : parcelaDoMes(m);
   if(pc) lista = [...lista, {
     id:'parc-'+m.id, name:pc.desc, amount:pc.valor, payment_date:'',
     category:'imposto', status:'projetado', viaParcela:true, mes_id:m.id }];
@@ -6878,6 +6981,162 @@ async function toggleImprevistos(){
   if(e('sim-overlay') && e('sim-overlay').style.display==='flex') drawSim();
   updateDashboard();
 }
+// Chaves "Imposto" e "Ads": ligadas (✓) o custo entra; desligadas a projecao
+// roda sem ele e o botao fica vermelho, com o rotulo "Sem imposto"/"Sem ads",
+// para ninguem ler a tabela achando que o imposto esta la.
+const CHAVES_PROJ = {
+  imposto: { key:'proj_sem_imposto', rot:'Imposto', sem:'Sem imposto',
+    dica:'Tira da projeção o que ainda não aconteceu em imposto: DAS pela alíquota, parcelamento retroativo, contabilidade e lançamentos projetados da categoria Imposto. O que já foi pago continua.' },
+  ads:     { key:'proj_sem_ads',     rot:'Ads',     sem:'Sem ads',
+    dica:'Tira da projeção o investimento em anúncios ainda não realizado: regras e lançamentos projetados de marketing, ads, tráfego ou impulsionamento. O que já foi pago continua.' }
+};
+async function toggleChaveProj(nome){
+  const ch = CHAVES_PROJ[nome]; if(!ch) return;
+  const novo = (S.settings||{})[ch.key] === '1' ? '0' : '1';
+  S.settings[ch.key] = novo;
+  try { await api('PUT','/api/settings',{[ch.key]:novo}); syncLabel(fmtSync(),'saved'); }
+  catch(err){ alert(err.message); }
+  if(S.tab==='projecao') renderProjecaoTab();
+  if(e('sim-overlay') && e('sim-overlay').style.display==='flex') drawSim();
+}
+function botaoChaveProj(nome){
+  const ch = CHAVES_PROJ[nome];
+  const sem = (S.settings||{})[ch.key] === '1';
+  return `<button class="pj-imp ${sem?'off':'on'}" onclick="toggleChaveProj('${nome}')"
+    title="${esc(ch.dica)}">${sem ? '✕ '+ch.sem : '✓ '+ch.rot}</button>`;
+}
+// Faixa de aviso que acompanha a tabela (e sai no PNG/PDF): a conta esta
+// sem imposto e/ou sem ads de proposito.
+function avisoChavesProj(){
+  const d = chavesDesligadas();
+  if(!d.length) return '';
+  const partes = [];
+  if(d.includes('imposto')) partes.push('<b>sem imposto</b> (DAS, parcelamento e contabilidade ainda não pagos)');
+  if(d.includes('ads'))     partes.push('<b>sem ads</b> (investimento em anúncios ainda não realizado)');
+  return `<div class="pj-aviso">⚠ Projeção ${partes.join(' e ')}. Os meses fechados e o que já foi pago
+    continuam iguais; só o que ainda viria saiu da conta.</div>`;
+}
+function setProjExtra(n){
+  S.projecaoHorizon = 0;
+  S.projecaoExtra = n || 0;
+  renderProjecaoTab();
+}
+
+// ── Exportar a Projecao em PNG ou PDF ──────────────────────────────────────
+// A tela e fotografada inteira (cards, grafico e tabela) numa unica pagina,
+// sem quebra: a largura e a da tabela aberta, o grafico vira imagem na
+// resolucao do canvas e os controles (pilulas, botoes) saem da foto. Em vez
+// deles entra um cabecalho com periodo, cenario e as chaves em uso, para o
+// arquivo se explicar sozinho fora da ferramenta.
+// html2canvas-pro e nao o html2canvas original: o original nao entende color-mix()
+// e color(), que o CSS desta tela usa (selo Realizado, botoes vermelhos), e aborta.
+const LIB_H2C = 'https://cdn.jsdelivr.net/npm/html2canvas-pro@2.4.5/dist/html2canvas-pro.min.js';
+const LIB_PDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+function carregarScript(src){
+  return new Promise((ok, falha) => {
+    if(document.querySelector(`script[src="${src}"]`) && (src!==LIB_H2C || typeof html2canvas!=='undefined')) return ok();
+    const s = document.createElement('script'); s.src = src;
+    s.onload = ok; s.onerror = () => falha(new Error('Não foi possível carregar a biblioteca de exportação. Verifique a internet.'));
+    document.head.appendChild(s);
+  });
+}
+function menuExportProj(){
+  return `<div class="pj-exp">
+    <button class="btn" onclick="this.parentNode.classList.toggle('open');event.stopPropagation()">⤓ Exportar <span style="font-size:9px">▼</span></button>
+    <div class="pj-exp-menu">
+      <button onclick="exportarProjecao('png')"><b>PNG</b><span>imagem nítida, uma peça só</span></button>
+      <button onclick="exportarProjecao('pdf')"><b>PDF</b><span>página única, sem quebra</span></button>
+    </div></div>`;
+}
+document.addEventListener('click', ev => {
+  document.querySelectorAll('.pj-exp.open').forEach(m => { if(!m.contains(ev.target)) m.classList.remove('open'); });
+});
+function cabecalhoExportProj(rows, futureRows, completo){
+  if(!rows.length) return '';
+  const r0 = rows[0].m, r1 = rows[rows.length-1].m;
+  const per = `${MONTHS_FULL[r0.month-1]} ${r0.year} a ${MONTHS_FULL[r1.month-1]} ${r1.year}`;
+  const cen = (CENARIOS[S.projCenario||'base']||CENARIOS.base).rot;
+  const hoje = new Date();
+  const data = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+  const chave = (rot, ligada, semRot) => `<span class="pxh-ch ${ligada?'on':'off'}">${ligada?'✓ '+rot:'✕ '+semRot}</span>`;
+  return `<div id="proj-exp-head">
+    <div class="pxh">
+      <div>
+        <div class="pxh-k">Evolve Financeiro</div>
+        <div class="pxh-t">Projeção · ${per}</div>
+        <div class="pxh-s">${rows.length} meses · cenário ${cen} · ${completo?'detalhamento completo':'detalhamento essencial'} · gerado em ${data}</div>
+      </div>
+      <div class="pxh-chaves">
+        ${chave('Reserva de imprevistos', imprevistosLigado() && !!baseImprevistos(), 'Sem reserva de imprevistos')}
+        ${chave('Imposto', !projSemImposto(), 'Sem imposto')}
+        ${chave('Ads', !projSemAds(), 'Sem ads')}
+      </div>
+    </div></div>`;
+}
+async function exportarProjecao(tipo){
+  const el = e('tab-projecao'); if(!el || S.tab!=='projecao') return;
+  document.querySelectorAll('.pj-exp.open').forEach(m=>m.classList.remove('open'));
+  if(S._exportando) return; S._exportando = true;
+  showToast(`Gerando ${tipo.toUpperCase()}…`, 6000);
+  try {
+    await carregarScript(LIB_H2C);
+    if(tipo==='pdf') await carregarScript(LIB_PDF);
+    // grafico: congela a animacao e tira a imagem na resolucao do canvas
+    const cv = document.getElementById('proj-chart');
+    let chartImg = null;
+    if(cv && cv._chartInst){ cv._chartInst.update('none'); chartImg = cv._chartInst.toBase64Image('image/png', 1); }
+    // largura: a tabela tem de caber aberta, sem rolagem
+    const tab = el.querySelector('.pj-tab');
+    const W = Math.ceil(Math.max(el.clientWidth, tab ? tab.scrollWidth + 56 : 0, 1180));
+    const bg = (getComputedStyle(document.documentElement).getPropertyValue('--bg')||'').trim() || '#F6F6F9';
+    const altura = el.scrollHeight;
+    const scale = altura > 4200 ? 1.5 : 2;   // +24 meses fica alto: 1.5x ja e nitido e o arquivo nao explode
+    const h2c = typeof html2canvas === 'function' ? html2canvas : html2canvas.default;
+    const canvas = await h2c(el, {
+      backgroundColor: bg, scale, useCORS: true, logging: false,
+      windowWidth: Math.max(window.innerWidth, W + 160),
+      ignoreElements: n => !!(n.getAttribute && n.hasAttribute('data-noexp')),
+      onclone: doc => {
+        const c = doc.getElementById('tab-projecao'); if(!c) return;
+        c.classList.add('exportando');
+        c.style.width = W + 'px'; c.style.maxWidth = 'none'; c.style.boxSizing = 'border-box';
+        c.style.padding = '28px 32px 24px'; c.style.background = bg;
+        const head = doc.getElementById('proj-exp-head'); if(head) head.style.display = 'block';
+        c.querySelectorAll('.pj-wrap').forEach(w => { w.style.overflow = 'visible'; });
+        c.querySelectorAll('details.proj-como').forEach(d => d.remove());
+        const cv2 = doc.getElementById('proj-chart');
+        if(cv2 && chartImg){
+          const img = doc.createElement('img'); img.src = chartImg;
+          img.style.cssText = 'width:100%;height:auto;display:block'; cv2.replaceWith(img);
+        }
+      }
+    });
+    const r0 = (S._projRows||[])[0], r1 = (S._projRows||[]).slice(-1)[0];
+    const per = r0 && r1 ? `${MONTHS_PT[r0.m.month-1]}${String(r0.m.year).slice(2)}-${MONTHS_PT[r1.m.month-1]}${String(r1.m.year).slice(2)}`.toLowerCase() : 'periodo';
+    const nome = `evolve-projecao-${per}-${new Date().toISOString().slice(0,10)}`;
+    if(tipo==='png'){
+      const blob = await new Promise(ok => canvas.toBlob(ok, 'image/png'));
+      baixarBlob(blob, nome + '.png');
+    } else {
+      const { jsPDF } = window.jspdf;
+      const w = canvas.width/scale, h = canvas.height/scale;
+      const pdf = new jsPDF({ orientation: w > h ? 'l' : 'p', unit:'px', format:[w, h], hotfixes:['px_scaling'], compress:true });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, w, h, undefined, 'FAST');
+      pdf.save(nome + '.pdf');
+    }
+    showToast(`${tipo.toUpperCase()} pronto`);
+  } catch(err){
+    console.error(err);
+    alert('Não deu para exportar: ' + err.message);
+  } finally { S._exportando = false; }
+}
+function baixarBlob(blob, nome){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
 function botaoImprevistos(){
   const on = imprevistosLigado();
   const b = baseImprevistos();
@@ -7570,9 +7829,14 @@ function renderProjecaoTab() {
   const pastMonths = allMonths.filter(m => (m.year < curYear) || (m.year === curYear && m.month < curMonth));
   const futureMonths = allMonths.filter(m => (m.year > curYear) || (m.year === curYear && m.month >= curMonth));
 
+  // Ate dezembro do ano corrente e, se o leitor pediu, mais 6/12/18/24 meses.
+  // Os meses extras so existem com o horizonte "ate dez"; os outros horizontes
+  // ja sao uma contagem a partir de hoje.
+  const extra = horizon === 0 ? (S.projecaoExtra ?? 0) : 0;
   let viewMonths;
   if (horizon === 0) {
-    viewMonths = allMonths.filter(m => m.year === 2026);
+    const fimIdx = curYear*12 + 12 + extra;
+    viewMonths = allMonths.filter(m => m.year >= curYear && (m.year*12 + m.month) <= fimIdx);
   } else {
     const pastCtx = pastMonths.slice(-2);
     const futCtx = futureMonths.slice(0, horizon);
@@ -7621,7 +7885,7 @@ function renderProjecaoTab() {
       const atual = nomesDoMes(r.m);
       if(r.isFuture || r.isCurrent){
         const novos = anterior ? [...atual].filter(x=>!anterior.has(x)).length : 0;
-        custoRegras[r.m.year*100+r.m.month] = custoPorRegras(atual.size, novos, mcRegras.ticket, r.m.year, r.m.month);
+        custoRegras[r.m.year*100+r.m.month] = chavesProjRegras(custoPorRegras(atual.size, novos, mcRegras.ticket, r.m.year, r.m.month));
       }
       anterior = atual;
     });
@@ -7629,7 +7893,7 @@ function renderProjecaoTab() {
     let nCli = mcRegras.baseCli;
     futureRows.forEach(r=>{
       const novos = mcRegras.entramMes;
-      custoRegrasPrev[r.m.year*100+r.m.month] = custoPorRegras(Math.round(nCli), novos, mcRegras.ticket, r.m.year, r.m.month);
+      custoRegrasPrev[r.m.year*100+r.m.month] = chavesProjRegras(custoPorRegras(Math.round(nCli), novos, mcRegras.ticket, r.m.year, r.m.month));
       nCli = nCli - (nCli*mcRegras.churnPct) + novos;
     });
   }
@@ -7678,7 +7942,7 @@ function renderProjecaoTab() {
     let ant = null;
     rows.forEach(r=>{
       if(!(r.isFuture || r.isCurrent)) return;
-      const fx = impostoDoMes(r.m, r.projRev, prevPorMes);
+      const fx = projSemImposto() ? null : impostoDoMes(r.m, r.projRev, prevPorMes);
       r.fiscal = fx;
       if(fx && fx.auto){
         if(ant!=null && fx.faixa !== ant) r.mudouFaixa = fx.faixa;
@@ -7704,7 +7968,7 @@ function renderProjecaoTab() {
   const totalPrevCos = comRegra
     ? futureRows.reduce((s,r)=>{
         const k=r.m.year*100+r.m.month;
-        const fixoNaoCoberto = (r.m.costs||[]).filter(c=>!temRegra(c.name))
+        const fixoNaoCoberto = aplicarChavesProj((r.m.costs||[]).filter(c=>!temRegra(c.name)))
           .reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
         return s + fixoNaoCoberto + (custoRegrasPrev[k]?custoRegrasPrev[k].total:0);
       },0)
@@ -7796,7 +8060,7 @@ function renderProjecaoTab() {
 
   // Rotulo do periodo real: antes o chip dizia "Ano 2026" enquanto o card dizia
   // "5 meses a frente". Agora os dois falam do mesmo intervalo.
-  const anoRef = rows.length ? rows[rows.length-1].m.year : new Date().getFullYear();
+  const anoRef = curYear;   // o rotulo "Ate dez/xx" e do ano corrente, mesmo com meses extras
   const periodoLabel = futureRows.length
     ? `${MONTHS_PT[futureRows[0].m.month-1].toLowerCase()}/${String(futureRows[0].m.year).slice(2)} a ` +
       `${MONTHS_PT[futureRows[futureRows.length-1].m.month-1].toLowerCase()}/${String(futureRows[futureRows.length-1].m.year).slice(2)}` +
@@ -7816,9 +8080,25 @@ function renderProjecaoTab() {
     {v:3, l:'3 meses'}, {v:6, l:'6 meses'}, {v:12, l:'12 meses'}
   ];
 
+  // Ampliar: +6/+12/+18/+24 meses alem de dezembro. Um mes so entra se estiver
+  // cadastrado — a pilula avisa ate onde da para ir em vez de mostrar tabela
+  // mais curta do que o botao promete.
+  const ultimoIdx = allMonths.length ? Math.max(...allMonths.map(m=>m.year*12+m.month)) : 0;
+  const rotIdx = idx => `${MONTHS_PT[(idx-1)%12].toLowerCase()}/${String(Math.floor((idx-1)/12)).slice(2)}`;
+  const extraOpts = [6,12,18,24].map(n => {
+    const alvo = curYear*12 + 12 + n;
+    return { n, alvo, ok: alvo <= ultimoIdx, l:`+${n} meses`, ate: rotIdx(Math.min(alvo, ultimoIdx)) };
+  });
+  const pillExtra = (o) => {
+    const active = horizon === 0 && extra === o.n;
+    const dica = o.ok ? `Mostra até ${o.ate}` : `Só há meses cadastrados até ${rotIdx(ultimoIdx)}`;
+    return `<button class="pj-ext ${active?'on':''}" ${o.ok?'':'disabled'} title="${esc(dica)}"
+      onclick="setProjExtra(${active?0:o.n})">${o.l}<small>até ${o.ate}</small></button>`;
+  };
+
   const pill = (o) => {
     const active = horizon === o.v;
-    return `<button onclick="S.projecaoHorizon=${o.v};renderProjecaoTab()"
+    return `<button onclick="S.projecaoHorizon=${o.v};S.projecaoExtra=0;renderProjecaoTab()"
       style="padding:6px 16px;border-radius:20px;border:1.5px solid ${active?'var(--pu)':'var(--bdr)'};background:${active?'rgba(167,139,250,.15)':'transparent'};color:${active?'var(--pu)':'var(--tx2)'};font-family:var(--ff);font-size:12px;font-weight:${active?'700':'400'};cursor:pointer;transition:all .15s ease">${o.l}</button>`;
   };
 
@@ -7875,6 +8155,7 @@ function renderProjecaoTab() {
       </div>
     </div>` : '';
 
+  S._projRows = rows;   // a exportacao usa para nomear o arquivo pelo periodo
   const chartLabels = rows.map(r => MONTHS_PT[r.m.month-1]+'/'+String(r.m.year).slice(2));
   const chartRev = rows.map(r => r.projRev);
   const chartCos = rows.map(r => r.projCos);
@@ -7882,10 +8163,16 @@ function renderProjecaoTab() {
   const futureMask = rows.map(r => r.isFuture || r.isCurrent);
 
   el.innerHTML = `
-  <div class="sh-title"><span>Projeção</span><button class="btn filled-g" onclick="openSim()">Simular cenário</button></div>
+  ${cabecalhoExportProj(rows, futureRows, completo)}
+  <div class="sh-title" data-noexp><span>Projeção</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      ${menuExportProj()}
+      <button class="btn filled-g" onclick="openSim()">Simular cenário</button>
+    </div></div>
 
-  <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">
-    ${horizonOpts.map(pill).join('')}
+  <div class="pj-periodo" data-noexp>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${horizonOpts.map(pill).join('')}</div>
+    <div class="pj-ampliar"><span class="pj-ampliar-l">Ampliar</span>${extraOpts.map(pillExtra).join('')}</div>
   </div>
 
   ${alertHtml}
@@ -8011,14 +8298,15 @@ function renderProjecaoTab() {
     <div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;
                 align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div class="ct" style="margin-bottom:0">Detalhamento mês a mês</div>
-      <div style="display:flex;align-items:center">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px 0" data-noexp>
         <div class="pj-den">
           <button class="${completo?'':'on'}" onclick="setDensidadeProj(0)">Essencial</button>
           <button class="${completo?'on':''}" onclick="setDensidadeProj(1)">Completo</button>
         </div>
-        ${botaoImprevistos()}
+        ${botaoImprevistos()}${botaoChaveProj('imposto')}${botaoChaveProj('ads')}
       </div>
     </div>
+    ${avisoChavesProj()}
     <div class="pj-wrap">
       <table class="pj-tab">
         <thead>
