@@ -232,6 +232,52 @@ def init_db():
                  categoria    TEXT DEFAULT 'operacional',
                  ativo        INTEGER DEFAULT 1,
                  created_at   TEXT DEFAULT (datetime('now')))""",
+            # Emprestimo do caixa a um socio, devolvido em parcelas (em geral
+            # abatidas do pro-labore). A saida e o abatimento sao lancamentos
+            # normais nos meses; aqui fica so o acordo e o historico.
+            """CREATE TABLE IF NOT EXISTS loans (
+                 id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                 person            TEXT NOT NULL,
+                 amount            REAL NOT NULL,
+                 date              TEXT DEFAULT '',
+                 installments      INTEGER DEFAULT 1,
+                 installment_value REAL DEFAULT 0,
+                 start_year        INTEGER,
+                 start_month       INTEGER,
+                 deduct            TEXT DEFAULT 'pro-labore',
+                 notes             TEXT DEFAULT '',
+                 cost_id           INTEGER,
+                 status            TEXT DEFAULT 'ativo',
+                 created_by        TEXT DEFAULT '',
+                 created_at        TEXT DEFAULT (datetime('now')))""",
+            """CREATE TABLE IF NOT EXISTS loan_payments (
+                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                 loan_id    INTEGER NOT NULL,
+                 n          INTEGER NOT NULL,
+                 year       INTEGER NOT NULL,
+                 month      INTEGER NOT NULL,
+                 amount     REAL NOT NULL,
+                 paid_date  TEXT DEFAULT '',
+                 paid_by    TEXT DEFAULT '',
+                 cost_id    INTEGER,
+                 abatido    REAL DEFAULT 0,
+                 notes      TEXT DEFAULT '')""",
+            # Negociacao em andamento ligada a uma meta. Ao confirmar vira (ou
+            # aponta para) um contrato em recurring_items — o valor passa a
+            # viver la, para nao existir duas verdades.
+            """CREATE TABLE IF NOT EXISTS deals (
+                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                 goal_id        INTEGER,
+                 client_name    TEXT NOT NULL,
+                 amount         REAL DEFAULT 0,
+                 expected_year  INTEGER,
+                 expected_month INTEGER,
+                 status         TEXT DEFAULT 'aberta',
+                 recurring_id   INTEGER,
+                 notes          TEXT DEFAULT '',
+                 created_by     TEXT DEFAULT '',
+                 created_at     TEXT DEFAULT (datetime('now')),
+                 closed_at      TEXT DEFAULT '')""",
         ]:
             try: c.execute(sql)
             except Exception: pass
@@ -961,14 +1007,11 @@ def get_recurring():
         rows = c.execute('SELECT * FROM recurring_items WHERE active=1 ORDER BY type,id').fetchall()
     return jsonify([dict(r) for r in rows])
 
-@app.post('/api/recurring')
-@auth
-def create_recurring():
-    d = request.get_json() or {}
+def _criar_recorrente(d):
+    """Cria a recorrencia e gera as linhas nos meses. Usada pelo endpoint e
+    pela confirmacao de negociacao (aba Metas), para o contrato nascer igual."""
     tp   = d.get('type', 'revenue')
     desc = d.get('description', '').strip()
-    if not desc:
-        return jsonify({'error': 'Descrição obrigatória'}), 400
     freq = d.get('frequency','monthly')
     if freq not in ('monthly','annual'): freq = 'monthly'
     moy  = int(d['month_of_year']) if d.get('month_of_year') else None
@@ -992,7 +1035,16 @@ def create_recurring():
         tabela = 'revenues' if tp == 'revenue' else 'costs'
         item['linhas_geradas'] = c.execute(
             f'SELECT COUNT(*) FROM {tabela} WHERE recurring_id=?', (item['id'],)).fetchone()[0]
-    audit(request.user['username'], 'recorrente_criado', desc)
+    return item
+
+@app.post('/api/recurring')
+@auth
+def create_recurring():
+    d = request.get_json() or {}
+    if not d.get('description', '').strip():
+        return jsonify({'error': 'Descrição obrigatória'}), 400
+    item = _criar_recorrente(d)
+    audit(request.user['username'], 'recorrente_criado', item['description'])
     return jsonify(item)
 
 @app.put('/api/recurring/<int:rid>')
@@ -1420,6 +1472,9 @@ def backup():
         pays      = [dict(r) for r in c2.execute('SELECT * FROM payables').fetchall()]
         setts     = {r['key']: r['value'] for r in c2.execute('SELECT * FROM settings').fetchall()}
         recurring = [dict(r) for r in c2.execute('SELECT * FROM recurring_items WHERE active=1').fetchall()]
+        loans     = [dict(r) for r in c2.execute('SELECT * FROM loans').fetchall()]
+        loan_pays = [dict(r) for r in c2.execute('SELECT * FROM loan_payments').fetchall()]
+        deals     = [dict(r) for r in c2.execute('SELECT * FROM deals').fetchall()]
     payload = {
         'version': 1,
         'created_at': datetime.datetime.now().isoformat(),
@@ -1431,6 +1486,9 @@ def backup():
         'payables':    pays,
         'settings':    setts,
         'recurring':   recurring,
+        'loans':         loans,
+        'loan_payments': loan_pays,
+        'deals':         deals,
     }
     from flask import Response
     ts = datetime.datetime.now().strftime('%Y%m%d_%H%M')
@@ -1498,8 +1556,301 @@ def restore():
                  r.get('amount',0), r.get('category','servico'),
                  r.get('start_year',2026), r.get('start_month',1),
                  r.get('end_year'), r.get('end_month'), r.get('active',1), r.get('created_at','')))
+        # Emprestimos, parcelas e negociacoes (backups antigos nao tem — ok)
+        for l in payload.get('loans', []):
+            c.execute('INSERT OR IGNORE INTO loans (id,person,amount,date,installments,installment_value,start_year,start_month,deduct,notes,cost_id,status,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                (l.get('id'), l.get('person',''), l.get('amount',0), l.get('date',''), l.get('installments',1), l.get('installment_value',0),
+                 l.get('start_year'), l.get('start_month'), l.get('deduct','pro-labore'), l.get('notes',''), l.get('cost_id'),
+                 l.get('status','ativo'), l.get('created_by',''), l.get('created_at','')))
+        for p in payload.get('loan_payments', []):
+            c.execute('INSERT OR IGNORE INTO loan_payments (id,loan_id,n,year,month,amount,paid_date,paid_by,cost_id,abatido,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                (p.get('id'), p.get('loan_id'), p.get('n',1), p.get('year'), p.get('month'), p.get('amount',0), p.get('paid_date',''),
+                 p.get('paid_by',''), p.get('cost_id'), p.get('abatido',0), p.get('notes','')))
+        for x in payload.get('deals', []):
+            c.execute('INSERT OR IGNORE INTO deals (id,goal_id,client_name,amount,expected_year,expected_month,status,recurring_id,notes,created_by,created_at,closed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                (x.get('id'), x.get('goal_id'), x.get('client_name',''), x.get('amount',0), x.get('expected_year'), x.get('expected_month'),
+                 x.get('status','aberta'), x.get('recurring_id'), x.get('notes',''), x.get('created_by',''), x.get('created_at',''), x.get('closed_at','')))
         c.commit()
     audit(request.user['username'], 'restore', 'Backup restaurado')
+    return jsonify({'success': True})
+
+# ── Empréstimos a sócio ───────────────────────────────────────────────────────
+# O emprestimo nao e lancamento: e um acordo. O dinheiro que saiu entra como
+# despesa normal no mes (cost_id), e cada parcela devolvida pode abater o
+# pro-labore lancado naquele mes — tudo auditado, nada apagado por tras.
+
+def _loan_full(c, lid):
+    l = c.execute('SELECT * FROM loans WHERE id=?', (lid,)).fetchone()
+    if not l: return None
+    d = dict(l)
+    d['payments'] = [dict(p) for p in c.execute(
+        'SELECT * FROM loan_payments WHERE loan_id=? ORDER BY n', (lid,)).fetchall()]
+    return d
+
+def _mes_ref(y, m):
+    return f"{MONTHS_PT[int(m)-1]}/{y}" if y and m else ''
+
+def _gerar_parcelas(c, lid, n_inicial, n, total, val, sy, sm):
+    """n parcelas de val a partir de sy/sm; a ultima fecha a conta no total."""
+    y, m, resto = sy, sm, total
+    for i in range(1, n + 1):
+        v = total if n == 1 else (val if i < n else round(max(resto, 0), 2))
+        c.execute('INSERT INTO loan_payments (loan_id,n,year,month,amount) VALUES (?,?,?,?,?)',
+                  (lid, n_inicial + i, y, m, round(v, 2)))
+        resto -= v
+        m += 1
+        if m > 12:
+            m = 1; y += 1
+
+@app.get('/api/loans')
+@auth
+def get_loans():
+    with db() as c:
+        ids = [r['id'] for r in c.execute('SELECT id FROM loans ORDER BY date DESC, id DESC').fetchall()]
+        return jsonify([_loan_full(c, i) for i in ids])
+
+@app.post('/api/loans')
+@auth
+def create_loan():
+    d = request.get_json() or {}
+    person = (d.get('person') or '').strip()
+    amount = float(d.get('amount') or 0)
+    n      = max(1, int(d.get('installments') or 1))
+    if not person or amount <= 0:
+        return jsonify({'error': 'Informe quem pegou e o valor'}), 400
+    val = float(d.get('installment_value') or 0) or round(amount / n, 2)
+    sy, sm = int(d.get('start_year') or 0), int(d.get('start_month') or 0)
+    if not (sy and 1 <= sm <= 12):
+        return jsonify({'error': 'Informe o mês da primeira parcela'}), 400
+    user = request.user['username']
+    with db() as c:
+        cost_id = None
+        saida = d.get('lancar_saida') or {}
+        if saida.get('month_id'):
+            mid = int(saida['month_id'])
+            data = d.get('date') or ''
+            ddmm = f"{data[8:10]}/{data[5:7]}" if len(data) == 10 else ''
+            cur = c.execute('INSERT INTO costs (month_id,name,amount,payment_date,category,sort_order,status,nonrecurring) VALUES (?,?,?,?,?,?,?,1)',
+                (mid, saida.get('name') or f'Empréstimo a {person}', amount, ddmm,
+                 saida.get('category') or 'outros', 999, 'realizado'))
+            cost_id = cur.lastrowid
+        cur = c.execute('''INSERT INTO loans (person,amount,date,installments,installment_value,start_year,start_month,deduct,notes,cost_id,status,created_by)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',
+            (person, amount, d.get('date') or '', n, val, sy, sm,
+             d.get('deduct') or 'pro-labore', d.get('notes') or '', cost_id, 'ativo', user))
+        lid = cur.lastrowid
+        _gerar_parcelas(c, lid, 0, n, amount, val, sy, sm)
+        c.commit()
+        loan = _loan_full(c, lid)
+    audit(user, 'emprestimo_criado', f"{person} — R$ {amount:.2f} em {n}x de R$ {val:.2f} a partir de {_mes_ref(sy, sm)}" + (' — saída lançada no mês' if cost_id else ''))
+    return jsonify(loan)
+
+@app.put('/api/loans/<int:lid>')
+@auth
+def update_loan(lid):
+    d = request.get_json() or {}
+    allowed = {'person': str, 'amount': float, 'date': str, 'deduct': str, 'notes': str, 'status': str}
+    partial_update('loans', allowed, d, lid)
+    with db() as c:
+        loan = _loan_full(c, lid)
+    audit(request.user['username'], 'emprestimo_editado', f"#{lid} — " + ', '.join(f"{k}={d[k]}" for k in d if k in allowed))
+    return jsonify(loan)
+
+@app.post('/api/loans/<int:lid>/regen')
+@auth
+def regen_loan(lid):
+    """Refaz as parcelas AINDA NAO PAGAS: muda quantidade, valor ou mes de
+    inicio sem tocar no que ja foi devolvido."""
+    d = request.get_json() or {}
+    with db() as c:
+        loan = _loan_full(c, lid)
+        if not loan: return jsonify({'error': 'Empréstimo não encontrado'}), 404
+        pagas = [p for p in loan['payments'] if p['paid_date']]
+        ja = sum(p['amount'] for p in pagas)
+        total = float(d.get('amount') or loan['amount'])
+        restante = round(total - ja, 2)
+        n   = max(1, int(d.get('installments') or 1))
+        val = float(d.get('installment_value') or 0) or round(restante / n, 2)
+        sy, sm = int(d.get('start_year') or loan['start_year']), int(d.get('start_month') or loan['start_month'])
+        c.execute("DELETE FROM loan_payments WHERE loan_id=? AND (paid_date IS NULL OR paid_date='')", (lid,))
+        _gerar_parcelas(c, lid, len(pagas), n, restante, val, sy, sm)
+        c.execute('UPDATE loans SET installments=?, installment_value=?, amount=?, start_year=?, start_month=? WHERE id=?',
+                  (len(pagas) + n, val, total,
+                   loan['start_year'] if pagas else sy, loan['start_month'] if pagas else sm, lid))
+        c.commit()
+        loan = _loan_full(c, lid)
+    audit(request.user['username'], 'emprestimo_editado', f"#{lid} — parcelas refeitas: {n}x de R$ {val:.2f} a partir de {_mes_ref(sy, sm)}")
+    return jsonify(loan)
+
+@app.delete('/api/loans/<int:lid>')
+@require_role('admin')
+def delete_loan(lid):
+    with db() as c:
+        loan = _loan_full(c, lid)
+        if not loan: return jsonify({'error': 'Empréstimo não encontrado'}), 404
+        c.execute('DELETE FROM loan_payments WHERE loan_id=?', (lid,))
+        c.execute('DELETE FROM loans WHERE id=?', (lid,))
+        c.commit()
+    audit(request.user['username'], 'emprestimo_excluido', f"#{lid} — {loan['person']} R$ {loan['amount']:.2f} (lançamentos nos meses mantidos)")
+    return jsonify({'success': True})
+
+@app.put('/api/loan-payments/<int:pid>')
+@auth
+def update_loan_payment(pid):
+    d = request.get_json() or {}
+    partial_update('loan_payments', {'amount': float, 'year': int, 'month': int, 'notes': str}, d, pid)
+    with db() as c:
+        p = c.execute('SELECT * FROM loan_payments WHERE id=?', (pid,)).fetchone()
+        loan = _loan_full(c, p['loan_id']) if p else None
+    audit(request.user['username'], 'parcela_editada', f"parcela #{pid} — " + ', '.join(f"{k}={d[k]}" for k in d))
+    return jsonify(loan)
+
+@app.post('/api/loan-payments/<int:pid>/confirm')
+@auth
+def confirm_loan_payment(pid):
+    """Marca a parcela como devolvida. Se vier abater_cost_id, reduz aquele
+    lancamento (o pro-labore do mes) no valor da parcela e guarda quanto foi
+    abatido, para o desfazer devolver exatamente o mesmo."""
+    d = request.get_json() or {}
+    user = request.user['username']
+    with db() as c:
+        p = c.execute('SELECT * FROM loan_payments WHERE id=?', (pid,)).fetchone()
+        if not p: return jsonify({'error': 'Parcela não encontrada'}), 404
+        if p['paid_date']: return jsonify({'error': 'Parcela já confirmada'}), 400
+        abatido, cost_id, detalhe = 0.0, None, ''
+        if d.get('abater_cost_id'):
+            cost = c.execute('SELECT * FROM costs WHERE id=?', (int(d['abater_cost_id']),)).fetchone()
+            if cost:
+                antes = float(cost['amount'] or 0)
+                abatido = min(antes, float(p['amount']))
+                c.execute('UPDATE costs SET amount=? WHERE id=?', (round(antes - abatido, 2), cost['id']))
+                cost_id = cost['id']
+                nome = cost['name']
+                detalhe = f" — abatido R$ {abatido:.2f} de {nome} (R$ {antes:.2f} → R$ {antes - abatido:.2f})"
+        c.execute('UPDATE loan_payments SET paid_date=?, paid_by=?, cost_id=?, abatido=?, notes=? WHERE id=?',
+                  (d.get('paid_date') or datetime.date.today().isoformat(), user, cost_id, abatido, d.get('notes') or p['notes'], pid))
+        aberto = c.execute("SELECT COUNT(*) FROM loan_payments WHERE loan_id=? AND (paid_date IS NULL OR paid_date='')", (p['loan_id'],)).fetchone()[0]
+        if aberto == 0:
+            c.execute("UPDATE loans SET status='quitado' WHERE id=?", (p['loan_id'],))
+        c.commit()
+        loan = _loan_full(c, p['loan_id'])
+    audit(user, 'parcela_confirmada', f"{loan['person']} — parcela {p['n']}/{loan['installments']} de R$ {p['amount']:.2f} ({_mes_ref(p['year'], p['month'])}){detalhe}")
+    return jsonify(loan)
+
+@app.post('/api/loan-payments/<int:pid>/unconfirm')
+@auth
+def unconfirm_loan_payment(pid):
+    user = request.user['username']
+    with db() as c:
+        p = c.execute('SELECT * FROM loan_payments WHERE id=?', (pid,)).fetchone()
+        if not p or not p['paid_date']: return jsonify({'error': 'Parcela não está confirmada'}), 400
+        detalhe = ''
+        if p['cost_id'] and (p['abatido'] or 0) > 0:
+            cost = c.execute('SELECT * FROM costs WHERE id=?', (p['cost_id'],)).fetchone()
+            if cost:
+                c.execute('UPDATE costs SET amount=? WHERE id=?', (round(float(cost['amount'] or 0) + float(p['abatido']), 2), cost['id']))
+                nome = cost['name']
+                detalhe = f" — devolvido R$ {float(p['abatido']):.2f} a {nome}"
+        c.execute("UPDATE loan_payments SET paid_date='', paid_by='', cost_id=NULL, abatido=0 WHERE id=?", (pid,))
+        c.execute("UPDATE loans SET status='ativo' WHERE id=?", (p['loan_id'],))
+        c.commit()
+        loan = _loan_full(c, p['loan_id'])
+    audit(user, 'parcela_desfeita', f"{loan['person']} — parcela {p['n']} de R$ {p['amount']:.2f}{detalhe}")
+    return jsonify(loan)
+
+# ── Negociações (aba Metas) ───────────────────────────────────────────────────
+
+@app.get('/api/deals')
+@auth
+def get_deals():
+    with db() as c:
+        return jsonify([dict(r) for r in c.execute('SELECT * FROM deals ORDER BY status, expected_year, expected_month, id').fetchall()])
+
+@app.post('/api/deals')
+@auth
+def create_deal():
+    d = request.get_json() or {}
+    name = (d.get('client_name') or '').strip()
+    if not name: return jsonify({'error': 'Informe o cliente'}), 400
+    with db() as c:
+        cur = c.execute('INSERT INTO deals (goal_id,client_name,amount,expected_year,expected_month,status,notes,created_by) VALUES (?,?,?,?,?,?,?,?)',
+            (d.get('goal_id') or None, name, float(d.get('amount') or 0),
+             d.get('expected_year') or None, d.get('expected_month') or None, 'aberta', d.get('notes') or '', request.user['username']))
+        c.commit()
+        row = dict(c.execute('SELECT * FROM deals WHERE id=?', (cur.lastrowid,)).fetchone())
+    audit(request.user['username'], 'negociacao_criada', f"{name} — R$ {float(d.get('amount') or 0):.2f}/mês")
+    return jsonify(row)
+
+@app.put('/api/deals/<int:did>')
+@auth
+def update_deal(did):
+    d = request.get_json() or {}
+    allowed = {'goal_id': int, 'client_name': str, 'amount': float, 'expected_year': int, 'expected_month': int, 'status': str, 'notes': str}
+    partial_update('deals', allowed, d, did)
+    with db() as c:
+        if d.get('status') in ('perdida', 'aberta'):
+            fechado = datetime.datetime.now().isoformat() if d['status'] == 'perdida' else ''
+            c.execute("UPDATE deals SET closed_at=? WHERE id=?", (fechado, did))
+            c.commit()
+        row = dict(c.execute('SELECT * FROM deals WHERE id=?', (did,)).fetchone())
+    audit(request.user['username'], 'negociacao_editada', f"{row['client_name']} — " + ', '.join(f"{k}={d[k]}" for k in d if k in allowed))
+    return jsonify(row)
+
+@app.post('/api/deals/<int:did>/confirm')
+@auth
+def confirm_deal(did):
+    """Negociacao fechada vira contrato. Ou cria uma recorrente nova (o
+    contrato nasce igual ao da tela Recorrentes), ou aponta para uma que ja
+    existe — para o valor nunca ficar em dois lugares."""
+    d = request.get_json() or {}
+    user = request.user['username']
+    with db() as c:
+        deal = c.execute('SELECT * FROM deals WHERE id=?', (did,)).fetchone()
+        if not deal: return jsonify({'error': 'Negociação não encontrada'}), 404
+        if deal['recurring_id']: return jsonify({'error': 'Negociação já confirmada'}), 400
+    hoje = datetime.date.today()
+    if d.get('recurring_id'):
+        rid = int(d['recurring_id'])
+    else:
+        nome = d.get('description') or deal['client_name']
+        item = _criar_recorrente({
+            'type': 'revenue', 'description': nome, 'client_name': nome,
+            'amount': float(d.get('amount') or deal['amount'] or 0),
+            'category': d.get('category') or 'servico',
+            'start_year': int(d.get('start_year') or deal['expected_year'] or hoje.year),
+            'start_month': int(d.get('start_month') or deal['expected_month'] or hoje.month),
+            'end_year': d.get('end_year') or None, 'end_month': d.get('end_month') or None,
+            'day_of_month': d.get('day_of_month') or None, 'frequency': 'monthly'})
+        rid = item['id']
+        audit(user, 'recorrente_criado', item['description'] + ' (via negociação)')
+    with db() as c:
+        c.execute("UPDATE deals SET status='confirmada', recurring_id=?, closed_at=? WHERE id=?",
+                  (rid, datetime.datetime.now().isoformat(), did))
+        c.commit()
+        row = dict(c.execute('SELECT * FROM deals WHERE id=?', (did,)).fetchone())
+    audit(user, 'negociacao_confirmada', f"{row['client_name']} — contrato #{rid}")
+    return jsonify(row)
+
+@app.post('/api/deals/<int:did>/reopen')
+@auth
+def reopen_deal(did):
+    """Volta para 'aberta'. O contrato criado continua existindo na tela
+    Recorrentes — apagar dinheiro lancado nunca e automatico."""
+    with db() as c:
+        c.execute("UPDATE deals SET status='aberta', recurring_id=NULL, closed_at='' WHERE id=?", (did,))
+        c.commit()
+        row = dict(c.execute('SELECT * FROM deals WHERE id=?', (did,)).fetchone())
+    audit(request.user['username'], 'negociacao_reaberta', row['client_name'])
+    return jsonify(row)
+
+@app.delete('/api/deals/<int:did>')
+@auth
+def delete_deal(did):
+    with db() as c:
+        row = c.execute('SELECT * FROM deals WHERE id=?', (did,)).fetchone()
+        c.execute('DELETE FROM deals WHERE id=?', (did,))
+        c.commit()
+    audit(request.user['username'], 'negociacao_excluida', row['client_name'] if row else str(did))
     return jsonify({'success': True})
 
 # ── Frontend ──────────────────────────────────────────────────────────────────

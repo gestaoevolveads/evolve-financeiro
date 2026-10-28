@@ -1015,6 +1015,87 @@ tr.linha-proj .cell-input.date{color:var(--tx2)}
 .cat-row-slug{font-size:11px;color:var(--mu);font-family:monospace;background:var(--s3);padding:2px 6px;border-radius:4px}
 
 /* ══ CONTA FORM ════════════════════════════════════════════════════════════ */
+/* ══ EMPRÉSTIMOS ═══════════════════════════════════════════════════════════ */
+.emp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
+.emp-card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:18px 20px;margin-bottom:14px;box-shadow:var(--sh)}
+.emp-card.ok{border-color:color-mix(in srgb,var(--g) 35%,transparent)}
+.emp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.emp-who{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.emp-sub{font-size:12px;color:var(--mu);margin-top:3px;line-height:1.5}
+.emp-note{font-size:12px;color:var(--tx2);margin-top:6px;padding:6px 10px;background:var(--s2);border-radius:8px;display:inline-block}
+.emp-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.emp-prog{height:10px;background:var(--s3);border-radius:5px;overflow:hidden;margin-top:14px}
+.emp-prog-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--ac),var(--ac2));transition:width .4s ease}
+.emp-card.ok .emp-prog-fill{background:var(--g)}
+.emp-prog-l{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mu);margin-top:6px;font-variant-numeric:tabular-nums}
+.emp-tab{width:100%;border-collapse:collapse;margin-top:12px;font-variant-numeric:tabular-nums}
+.emp-tab th{font-size:10.5px;color:var(--mu);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--bdr);text-transform:uppercase;letter-spacing:.04em}
+.emp-tab td{padding:8px;border-bottom:1px solid var(--bdr);font-size:12.5px;vertical-align:middle}
+.emp-tab tr:last-child td{border-bottom:none}
+.emp-tab .r,.emp-tab th.r{text-align:right}
+.emp-tab tr.paga td{color:var(--mu)}
+.emp-tab tr.paga td.v{text-decoration:line-through}
+.emp-tab tr.atrasada td.st{color:var(--rd)}
+.emp-hist{margin-top:8px}
+.emp-hist-l{display:grid;grid-template-columns:130px 70px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--bdr);font-size:12px}
+.emp-hist-l:last-child{border-bottom:none}
+.emp-hist-l .t{color:var(--mu);font-variant-numeric:tabular-nums}
+.emp-hist-l .u{color:var(--ac);font-weight:600}
+.emp-opt{display:flex;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--bdr);border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:12.5px}
+.emp-opt:hover{background:var(--s2)}
+.emp-opt input{width:auto!important;margin:0}
+.emp-vazio{padding:40px 20px;text-align:center;color:var(--mu);font-size:13px;background:var(--s1);border:1px dashed var(--bdr);border-radius:var(--r)}
+
+/* ══ METAS ════════════════════════════════════════════════════════════════ */
+.mt-card{position:relative;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:22px 24px 18px;margin-bottom:16px;box-shadow:var(--sh);overflow:hidden}
+.mt-card::before{content:'';position:absolute;left:0;top:0;right:0;height:4px;background:linear-gradient(90deg,var(--ac),var(--ac2))}
+.mt-card.batida::before{background:var(--g)}
+.mt-card.batida{border-color:color-mix(in srgb,var(--g) 40%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--g) 6%,var(--s1)) 0%,var(--s1) 50%)}
+.mt-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.mt-k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ac);margin-bottom:4px}
+.mt-card.batida .mt-k{color:var(--g)}
+.mt-name{font-size:21px;font-weight:700;letter-spacing:-.025em;line-height:1.15}
+.mt-pct{font-size:40px;font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;background:linear-gradient(135deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mt-card.batida .mt-pct{background:none;color:var(--g)}
+.mt-pct small{font-size:14px;font-weight:600;letter-spacing:0}
+.mt-vals{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0 12px}
+.mt-vals>div{padding:12px 14px;background:var(--s2);border-radius:12px}
+.mt-vals .mt-l{display:block;font-size:11px;color:var(--mu);margin-bottom:4px}
+.mt-vals b{display:block;font-size:19px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mt-vals small{display:block;font-size:11px;color:var(--mu);margin-top:3px}
+.mt-vals .hi{background:var(--ac-soft);border:1px solid var(--ac-ring)}
+.mt-bar{position:relative;height:16px;background:var(--s3);border-radius:8px;overflow:hidden}
+.mt-fill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;background:linear-gradient(90deg,var(--ac),var(--ac2));transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.mt-card.batida .mt-fill{background:linear-gradient(90deg,var(--g),#5fd08a)}
+.mt-fill-proj{position:absolute;left:0;top:0;bottom:0;border-radius:8px;background:repeating-linear-gradient(135deg,var(--ac-soft) 0 6px,color-mix(in srgb,var(--ac) 22%,transparent) 6px 12px);transition:width .6s ease}
+.mt-tick{position:absolute;top:0;bottom:0;width:1px;background:var(--s1);opacity:.7}
+.mt-leg{display:flex;justify-content:space-between;font-size:11px;color:var(--mu);margin-top:6px}
+.mt-leg span b{color:var(--tx)}
+.mt-msg{margin-top:14px;padding:11px 14px;border-radius:10px;font-size:12.5px;line-height:1.5;background:var(--s2)}
+.mt-msg.ok{background:color-mix(in srgb,var(--g) 10%,transparent);color:var(--g);font-weight:600}
+.mt-msg.quase{background:var(--ac-soft);color:var(--ac)}
+.mt-deals{margin-top:16px;border-top:1px solid var(--bdr);padding-top:12px}
+.mt-deals-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;margin-bottom:8px}
+.mt-deals-h span{color:var(--mu);font-weight:400}
+.dl{display:grid;grid-template-columns:1fr auto auto auto;gap:10px;align-items:center;padding:9px 10px;border-radius:10px;font-size:12.5px}
+.dl+.dl{margin-top:2px}
+.dl:hover{background:var(--s2)}
+.dl.conf{opacity:.9}.dl.conf .dl-n::before{content:'✓ ';color:var(--g)}
+.dl.perd{opacity:.5}.dl.perd .dl-n{text-decoration:line-through}
+.dl-n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-s{font-size:11px;color:var(--mu);font-weight:400;margin-left:6px}
+.dl-v{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.dl-m{font-size:11.5px;color:var(--mu);white-space:nowrap}
+.dl-a{display:flex;gap:4px}
+.dl-a button{border:1px solid var(--bdr);background:var(--s1);font:inherit;font-size:11px;color:var(--tx2);padding:3px 8px;border-radius:6px;cursor:pointer}
+.dl-a button:hover{color:var(--tx);border-color:var(--mu)}
+.dl-a button.go{color:var(--g);border-color:color-mix(in srgb,var(--g) 40%,transparent)}
+.dl-a button.no{color:var(--rd)}
+.dl-add{display:grid;grid-template-columns:1.6fr 1fr 1.1fr auto;gap:8px;margin-top:10px;align-items:end}
+.dl-add input,.dl-add select{width:100%;background:var(--input-bg);border:1.5px solid var(--bdr);border-radius:8px;padding:7px 10px;color:var(--tx);font-family:var(--ff);font-size:12.5px;outline:none}
+.dl-add input:focus,.dl-add select:focus{border-color:var(--ac)}
+@media(max-width:720px){.mt-vals{grid-template-columns:1fr}.dl{grid-template-columns:1fr auto}.dl-add{grid-template-columns:1fr 1fr}}
+
 .conta-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:560px){.conta-form-grid{grid-template-columns:1fr}}
 </style>
@@ -1063,6 +1144,8 @@ tr.linha-proj .cell-input.date{color:var(--tx2)}
     <div id="tab-contas" class="tab"></div>
     <div id="tab-projecao" class="tab"></div>
     <div id="tab-caixinha" class="tab"></div>
+    <div id="tab-emprestimos" class="tab"></div>
+    <div id="tab-metas" class="tab"></div>
     <div id="tab-search" class="tab"></div>
     <div id="tab-audit" class="tab"></div>
     <div id="tab-relatorios" class="tab"></div>
@@ -1204,6 +1287,9 @@ tr.linha-proj .cell-input.date{color:var(--tx2)}
 </div>
 
 <!-- Goals -->
+<div id="emp-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharEmp()"><div class="modal modal-lg" id="emp-body"></div></div>
+<div id="meta-overlay" class="overlay" style="display:none" onclick="if(event.target===this)fecharMeta()"><div class="modal modal-lg" id="meta-body"></div></div>
+
 <div id="goals-overlay" class="overlay" style="display:none" onclick="if(event.target===this)closeGoalsModal()">
   <div class="modal modal-lg">
     <div class="modal-title">Gerenciar Metas <button class="btn sm" onclick="closeGoalsModal()">✕</button></div>
@@ -3788,6 +3874,10 @@ function showDayTooltip(ev, items) {
 // AUDIT LOG TAB
 // ══════════════════════════════════════════════════════════════════════════════
 const ACTION_LABELS = {
+  'emprestimo_criado':'💸 Empréstimo registrado', 'emprestimo_editado':'✏ Empréstimo editado', 'emprestimo_excluido':'✕ Empréstimo excluído',
+  'parcela_confirmada':'✓ Parcela devolvida', 'parcela_desfeita':'↩ Devolução desfeita', 'parcela_editada':'✏ Parcela editada',
+  'negociacao_criada':'+ Negociação criada', 'negociacao_editada':'✏ Negociação editada', 'negociacao_confirmada':'🎉 Negociação fechada',
+  'negociacao_reaberta':'↩ Negociação reaberta', 'negociacao_excluida':'✕ Negociação excluída',
   'login':'Acesso',
   'receita_adicionada':'+ Receita adicionada',
   'receita_editada':'✏ Receita editada',
@@ -3860,6 +3950,8 @@ function goTab(id) {
   else if(id==='contas') renderContasTab();
   else if(id==='projecao') renderProjecaoTab();
   else if(id==='caixinha') renderCaixinhaTab();
+  else if(id==='emprestimos') renderEmprestimosTab();
+  else if(id==='metas') renderMetasTab();
   else if(id==='search') renderSearchTab();
   else if(id==='audit') renderAuditTab();
   else if(id==='relatorios') renderRelatoriosTab();
@@ -3885,6 +3977,8 @@ const ICONS = {
   recorrentes:IC('<path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20.5 5.5V11H15"/>'),
   metas:      IC('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>'),
   bonus:      IC('<path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 16.8 6.6 19.7l1.2-6.1L3.3 9.4l6.1-.8z"/>'),
+  emprestimos:IC('<path d="M4 10h16M4 10l4-4M4 10l4 4"/><path d="M20 15H4M20 15l-4-4M20 15l-4 4"/>'),
+  caixinha:   IC('<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18M12 8V5M9 5h6"/>'),
   backup:     IC('<path d="M12 3.5v11M8 11l4 4 4-4"/><path d="M4 17v2.5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V17"/>'),
   restaurar:  IC('<path d="M12 20.5v-11M8 13l4-4 4 4"/><path d="M4 7V4.5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1V7"/>'),
   regras:     IC('<path d="M4 7h10M4 12h16M4 17h7"/><circle cx="17" cy="7" r="2.2"/><circle cx="14" cy="17" r="2.2"/>'),
@@ -3930,7 +4024,9 @@ function buildNav() {
     ${item('cashflow',ICONS.fluxo,'Fluxo de caixa')}
     ${item('contas',ICONS.contas,'Contas')}
     ${item('projecao',ICONS.projecao,'Projeção')}
-    ${item('caixinha',ICONS.metas,'Caixinha')}
+    ${item('metas',ICONS.metas,'Metas')}
+    ${item('emprestimos',ICONS.emprestimos,'Empréstimos')}
+    ${item('caixinha',ICONS.caixinha,'Caixinha')}
     ${item('relatorios',ICONS.relatorios,'Relatórios')}
 
     <div class="side-sec">Ferramentas</div>
@@ -3940,7 +4036,6 @@ function buildNav() {
     <button class="side-item" onclick="openRecurringModal()"><span class="si-ic">${ICONS.recorrentes}</span><span class="si-tx">Recorrentes</span></button>
     <button class="side-item" onclick="abrirFlow()"><span class="si-ic">${ICONS.recorrentes}</span><span class="si-tx">Importar do Flow</span></button>
     <button class="side-item" onclick="openRulesModal()"><span class="si-ic">${ICONS.regras}</span><span class="si-tx">Regras de custo</span></button>
-    <button class="side-item" onclick="openGoalsModal()"><span class="si-ic">${ICONS.metas}</span><span class="si-tx">Metas</span></button>
     <button class="side-item" onclick="openBonusModal()"><span class="si-ic">${ICONS.bonus}</span><span class="si-tx">Bônus</span></button>
 
     <div class="side-sec">Conta</div>
@@ -7135,6 +7230,547 @@ function baixarBlob(blob, nome){
   const a = document.createElement('a'); a.href = url; a.download = nome;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EMPRÉSTIMOS — dinheiro do caixa adiantado a um sócio
+// O acordo (quem, quanto, em quantas vezes) mora aqui. O dinheiro mora nos
+// meses: a saida e uma despesa normal do mes em que saiu, e cada parcela
+// devolvida abate o pro-labore lancado no mes. Nada e apagado por tras.
+// ══════════════════════════════════════════════════════════════════════════════
+const mesRot = (y, m) => `${MONTHS_PT[m-1]}/${String(y).slice(2)}`;
+const dataBR = iso => { if(!iso) return ''; const [y,m,d] = String(iso).split('-'); return d && m ? `${d}/${m}/${y}` : iso; };
+const hojeISO = () => new Date().toISOString().slice(0,10);
+const idxMes = (y, m) => y*12 + m;
+function mesesOpts(selY, selM, desde){
+  const h = new Date(); const base = desde ?? (idxMes(h.getFullYear(), h.getMonth()+1) - 1);
+  return (S.months||[]).filter(m => idxMes(m.year, m.month) >= base)
+    .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
+    .map(m => `<option value="${m.year}-${m.month}" ${m.year===selY&&m.month===selM?'selected':''}>${MONTHS_FULL[m.month-1]} ${m.year}</option>`).join('');
+}
+function proxMes(){ const h=new Date(); let y=h.getFullYear(), m=h.getMonth()+2; if(m>12){m=1;y++;} return {y,m}; }
+async function recarregarMeses(){
+  const all = await api('GET','/api/months'); S.months = all; S.map = {}; all.forEach(m => S.map[m.id] = m);
+}
+async function carregarEmprestimos(){ S.loans = await api('GET','/api/loans'); return S.loans; }
+const ehAdmin = () => (S.user && S.user.role === 'admin');
+
+async function renderEmprestimosTab(){
+  const el = e('tab-emprestimos'); if(!el) return;
+  el.innerHTML = `<div class="sh-title"><span>Empréstimos</span></div><div class="rel-help">Carregando…</div>`;
+  try { await carregarEmprestimos(); } catch(err){ el.innerHTML = `<div class="al alr">${esc(err.message)}</div>`; return; }
+  const loans = S.loans || [];
+  const soma = (l, pago) => l.payments.filter(p => pago ? p.paid_date : !p.paid_date).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const totalAberto = loans.reduce((s,l)=>s+soma(l,false),0);
+  const totalDevolvido = loans.reduce((s,l)=>s+soma(l,true),0);
+  const h = new Date(), atual = idxMes(h.getFullYear(), h.getMonth()+1);
+  const pendentes = loans.flatMap(l => l.payments.filter(p=>!p.paid_date).map(p=>({...p, person:l.person})));
+  const proxima = pendentes.sort((a,b)=>idxMes(a.year,a.month)-idxMes(b.year,b.month))[0];
+  const atrasadas = pendentes.filter(p => idxMes(p.year,p.month) < atual);
+
+  const card = l => {
+    const pago = soma(l,true), falta = soma(l,false), total = pago + falta;
+    const nPagas = l.payments.filter(p=>p.paid_date).length;
+    const pct = total > 0 ? Math.min(100, pago/total*100) : 0;
+    const quitado = l.status === 'quitado' || (falta <= 0.005 && l.payments.length);
+    const linha = p => {
+      const paga = !!p.paid_date;
+      const atras = !paga && idxMes(p.year,p.month) < atual;
+      const st = paga
+        ? `✓ devolvida em ${dataBR(p.paid_date)}${p.paid_by?` por ${esc(p.paid_by)}`:''}${(p.abatido||0)>0?` · abatido ${brl(p.abatido)} do lançamento`:''}`
+        : atras ? 'atrasada' : (idxMes(p.year,p.month)===atual ? 'vence este mês' : 'a devolver');
+      return `<tr class="${paga?'paga':''} ${atras?'atrasada':''}">
+        <td style="color:var(--mu)">${p.n}</td>
+        <td>${MONTHS_FULL[p.month-1]} ${p.year}</td>
+        <td class="r v">${brl(p.amount)}</td>
+        <td class="st">${st}${p.notes?`<div style="font-size:11px;color:var(--mu)">${esc(p.notes)}</div>`:''}</td>
+        <td class="r" style="white-space:nowrap">${paga
+          ? `<button class="btn sm" onclick="desfazerParcela(${l.id},${p.id})" title="Volta a parcela para em aberto e devolve o valor abatido">Desfazer</button>`
+          : `<button class="btn sm grn" onclick="confirmarParcela(${l.id},${p.id})">Confirmar devolução</button>
+             <button class="btn sm" onclick="editarParcela(${l.id},${p.id})" title="Mudar valor ou mês desta parcela">✎</button>`}</td>
+      </tr>`;
+    };
+    return `<div class="emp-card ${quitado?'ok':''}">
+      <div class="emp-head">
+        <div>
+          <div class="emp-who">${esc(l.person)}</div>
+          <div class="emp-sub">pegou <b>${brl(l.amount)}</b>${l.date?` em ${dataBR(l.date)}`:''} ·
+            ${l.installments}x de ${brl(l.installment_value)} a partir de ${l.start_year?MONTHS_FULL[l.start_month-1]+' '+l.start_year:'—'} ·
+            ${l.deduct==='pro-labore'?'abatido do pró-labore':'devolução direta ao caixa'}
+            ${l.cost_id?` · <span title="Despesa lançada no mês em que o dinheiro saiu">saída lançada no mês</span>`:''}</div>
+          ${l.notes?`<div class="emp-note">${esc(l.notes)}</div>`:''}
+        </div>
+        <div class="emp-acts">
+          <span class="status-badge ${quitado?'s-recebido':'s-pendente'}">${quitado?'Quitado':'Em andamento'}</span>
+          <button class="btn sm" onclick="abrirFormEmprestimo(${l.id})">Editar</button>
+          ${ehAdmin()?`<button class="btn sm red" onclick="excluirEmprestimo(${l.id})">Excluir</button>`:''}
+        </div>
+      </div>
+      <div class="emp-prog"><div class="emp-prog-fill" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="emp-prog-l"><span>devolvido <b>${brl(pago)}</b></span>
+        <span>${quitado?'tudo devolvido':`faltam <b>${brl(falta)}</b>`} · ${nPagas}/${l.payments.length} parcelas</span></div>
+      <table class="emp-tab"><thead><tr><th>#</th><th>Mês</th><th class="r">Valor</th><th>Situação</th><th></th></tr></thead>
+        <tbody>${l.payments.map(linha).join('')}</tbody></table>
+    </div>`;
+  };
+
+  el.innerHTML = `
+  <div class="sh-title"><span>Empréstimos</span>
+    <button class="btn filled-g" onclick="abrirFormEmprestimo()">+ Novo empréstimo</button></div>
+  <div class="rel-hint">Dinheiro do caixa adiantado a um sócio e devolvido parcela a parcela. A saída entra como despesa
+    do mês; cada devolução confirmada pode abater o pró-labore lançado naquele mês. Tudo fica no Histórico.</div>
+  <div class="emp-grid">
+    <div class="mc"><div class="ml">A devolver</div><div class="mv" style="color:${totalAberto>0?'var(--am)':'var(--tx)'}">${brl(totalAberto)}</div>
+      <div class="mv-sub">${pendentes.length} parcela${pendentes.length===1?'':'s'} em aberto</div></div>
+    <div class="mc"><div class="ml">Já devolvido</div><div class="mv" style="color:var(--g)">${brl(totalDevolvido)}</div>
+      <div class="mv-sub">${loans.filter(l=>l.status==='quitado').length} empréstimo${loans.filter(l=>l.status==='quitado').length===1?'':'s'} quitado${loans.filter(l=>l.status==='quitado').length===1?'':'s'}</div></div>
+    <div class="mc"><div class="ml">Próxima parcela</div><div class="mv">${proxima?brl(proxima.amount):'—'}</div>
+      <div class="mv-sub">${proxima?`${esc(proxima.person)} · ${MONTHS_FULL[proxima.month-1]} ${proxima.year}`:'nada pendente'}</div></div>
+    <div class="mc"><div class="ml">Atrasadas</div><div class="mv" style="color:${atrasadas.length?'var(--rd)':'var(--tx)'}">${atrasadas.length}</div>
+      <div class="mv-sub">${atrasadas.length?brl(atrasadas.reduce((s,p)=>s+p.amount,0))+' vencidos':'em dia'}</div></div>
+  </div>
+  ${loans.length ? loans.map(card).join('') : `<div class="emp-vazio">Nenhum empréstimo registrado. Quando um sócio pegar dinheiro do caixa, registre aqui para acompanhar a devolução.</div>`}
+  <div class="card emp-hist" style="padding:16px 20px">
+    <div class="ct">Histórico</div>
+    <div id="emp-hist-list" class="rel-help">Carregando…</div>
+  </div>`;
+  carregarHistoricoEmprestimos();
+}
+async function carregarHistoricoEmprestimos(){
+  const box = e('emp-hist-list'); if(!box) return;
+  try {
+    const rows = await api('GET','/api/audit?limit=400');
+    const meus = rows.filter(r => /^(emprestimo_|parcela_)/.test(r.action)).slice(0, 60);
+    box.className = '';
+    box.innerHTML = meus.length ? meus.map(r => `<div class="emp-hist-l">
+        <span class="t">${esc(r.ts)}</span><span class="u">${esc(r.username)}</span>
+        <span><b>${esc(ACTION_LABELS[r.action]||r.action)}</b> — ${esc(r.detail||'')}</span></div>`).join('')
+      : '<div class="rel-help">Ainda não há movimentação.</div>';
+  } catch(_){ box.textContent = 'Não foi possível carregar o histórico.'; }
+}
+
+function catSaidaPadrao(){
+  const slugs = (S.costCats||[]).map(c=>c.slug);
+  return slugs.includes('repasse-socios') ? 'repasse-socios' : slugs.includes('pessoal') ? 'pessoal' : 'outros';
+}
+function abrirFormEmprestimo(id){
+  const l = id ? (S.loans||[]).find(x=>x.id===id) : null;
+  const pm = proxMes();
+  const pagas = l ? l.payments.filter(p=>p.paid_date) : [];
+  const abertas = l ? l.payments.filter(p=>!p.paid_date) : [];
+  const h = new Date();
+  const mesHoje = (S.months||[]).find(m=>m.year===h.getFullYear()&&m.month===h.getMonth()+1);
+  e('emp-body').innerHTML = `
+    <div class="modal-title">${l?'Editar empréstimo':'Novo empréstimo'} <button class="btn sm" onclick="fecharEmp()">✕</button></div>
+    <div class="g2">
+      <div class="mrow"><label>Quem pegou</label>
+        <input id="emp-person" list="emp-pessoas" value="${esc(l?l.person:'')}" placeholder="Hudson, Diego…">
+        <datalist id="emp-pessoas"><option value="Hudson"><option value="Diego"></datalist></div>
+      <div class="mrow"><label>Data em que saiu</label><input id="emp-date" type="date" value="${l?(l.date||''):hojeISO()}"></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Valor total (R$)</label><input id="emp-amount" type="number" step="0.01" value="${l?l.amount:''}" placeholder="800" oninput="empCalc()"></div>
+      <div class="mrow"><label>Como devolve</label>
+        <select id="emp-deduct"><option value="pro-labore" ${!l||l.deduct==='pro-labore'?'selected':''}>Abatido do pró-labore</option>
+          <option value="direto" ${l&&l.deduct==='direto'?'selected':''}>Devolução direta ao caixa</option></select></div>
+    </div>
+    ${l ? `<div class="sep"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:8px">Parcelas em aberto</div>
+      <div class="rel-help" style="margin-bottom:10px">${pagas.length?`${pagas.length} parcela${pagas.length===1?'':'s'} já devolvida${pagas.length===1?'':'s'} (${brl(pagas.reduce((s,p)=>s+p.amount,0))}) ficam como estão. `:''}
+        Abaixo você refaz só o que ainda falta devolver.</div>` : ''}
+    <div class="g2">
+      <div class="mrow"><label>${l?'Parcelas restantes':'Número de parcelas'}</label><input id="emp-n" type="number" min="1" value="${l?abertas.length||1:8}" oninput="empCalc()"></div>
+      <div class="mrow"><label>Valor da parcela (R$)</label><input id="emp-val" type="number" step="0.01" value="${l?(abertas[0]?abertas[0].amount:l.installment_value):''}" placeholder="100">
+        <div class="hint" id="emp-calc-hint"></div></div>
+    </div>
+    <div class="mrow"><label>${l?'Primeira parcela em aberto':'Primeira parcela'}</label>
+      <select id="emp-start">${mesesOpts(l&&abertas[0]?abertas[0].year:pm.y, l&&abertas[0]?abertas[0].month:pm.m, l?0:undefined)}</select></div>
+    <div class="mrow"><label>Observações</label><input id="emp-notes" value="${esc(l?l.notes||'':'')}" placeholder="ex.: combinado em reunião de sócios"></div>
+    ${!l && mesHoje ? `<div class="emp-opt" onclick="if(event.target.tagName!=='INPUT'&&event.target.tagName!=='SELECT'){const c=e('emp-lancar');c.checked=!c.checked;}">
+        <input type="checkbox" id="emp-lancar" checked>
+        <span>Lançar a saída como despesa em <b>${MONTHS_FULL[mesHoje.month-1]} ${mesHoje.year}</b>, categoria
+          <select id="emp-cat" style="width:auto;display:inline-block;padding:2px 6px;margin-left:4px" onclick="event.stopPropagation()">
+            ${(S.costCats||[]).map(c=>`<option value="${esc(c.slug)}" ${c.slug===catSaidaPadrao()?'selected':''}>${esc(c.label)}</option>`).join('')}
+          </select></span></div>
+      <div class="rel-help" style="margin-top:-2px">Se o dinheiro já está lançado como despesa no mês, desmarque para não contar duas vezes.</div>` : ''}
+    ${l ? `<div class="mrow" style="margin-top:12px"><label>Situação</label>
+      <select id="emp-status"><option value="ativo" ${l.status!=='quitado'?'selected':''}>Em andamento</option><option value="quitado" ${l.status==='quitado'?'selected':''}>Quitado</option></select></div>` : ''}
+    <div class="mfooter"><button class="btn" onclick="fecharEmp()">Cancelar</button>
+      <button class="btn grn" onclick="salvarEmprestimo(${l?l.id:0})">${l?'Salvar':'Registrar empréstimo'}</button></div>`;
+  e('emp-overlay').style.display = 'flex';
+  empCalc();
+}
+function empCalc(){
+  const a = parseFloat(e('emp-amount')?.value)||0, n = parseInt(e('emp-n')?.value)||0, v = e('emp-val');
+  if(!v) return;
+  if(a>0 && n>0 && !v.dataset.manual) v.value = (Math.round(a/n*100)/100).toFixed(2);
+  v.oninput = () => { v.dataset.manual = '1'; };
+  const hint = e('emp-calc-hint'); if(hint && a>0 && n>0) hint.textContent = `${n}x de ${brl(parseFloat(v.value)||0)} = ${brl((parseFloat(v.value)||0)*n)}${Math.abs((parseFloat(v.value)||0)*n-a)>0.01?` · a última parcela ajusta para fechar ${brl(a)}`:''}`;
+}
+function fecharEmp(){ e('emp-overlay').style.display = 'none'; }
+async function salvarEmprestimo(id){
+  const [sy, sm] = (e('emp-start').value||'').split('-').map(Number);
+  const dados = {
+    person: e('emp-person').value.trim(), amount: parseFloat(e('emp-amount').value)||0,
+    date: e('emp-date').value, deduct: e('emp-deduct').value, notes: e('emp-notes').value.trim(),
+    installments: parseInt(e('emp-n').value)||1, installment_value: parseFloat(e('emp-val').value)||0,
+    start_year: sy, start_month: sm
+  };
+  if(!dados.person || !(dados.amount>0)){ alert('Informe quem pegou e o valor.'); return; }
+  syncLabel('Salvando…','saving');
+  try {
+    if(!id){
+      const lancar = e('emp-lancar') && e('emp-lancar').checked;
+      const h = new Date();
+      const mesHoje = (S.months||[]).find(m=>m.year===h.getFullYear()&&m.month===h.getMonth()+1);
+      if(lancar && mesHoje) dados.lancar_saida = { month_id: mesHoje.id, category: e('emp-cat').value };
+      await api('POST','/api/loans', dados);
+      showToast('Empréstimo registrado ✓');
+    } else {
+      await api('PUT',`/api/loans/${id}`, { person:dados.person, amount:dados.amount, date:dados.date, deduct:dados.deduct, notes:dados.notes, status:e('emp-status').value });
+      const l = (S.loans||[]).find(x=>x.id===id);
+      const abertas = l ? l.payments.filter(p=>!p.paid_date) : [];
+      const mudou = !l || abertas.length!==dados.installments || !abertas[0]
+        || Math.abs(abertas[0].amount-dados.installment_value)>0.009 || abertas[0].year!==sy || abertas[0].month!==sm
+        || Math.abs(l.amount-dados.amount)>0.009;
+      if(mudou) await api('POST',`/api/loans/${id}/regen`, { amount:dados.amount, installments:dados.installments, installment_value:dados.installment_value, start_year:sy, start_month:sm });
+      showToast('Empréstimo atualizado ✓');
+    }
+    fecharEmp(); syncLabel(fmtSync(),'saved');
+    await recarregarMeses(); updateDashboard();
+    renderEmprestimosTab();
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+async function excluirEmprestimo(id){
+  const l = (S.loans||[]).find(x=>x.id===id); if(!l) return;
+  if(!confirm(`Excluir o empréstimo de ${l.person} (${brl(l.amount)})?\n\nIsso apaga só o acordo e as parcelas. A despesa lançada no mês e os abatimentos já feitos no pró-labore continuam como estão.`)) return;
+  try { await api('DELETE',`/api/loans/${id}`); showToast('Empréstimo excluído'); renderEmprestimosTab(); }
+  catch(err){ alert(err.message); }
+}
+// Lancamento de pro-labore da pessoa no mes da parcela: e dele que a devolucao
+// e abatida. Procura por nome ("pro labore", "prolabore", "pró-labore") e pelo
+// primeiro nome da pessoa.
+function candidatosProLabore(l, p){
+  const m = (S.months||[]).find(x=>x.year===p.year&&x.month===p.month); if(!m) return [];
+  const nome = semAcento(l.person).split(' ')[0];
+  const todos = (m.costs||[]).filter(c => (parseFloat(c.amount)||0) > 0 && !String(c.id).startsWith('regra'))
+    .map(c => ({ c, score: (/labore/.test(semAcento(c.name))?2:0) + (semAcento(c.name).includes(nome)?1:0) + (c.category==='pro-labore'?1:0) }))
+    .filter(x => x.score >= 2).sort((a,b)=>b.score-a.score).map(x=>x.c);
+  // Se algum lancamento traz o nome da pessoa, so esses valem: o pro-labore do
+  // outro socio nao e lugar de abater a devolucao deste.
+  const comNome = todos.filter(c => semAcento(c.name).includes(nome));
+  return comNome.length ? comNome : todos;
+}
+function confirmarParcela(lid, pid){
+  const l = (S.loans||[]).find(x=>x.id===lid); const p = l && l.payments.find(x=>x.id===pid); if(!p) return;
+  const cands = l.deduct==='pro-labore' ? candidatosProLabore(l, p) : [];
+  e('emp-body').innerHTML = `
+    <div class="modal-title">Confirmar devolução <button class="btn sm" onclick="fecharEmp()">✕</button></div>
+    <div class="rel-hint">${esc(l.person)} · parcela ${p.n}/${l.payments.length} · <b>${brl(p.amount)}</b> · ${MONTHS_FULL[p.month-1]} ${p.year}</div>
+    <div class="mrow"><label>Data da devolução</label><input id="cp-date" type="date" value="${hojeISO()}"></div>
+    ${l.deduct==='pro-labore' ? (cands.length ? `
+      <div style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:8px">Abater do pró-labore lançado</div>
+      ${cands.map((c,i)=>`<label class="emp-opt"><input type="radio" name="cp-cost" value="${c.id}" ${i===0?'checked':''}>
+        <span>Abater ${brl(Math.min(p.amount, c.amount))} de <b>${esc(c.name)}</b> em ${MONTHS_PT[p.month-1]}/${p.year}${c.status==='projetado'?' <span class="tg tg-proj">Projetado</span>':''}
+          <span style="color:var(--mu)">(${brl(c.amount)} → ${brl(Math.max(0, c.amount - p.amount))})</span></span></label>`).join('')}
+      <label class="emp-opt"><input type="radio" name="cp-cost" value=""><span>Só registrar a devolução, sem mexer no lançamento</span></label>`
+      : `<div class="al alp" style="font-size:11.5px">Não achei lançamento de pró-labore de ${esc(l.person)} em ${MONTHS_FULL[p.month-1]} ${p.year}.
+          A devolução será registrada sem abater nada. Se o pró-labore ainda vai ser lançado, lance-o já com o desconto ou confirme a parcela depois.</div>`) : ''}
+    <div class="mrow" style="margin-top:10px"><label>Observação</label><input id="cp-notes" placeholder="opcional"></div>
+    <div class="mfooter"><button class="btn" onclick="fecharEmp()">Cancelar</button>
+      <button class="btn grn" onclick="enviarConfirmacaoParcela(${lid},${pid})">Confirmar devolução</button></div>`;
+  e('emp-overlay').style.display = 'flex';
+}
+async function enviarConfirmacaoParcela(lid, pid){
+  const sel = document.querySelector('input[name="cp-cost"]:checked');
+  const body = { paid_date: e('cp-date').value || hojeISO(), notes: e('cp-notes').value.trim() };
+  if(sel && sel.value) body.abater_cost_id = parseInt(sel.value);
+  syncLabel('Salvando…','saving');
+  try {
+    await api('POST',`/api/loan-payments/${pid}/confirm`, body);
+    fecharEmp(); syncLabel(fmtSync(),'saved');
+    showToast(body.abater_cost_id ? 'Devolução confirmada e abatida do pró-labore ✓' : 'Devolução confirmada ✓');
+    await recarregarMeses(); updateDashboard();
+    renderEmprestimosTab();
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
+}
+async function desfazerParcela(lid, pid){
+  const l = (S.loans||[]).find(x=>x.id===lid); const p = l && l.payments.find(x=>x.id===pid); if(!p) return;
+  if(!confirm(`Desfazer a devolução da parcela ${p.n} (${brl(p.amount)})?${(p.abatido||0)>0?`\n\nO valor abatido (${brl(p.abatido)}) volta para o lançamento do pró-labore.`:''}`)) return;
+  try { await api('POST',`/api/loan-payments/${pid}/unconfirm`); await recarregarMeses(); updateDashboard(); renderEmprestimosTab(); showToast('Devolução desfeita'); }
+  catch(err){ alert(err.message); }
+}
+function editarParcela(lid, pid){
+  const l = (S.loans||[]).find(x=>x.id===lid); const p = l && l.payments.find(x=>x.id===pid); if(!p) return;
+  e('emp-body').innerHTML = `
+    <div class="modal-title">Parcela ${p.n} de ${esc(l.person)} <button class="btn sm" onclick="fecharEmp()">✕</button></div>
+    <div class="g2">
+      <div class="mrow"><label>Valor (R$)</label><input id="ep-amount" type="number" step="0.01" value="${p.amount}"></div>
+      <div class="mrow"><label>Mês</label><select id="ep-mes">${mesesOpts(p.year, p.month, 0)}</select></div>
+    </div>
+    <div class="mrow"><label>Observação</label><input id="ep-notes" value="${esc(p.notes||'')}"></div>
+    <div class="mfooter"><button class="btn" onclick="fecharEmp()">Cancelar</button><button class="btn grn" onclick="salvarParcela(${pid})">Salvar</button></div>`;
+  e('emp-overlay').style.display = 'flex';
+}
+async function salvarParcela(pid){
+  const [y, m] = e('ep-mes').value.split('-').map(Number);
+  try {
+    await api('PUT',`/api/loan-payments/${pid}`, { amount: parseFloat(e('ep-amount').value)||0, year:y, month:m, notes:e('ep-notes').value.trim() });
+    fecharEmp(); renderEmprestimosTab(); showToast('Parcela atualizada ✓');
+  } catch(err){ alert(err.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// METAS — a meta, o quanto ja esta contratado e as negociacoes que podem fechar
+// Negociacao aberta soma no PROJETADO. Ao fechar, ela vira um contrato
+// (recorrente) e o valor passa a viver la: o ATUAL sobe sozinho, e a
+// negociacao so aponta para o contrato — uma verdade, um lugar.
+// ══════════════════════════════════════════════════════════════════════════════
+async function carregarDeals(){ S.deals = await api('GET','/api/deals'); return S.deals; }
+const METRICA_ROT = { receita_mensal:'Faturamento do mês', receita_anual:'Faturamento do ano', margem:'Margem', clientes:'Clientes', saldo:'Resultado do mês', saldo_anual:'Resultado do ano' };
+const fmtMeta = (g, v) => g.metric==='margem' ? `${(v||0).toFixed(1).replace('.',',')}%` : g.metric==='clientes' ? String(Math.round(v||0)) : brl(v||0);
+
+// Receita CONTRATADA do mes: tudo lancado com cliente, recebido ou nao.
+// "Faturamento" e o que esta fechado — nao so o que ja caiu na conta.
+function receitaContratada(m){
+  const linhas = (m.revenues||[]).filter(r => (parseFloat(r.amount)||0) > 0);
+  return { contratado: linhas.reduce((s,r)=>s+(parseFloat(r.amount)||0),0),
+           recebido: linhas.filter(r=>!r.status||r.status==='realizado').reduce((s,r)=>s+(parseFloat(r.amount)||0),0),
+           clientes: linhas.filter(r=>r.nonrecurring!=1 && (r.client_name||'').trim()).length };
+}
+function estadoMeta(g){
+  const m = g.month>0 ? (S.months||[]).find(x=>x.year===g.year&&x.month===g.month) : null;
+  let atual, sub = '';
+  if(m && g.metric==='receita_mensal'){ const r = receitaContratada(m); atual = r.contratado; sub = `recebido ${brl(r.recebido)}`; }
+  else if(m && g.metric==='clientes'){ atual = receitaContratada(m).clientes; sub = 'clientes com contrato no mês'; }
+  else { atual = getGoalCurrent(g); sub = g.month>0 ? '' : 'melhor mês até agora'; }
+  const abertas = (S.deals||[]).filter(d => d.goal_id===g.id && d.status==='aberta');
+  const conf    = (S.deals||[]).filter(d => d.goal_id===g.id && d.status==='confirmada');
+  const somaAb = abertas.reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+  const projetado = g.metric==='clientes' ? atual + abertas.length
+                  : /receita|saldo/.test(g.metric) ? atual + somaAb : atual;
+  const alvo = parseFloat(g.target_value)||0;
+  return { m, atual, sub, abertas, conf, somaAb, projetado, alvo,
+           pct: alvo>0 ? atual/alvo*100 : 0, pctProj: alvo>0 ? projetado/alvo*100 : 0, falta: Math.max(0, alvo-atual) };
+}
+async function renderMetasTab(){
+  const el = e('tab-metas'); if(!el) return;
+  el.innerHTML = `<div class="sh-title"><span>Metas</span></div><div class="rel-help">Carregando…</div>`;
+  try { await carregarDeals(); } catch(err){ el.innerHTML = `<div class="al alr">${esc(err.message)}</div>`; return; }
+  const goals = (S.goals||[]).filter(g=>g.active!==0);
+  const semMeta = (S.deals||[]).filter(d => !d.goal_id || !goals.some(g=>g.id===d.goal_id));
+  const mesLabel = g => g.month>0 ? `${MONTHS_FULL[g.month-1]} ${g.year}` : `${g.year}`;
+  const recDe = id => (S.recurring||[]).find(r=>r.id===id);
+
+  const linhaDeal = d => {
+    const rec = d.recurring_id ? recDe(d.recurring_id) : null;
+    const valor = rec ? parseFloat(rec.amount)||0 : parseFloat(d.amount)||0;
+    const mes = d.status==='confirmada' && rec ? `desde ${mesRot(rec.start_year, rec.start_month)}`
+              : d.expected_month ? `previsto ${mesRot(d.expected_year, d.expected_month)}` : 'sem mês';
+    const acoes = d.status==='aberta'
+      ? `<button class="go" onclick="abrirConfirmarDeal(${d.id})">Fechou</button>
+         <button onclick="abrirEditarDeal(${d.id})">✎</button>
+         <button class="no" onclick="marcarDeal(${d.id},'perdida')" title="Não fechou">✕</button>`
+      : `<button onclick="reabrirDeal(${d.id})">Reabrir</button>
+         ${d.status==='perdida'?`<button class="no" onclick="excluirDeal(${d.id})" title="Apagar de vez">🗑</button>`:''}`;
+    return `<div class="dl ${d.status==='confirmada'?'conf':d.status==='perdida'?'perd':''}">
+      <div class="dl-n" title="${esc(d.notes||'')}">${esc(d.client_name)}
+        <span class="dl-s">${d.status==='confirmada'?(rec?`contrato · ${esc(rec.description)}`:'contrato removido'):d.status==='perdida'?'não fechou':''}${d.notes&&d.status==='aberta'?` · ${esc(d.notes)}`:''}</span></div>
+      <div class="dl-v">${brl(valor)}<span class="dl-s">/mês</span></div>
+      <div class="dl-m">${mes}</div>
+      <div class="dl-a">${acoes}</div></div>`;
+  };
+  const formDeal = gid => `<div class="dl-add">
+      <input id="nd-nome-${gid}" placeholder="Cliente em negociação">
+      <input id="nd-valor-${gid}" type="number" step="0.01" placeholder="Valor/mês">
+      <select id="nd-mes-${gid}">${mesesOpts(new Date().getFullYear(), new Date().getMonth()+1)}</select>
+      <button class="btn grn sm" onclick="criarDeal(${gid})">+ Negociação</button></div>`;
+
+  const cardMeta = g => {
+    const s = estadoMeta(g);
+    const batida = s.alvo>0 && s.atual >= s.alvo;
+    const quase = !batida && s.projetado >= s.alvo && s.alvo>0;
+    const msg = batida ? `🎉 Meta batida! ${fmtMeta(g, s.atual - s.alvo)} acima do alvo.`
+      : quase ? `Fechando as ${s.abertas.length} negociaç${s.abertas.length===1?'ão aberta':'ões abertas'}, a meta é batida com folga de ${fmtMeta(g, s.projetado - s.alvo)}.`
+      : s.abertas.length ? `Faltam ${fmtMeta(g, s.falta)}. As negociações abertas cobrem ${fmtMeta(g, s.projetado - s.atual)}; ainda falta ${fmtMeta(g, s.alvo - s.projetado)} além delas.`
+      : `Faltam ${fmtMeta(g, s.falta)} para a meta. Cadastre as negociações em andamento para ver o projetado.`;
+    const w = v => `${Math.min(100, Math.max(0, v)).toFixed(1)}%`;
+    return `<div class="mt-card ${batida?'batida':''}">
+      <div class="mt-top">
+        <div><div class="mt-k">${METRICA_ROT[g.metric]||g.metric} · ${mesLabel(g)}</div><div class="mt-name">${esc(g.name)}</div></div>
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div class="mt-pct">${Math.round(s.pct)}<small>%</small></div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn sm" onclick="abrirFormMeta(${g.id})">Editar</button>
+            <button class="btn sm red" onclick="excluirMeta(${g.id})">Excluir</button></div></div>
+      </div>
+      <div class="mt-vals">
+        <div class="hi"><span class="mt-l">Atual</span><b>${fmtMeta(g, s.atual)}</b><small>${s.sub||'&nbsp;'}</small></div>
+        <div><span class="mt-l">Projetado</span><b>${fmtMeta(g, s.projetado)}</b><small>${s.abertas.length?`+${s.abertas.length} negociaç${s.abertas.length===1?'ão aberta':'ões abertas'}`:'sem negociação aberta'}</small></div>
+        <div><span class="mt-l">Meta</span><b>${fmtMeta(g, s.alvo)}</b><small>${batida?'alcançada':`faltam ${fmtMeta(g, s.falta)}`}</small></div>
+      </div>
+      <div class="mt-bar">
+        <div class="mt-fill-proj" style="width:${w(s.pctProj)}" title="Projetado: ${fmtMeta(g, s.projetado)}"></div>
+        <div class="mt-fill" style="width:${w(s.pct)}" title="Atual: ${fmtMeta(g, s.atual)}"></div>
+        <span class="mt-tick" style="left:25%"></span><span class="mt-tick" style="left:50%"></span><span class="mt-tick" style="left:75%"></span>
+      </div>
+      <div class="mt-leg"><span><b>${Math.round(s.pct)}%</b> contratado</span><span><b>${Math.round(s.pctProj)}%</b> com as negociações</span><span>100% = ${fmtMeta(g, s.alvo)}</span></div>
+      <div class="mt-msg ${batida?'ok':quase?'quase':''}">${msg}</div>
+      <div class="mt-deals">
+        <div class="mt-deals-h">Negociações <span>${s.abertas.length} aberta${s.abertas.length===1?'':'s'} · ${s.conf.length} fechada${s.conf.length===1?'':'s'}</span></div>
+        ${(S.deals||[]).filter(d=>d.goal_id===g.id).sort((a,b)=>(a.status==='aberta'?0:a.status==='confirmada'?1:2)-(b.status==='aberta'?0:b.status==='confirmada'?1:2)).map(linhaDeal).join('') || '<div class="rel-help">Nenhuma negociação ligada a esta meta ainda.</div>'}
+        ${formDeal(g.id)}
+      </div>
+    </div>`;
+  };
+
+  el.innerHTML = `
+  <div class="sh-title"><span>Metas</span><button class="btn filled-g" onclick="abrirFormMeta()">+ Nova meta</button></div>
+  <div class="rel-hint"><b>Atual</b> é o que está contratado no mês (lançado nos Meses). <b>Projetado</b> soma as negociações abertas.
+    Quando uma negociação fecha, ela vira um contrato recorrente e o Atual sobe sozinho — o valor passa a viver no contrato.</div>
+  ${goals.length ? goals.map(cardMeta).join('') : `<div class="emp-vazio">Nenhuma meta ativa. Crie a primeira: por exemplo, bater R$ 19.000 de faturamento no mês.</div>`}
+  ${semMeta.length ? `<div class="card" style="padding:16px 20px"><div class="ct">Negociações sem meta</div>
+      ${semMeta.map(linhaDeal).join('')}
+      <div class="rel-help" style="margin-top:8px">Edite a negociação para ligá-la a uma meta.</div></div>` : ''}`;
+}
+function abrirFormMeta(id){
+  const g = id ? (S.goals||[]).find(x=>x.id===id) : null;
+  const h = new Date();
+  const opts = [`<option value="0-0" ${g&&!g.month?'selected':''}>Ano todo (melhor mês)</option>`]
+    + (S.months||[]).filter(m=>idxMes(m.year,m.month)>=idxMes(h.getFullYear(),h.getMonth()+1)-3)
+      .sort((a,b)=>(a.year-b.year)||(a.month-b.month))
+      .map(m=>`<option value="${m.year}-${m.month}" ${g?(g.year===m.year&&g.month===m.month?'selected':''):(m.year===h.getFullYear()&&m.month===h.getMonth()+1?'selected':'')}>${MONTHS_FULL[m.month-1]} ${m.year}</option>`).join('');
+  e('meta-body').innerHTML = `
+    <div class="modal-title">${g?'Editar meta':'Nova meta'} <button class="btn sm" onclick="fecharMeta()">✕</button></div>
+    <div class="mrow"><label>Nome da meta</label><input id="mt-name" value="${esc(g?g.name:'')}" placeholder="Ex.: Bater R$ 19 mil de faturamento"></div>
+    <div class="g2">
+      <div class="mrow"><label>Alvo</label><input id="mt-target" type="number" step="0.01" value="${g?g.target_value:''}" placeholder="19000"></div>
+      <div class="mrow"><label>Métrica</label><select id="mt-metric">
+        ${Object.entries(METRICA_ROT).filter(([k])=>k!=='saldo_anual').map(([k,v])=>`<option value="${k}" ${(g?g.metric:'receita_mensal')===k?'selected':''}>${v}</option>`).join('')}</select></div>
+    </div>
+    <div class="mrow"><label>Mês</label><select id="mt-mes">${opts}</select>
+      <div class="hint">Para faturamento mensal, escolha o mês em que a meta vale.</div></div>
+    <div class="mfooter"><button class="btn" onclick="fecharMeta()">Cancelar</button><button class="btn grn" onclick="salvarMeta(${g?g.id:0})">${g?'Salvar':'Criar meta'}</button></div>`;
+  e('meta-overlay').style.display = 'flex';
+}
+function fecharMeta(){ e('meta-overlay').style.display = 'none'; }
+async function salvarMeta(id){
+  const [y, m] = e('mt-mes').value.split('-').map(Number);
+  const body = { name: e('mt-name').value.trim(), target_value: parseFloat(e('mt-target').value)||0, metric: e('mt-metric').value,
+                 year: y || new Date().getFullYear(), month: m || 0 };
+  if(!body.name || !(body.target_value>0)){ alert('Preencha nome e alvo.'); return; }
+  try {
+    if(id){ const g = await api('PUT',`/api/goals/${id}`, body); S.goals = S.goals.map(x=>x.id===id?{...x,...g,...body}:x); }
+    else { const g = await api('POST','/api/goals', body); S.goals.push(g); }
+    fecharMeta(); renderMetasTab(); updateDashboard(); showToast('Meta salva ✓');
+  } catch(err){ alert(err.message); }
+}
+async function excluirMeta(id){
+  const g = (S.goals||[]).find(x=>x.id===id); if(!g) return;
+  if(!confirm(`Excluir a meta "${g.name}"? As negociações ligadas a ela continuam na lista "sem meta".`)) return;
+  try { await deleteGoal(id); renderMetasTab(); } catch(err){ alert(err.message); }
+}
+async function criarDeal(gid){
+  const nome = e(`nd-nome-${gid}`).value.trim(), valor = parseFloat(e(`nd-valor-${gid}`).value)||0;
+  const [y, m] = e(`nd-mes-${gid}`).value.split('-').map(Number);
+  if(!nome){ alert('Informe o cliente.'); return; }
+  try { await api('POST','/api/deals',{ goal_id: gid||null, client_name: nome, amount: valor, expected_year: y, expected_month: m }); renderMetasTab(); showToast('Negociação adicionada'); }
+  catch(err){ alert(err.message); }
+}
+function abrirEditarDeal(id){
+  const d = (S.deals||[]).find(x=>x.id===id); if(!d) return;
+  e('meta-body').innerHTML = `
+    <div class="modal-title">Negociação <button class="btn sm" onclick="fecharMeta()">✕</button></div>
+    <div class="mrow"><label>Cliente</label><input id="dd-nome" value="${esc(d.client_name)}"></div>
+    <div class="g2">
+      <div class="mrow"><label>Valor por mês (R$)</label><input id="dd-valor" type="number" step="0.01" value="${d.amount}"></div>
+      <div class="mrow"><label>Mês previsto</label><select id="dd-mes">${mesesOpts(d.expected_year, d.expected_month)}</select></div>
+    </div>
+    <div class="mrow"><label>Meta</label><select id="dd-meta"><option value="">Sem meta</option>
+      ${(S.goals||[]).map(g=>`<option value="${g.id}" ${g.id===d.goal_id?'selected':''}>${esc(g.name)}</option>`).join('')}</select></div>
+    <div class="mrow"><label>Observação</label><input id="dd-notes" value="${esc(d.notes||'')}"></div>
+    <div class="mfooter"><button class="btn red" onclick="excluirDeal(${d.id})">Excluir</button><span style="flex:1"></span>
+      <button class="btn" onclick="fecharMeta()">Cancelar</button><button class="btn grn" onclick="salvarDeal(${d.id})">Salvar</button></div>`;
+  e('meta-overlay').style.display = 'flex';
+}
+async function salvarDeal(id){
+  const [y, m] = e('dd-mes').value.split('-').map(Number);
+  const body = { client_name: e('dd-nome').value.trim(), amount: parseFloat(e('dd-valor').value)||0, expected_year: y, expected_month: m, notes: e('dd-notes').value.trim() };
+  const gid = e('dd-meta').value; body.goal_id = gid ? parseInt(gid) : 0;
+  try { await api('PUT',`/api/deals/${id}`, body); fecharMeta(); renderMetasTab(); }
+  catch(err){ alert(err.message); }
+}
+async function marcarDeal(id, status){
+  const d = (S.deals||[]).find(x=>x.id===id); if(!d) return;
+  if(status==='perdida' && !confirm(`Marcar "${d.client_name}" como não fechada? Ela sai do projetado, mas fica no histórico da meta.`)) return;
+  try { await api('PUT',`/api/deals/${id}`,{status}); renderMetasTab(); } catch(err){ alert(err.message); }
+}
+async function reabrirDeal(id){
+  const d = (S.deals||[]).find(x=>x.id===id); if(!d) return;
+  const msg = d.status==='confirmada'
+    ? `Reabrir "${d.client_name}"? O contrato recorrente criado continua existindo na tela Recorrentes — se ele não vale mais, encerre-o lá.`
+    : `Reabrir "${d.client_name}"?`;
+  if(!confirm(msg)) return;
+  try { await api('POST',`/api/deals/${id}/reopen`); renderMetasTab(); } catch(err){ alert(err.message); }
+}
+async function excluirDeal(id){
+  const d = (S.deals||[]).find(x=>x.id===id); if(!d) return;
+  if(!confirm(`Apagar a negociação "${d.client_name}" de vez?`)) return;
+  try { await api('DELETE',`/api/deals/${id}`); fecharMeta(); renderMetasTab(); } catch(err){ alert(err.message); }
+}
+// Fechou: vira contrato. Ou nasce uma recorrente nova, ou aponta para uma que
+// o usuario ja cadastrou (nos Meses ou em Recorrentes) — nunca as duas.
+function abrirConfirmarDeal(id){
+  const d = (S.deals||[]).find(x=>x.id===id); if(!d) return;
+  const jaLigados = new Set((S.deals||[]).filter(x=>x.recurring_id).map(x=>x.recurring_id));
+  const recs = (S.recurring||[]).filter(r=>r.type==='revenue' && r.active!==0 && !jaLigados.has(r.id));
+  const alvo = semAcento(d.client_name);
+  const sugerido = recs.find(r => semAcento(r.description).includes(alvo) || alvo.includes(semAcento(r.description)));
+  e('meta-body').innerHTML = `
+    <div class="modal-title">${esc(d.client_name)} fechou 🎉 <button class="btn sm" onclick="fecharMeta()">✕</button></div>
+    <div class="rel-hint">A negociação vira contrato e o valor passa a contar no Atual da meta e nos Meses.</div>
+    <label class="emp-opt"><input type="radio" name="cd-modo" value="nova" ${sugerido?'':'checked'} onchange="cdModo()"><span><b>Criar o contrato agora</b> — receita recorrente nova, igual à tela Recorrentes</span></label>
+    <div id="cd-nova" style="padding:4px 0 8px 10px;${sugerido?'display:none':''}">
+      <div class="g2">
+        <div class="mrow"><label>Nome do contrato</label><input id="cd-desc" value="${esc(d.client_name)}"></div>
+        <div class="mrow"><label>Valor por mês (R$)</label><input id="cd-amount" type="number" step="0.01" value="${d.amount||''}"></div>
+      </div>
+      <div class="g2">
+        <div class="mrow"><label>Começa em</label><select id="cd-start">${mesesOpts(d.expected_year||new Date().getFullYear(), d.expected_month||new Date().getMonth()+1)}</select></div>
+        <div class="mrow"><label>Categoria</label><select id="cd-cat">${(S.revCats||[]).map(c=>`<option value="${esc(c.slug)}">${esc(c.label)}</option>`).join('')}</select></div>
+      </div>
+    </div>
+    <label class="emp-opt"><input type="radio" name="cd-modo" value="existente" ${sugerido?'checked':''} ${recs.length?'':'disabled'} onchange="cdModo()"><span><b>Já cadastrei o contrato</b> — só ligar a esta negociação${recs.length?'':' (nenhuma receita recorrente disponível)'}</span></label>
+    <div id="cd-exist" style="padding:4px 0 8px 10px;${sugerido?'':'display:none'}">
+      <div class="mrow"><label>Contrato</label><select id="cd-rec">${recs.map(r=>`<option value="${r.id}" ${sugerido&&r.id===sugerido.id?'selected':''}>${esc(r.description)} · ${brl(r.amount)}/mês · desde ${mesRot(r.start_year,r.start_month)}</option>`).join('')}</select>
+        ${sugerido?`<div class="hint">Achei um contrato com nome parecido. Confira antes de confirmar.</div>`:''}</div>
+    </div>
+    <div class="mfooter"><button class="btn" onclick="fecharMeta()">Cancelar</button><button class="btn grn" onclick="enviarConfirmarDeal(${d.id})">Confirmar fechamento</button></div>`;
+  e('meta-overlay').style.display = 'flex';
+}
+function cdModo(){
+  const modo = document.querySelector('input[name="cd-modo"]:checked')?.value;
+  e('cd-nova').style.display = modo==='nova' ? '' : 'none';
+  e('cd-exist').style.display = modo==='existente' ? '' : 'none';
+}
+async function enviarConfirmarDeal(id){
+  const modo = document.querySelector('input[name="cd-modo"]:checked')?.value;
+  let body = {};
+  if(modo==='existente'){ body.recurring_id = parseInt(e('cd-rec').value); if(!body.recurring_id){ alert('Escolha o contrato.'); return; } }
+  else {
+    const [y, m] = e('cd-start').value.split('-').map(Number);
+    body = { description: e('cd-desc').value.trim(), amount: parseFloat(e('cd-amount').value)||0, start_year: y, start_month: m, category: e('cd-cat').value };
+    if(!body.description || !(body.amount>0)){ alert('Informe nome e valor do contrato.'); return; }
+  }
+  syncLabel('Salvando…','saving');
+  try {
+    await api('POST',`/api/deals/${id}/confirm`, body);
+    fecharMeta(); syncLabel(fmtSync(),'saved');
+    S.recurring = await api('GET','/api/recurring');
+    await recarregarMeses(); updateDashboard();
+    renderMetasTab();
+    showToast(modo==='existente' ? 'Negociação ligada ao contrato ✓' : 'Contrato criado e negociação fechada 🎉');
+  } catch(err){ syncLabel('Erro','error'); alert(err.message); }
 }
 
 function botaoImprevistos(){
